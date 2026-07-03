@@ -1,26 +1,129 @@
 @import "tailwindcss";
 
+/* ============================= TOKENS ============================= */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #09090B;
+  --bg-elev: #0D0E11;
+  --card: #111318;
+  --card-hover: #151822;
+  --border: #24262E;
+  --border-soft: #1A1C22;
+  --text: #F4F4F6;
+  --text-dim: #9A9CA6;
+  --text-faint: #5D5F6B;
+  --primary: #6D5DF6;
+  --primary-dim: #6D5DF61A;
+  --secondary: #4F9DFF;
+  --success: #22C55E;
+  --warning: #F59E0B;
+  --danger: #EF4444;
+  --cat-data: #6D5DF6;
+  --cat-encode: #4F9DFF;
+  --cat-gen: #2DD4BF;
+  --cat-web: #22D3EE;
+  --cat-image: #F472B6;
+  --cat-sec: #F59E0B;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --shadow-soft: 0 8px 30px -12px rgba(0, 0, 0, 0.6);
+  --shadow-glow: 0 0 0 1px rgba(109, 93, 246, 0.15), 0 8px 24px -8px rgba(109, 93, 246, 0.25);
+  --font-display: var(--font-space-grotesk), sans-serif;
+  --font-body: var(--font-inter), sans-serif;
+  --font-mono: var(--font-jetbrains-mono), monospace;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+[data-theme="light"] {
+  --bg: #F5F5F8;
+  --bg-elev: #FFFFFF;
+  --card: #FFFFFF;
+  --card-hover: #F9F9FC;
+  --border: #E4E4EC;
+  --border-soft: #ECECF2;
+  --text: #14151A;
+  --text-dim: #5D5F6B;
+  --text-faint: #9A9CA6;
+  --primary-dim: #6D5DF614;
+  --shadow-soft: 0 8px 30px -12px rgba(20, 20, 30, 0.12);
+  --shadow-glow: 0 0 0 1px rgba(109, 93, 246, 0.12), 0 8px 24px -8px rgba(109, 93, 246, 0.18);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
+}
+
+::selection {
+  background: rgba(109, 93, 246, 0.35);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: inherit;
+}
+
+input,
+textarea,
+select {
+  font-family: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  outline: none;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 8px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-faint);
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+.display {
+  font-family: var(--font-display);
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 6px;
 }
