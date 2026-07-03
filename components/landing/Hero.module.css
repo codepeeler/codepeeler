@@ -1,0 +1,117 @@
+.heroVisual {
+  position: relative;
+  height: 420px;
+  perspective: 1300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.glow {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 380px;
+  height: 380px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(109, 93, 246, 0.35), rgba(79, 157, 255, 0.12) 55%, transparent 74%);
+  filter: blur(8px);
+  pointer-events: none;
+}
+
+.scene {
+  position: relative;
+  width: 320px;
+  height: 320px;
+  transform-style: preserve-3d;
+  animation: sceneSway 9s ease-in-out infinite;
+}
+
+@keyframes sceneSway {
+  0%, 100% { transform: rotateX(20deg) rotateY(-14deg); }
+  50% { transform: rotateX(12deg) rotateY(10deg); }
+}
+
+.core {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 92px;
+  height: 92px;
+  margin: -46px 0 0 -46px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, #B3A6FF, #6D5DF6 52%, #362a9e 100%);
+  box-shadow:
+    0 0 50px 8px rgba(109, 93, 246, 0.55),
+    0 0 130px 34px rgba(79, 157, 255, 0.22),
+    inset -12px -12px 26px rgba(0, 0, 0, 0.4),
+    inset 10px 10px 22px rgba(255, 255, 255, 0.28);
+  animation: corePulse 4s ease-in-out infinite;
+  z-index: 3;
+}
+
+@keyframes corePulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.07); }
+}
+
+.ringWrap {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  transform-style: preserve-3d;
+}
+.ringWrapA { transform: rotateX(80deg); }
+.ringWrapB { transform: rotateX(58deg) rotateY(38deg); }
+.ringWrapC { transform: rotateY(72deg) rotateZ(18deg); }
+
+.ring {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  border-radius: 50%;
+  border: 1.5px solid;
+  transform-style: preserve-3d;
+}
+.ringA {
+  width: 320px;
+  height: 320px;
+  border-color: color-mix(in srgb, var(--primary) 60%, transparent);
+  animation: spin 11s linear infinite;
+}
+.ringB {
+  width: 250px;
+  height: 250px;
+  border-color: color-mix(in srgb, var(--secondary) 55%, transparent);
+  animation: spin 15s linear infinite reverse;
+}
+.ringC {
+  width: 186px;
+  height: 186px;
+  border-color: color-mix(in srgb, var(--cat-gen) 55%, transparent);
+  animation: spin 8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotateZ(360deg); }
+}
+
+.sat {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  top: -4.5px;
+  left: calc(50% - 4.5px);
+}
+.satA { background: var(--primary); box-shadow: 0 0 14px 3px var(--primary); }
+.satB { background: var(--secondary); box-shadow: 0 0 14px 3px var(--secondary); top: auto; bottom: -4.5px; }
+.satC { background: var(--cat-gen); box-shadow: 0 0 14px 3px var(--cat-gen); }
+
+@media (max-width: 640px) {
+  .scene { width: 240px; height: 240px; }
+  .core { width: 70px; height: 70px; margin: -35px 0 0 -35px; }
+  .ringA { width: 240px; height: 240px; }
+  .ringB { width: 190px; height: 190px; }
+  .ringC { width: 142px; height: 142px; }
+}

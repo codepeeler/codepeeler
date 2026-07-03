@@ -1,26 +1,11 @@
 import type { Metadata } from "next";
-import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google";
+import { inter, spaceGrotesk, jetbrainsMono } from "@/lib/fonts";
 import { ThemeProvider } from "@/providers/theme-provider";
+import { ToastProvider } from "@/providers/toast-provider";
+import { CommandPaletteProvider } from "@/providers/command-palette-provider";
 import AppShell from "@/components/layout/AppShell";
+import CommandPalette from "@/components/core/CommandPalette";
 import "./globals.css";
-
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
-
-const spaceGrotesk = Space_Grotesk({
-  variable: "--font-space-grotesk",
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-jetbrains-mono",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
 
 export const metadata: Metadata = {
   title: "CodePeeler — Your All-in-One Developer Workspace",
@@ -39,7 +24,12 @@ export default function RootLayout({
         className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} antialiased`}
       >
         <ThemeProvider>
-          <AppShell>{children}</AppShell>
+          <ToastProvider>
+            <CommandPaletteProvider>
+              <AppShell>{children}</AppShell>
+              <CommandPalette />
+            </CommandPaletteProvider>
+          </ToastProvider>
         </ThemeProvider>
       </body>
     </html>

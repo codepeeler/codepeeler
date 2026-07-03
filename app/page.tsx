@@ -1,9 +1,17 @@
+import Hero from "@/components/landing/Hero";
+import PopularTools from "@/components/landing/PopularTools";
+import WorkspaceFlow from "@/components/landing/WorkspaceFlow";
+import Categories from "@/components/landing/Categories";
+import ShortcutsCta from "@/components/landing/ShortcutsCta";
+
 export default function Home() {
   return (
-    <div className="flex min-h-[60vh] items-center justify-center">
-      <h1 className="font-[family-name:var(--font-display)] text-4xl font-bold">
-        CodePeeler
-      </h1>
-    </div>
+    <>
+      <Hero />
+      <PopularTools />
+      <WorkspaceFlow />
+      <Categories />
+      <ShortcutsCta />
+    </>
   );
 }

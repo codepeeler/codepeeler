@@ -48,67 +48,80 @@
   --shadow-glow: 0 0 0 1px rgba(109, 93, 246, 0.12), 0 8px 24px -8px rgba(109, 93, 246, 0.18);
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+/* ============================= BASE RESETS ============================= */
+/* Wrapped in @layer base so Tailwind utility classes always win over these */
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
 
-html,
-body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--font-body);
-  -webkit-font-smoothing: antialiased;
-}
+  html,
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+  }
 
-body {
-  overflow-x: hidden;
-}
+  body {
+    overflow-x: hidden;
+  }
 
-::selection {
-  background: rgba(109, 93, 246, 0.35);
-}
+  ::selection {
+    background: rgba(109, 93, 246, 0.35);
+  }
 
-a {
-  color: inherit;
-  text-decoration: none;
-}
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
 
-button {
-  font-family: inherit;
-  cursor: pointer;
-  border: none;
-  background: none;
-  color: inherit;
-}
+  button {
+    font-family: inherit;
+    cursor: pointer;
+    border: none;
+    background: none;
+    color: inherit;
+  }
 
-input,
-textarea,
-select {
-  font-family: inherit;
-  color: inherit;
-  background: none;
-  border: none;
-  outline: none;
-}
+  input,
+  textarea,
+  select {
+    font-family: inherit;
+    color: inherit;
+    background: none;
+    border: none;
+    outline: none;
+  }
 
-::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
 
-::-webkit-scrollbar-track {
-  background: transparent;
-}
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
 
-::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 8px;
-}
+  ::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 8px;
+  }
 
-::-webkit-scrollbar-thumb:hover {
-  background: var(--text-faint);
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--text-faint);
+  }
+
+  button:focus-visible,
+  input:focus-visible,
+  textarea:focus-visible,
+  [tabindex]:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
 }
 
 .mono {
@@ -119,11 +132,10 @@ select {
   font-family: var(--font-display);
 }
 
-button:focus-visible,
-input:focus-visible,
-textarea:focus-visible,
-[tabindex]:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
-  border-radius: 6px;
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.toast-in {
+  animation: toastIn 0.2s ease-out;
 }
