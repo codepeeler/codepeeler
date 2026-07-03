@@ -12,7 +12,7 @@ export default function Hero() {
   };
 
   return (
-    <section className="mx-auto grid max-w-[1400px] grid-cols-1 items-center gap-10 px-8 pb-5 pt-14 lg:grid-cols-[1.1fr_0.9fr]">
+    <section className="grid w-full grid-cols-1 items-center gap-10 px-8 pb-5 pt-14 lg:grid-cols-[1.1fr_0.9fr]">
       <div>
         <div className="mb-[18px] inline-flex items-center gap-[7px] rounded-[20px] border border-[rgba(79,157,255,0.25)] bg-[rgba(79,157,255,0.1)] px-3 py-[5px] text-xs font-semibold text-[var(--secondary)]">
           <span className="h-1.5 w-1.5 rounded-full bg-[var(--success)] shadow-[0_0_0_3px_rgba(34,197,94,0.18)]" />

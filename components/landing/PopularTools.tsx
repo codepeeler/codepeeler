@@ -13,7 +13,7 @@ export default function PopularTools() {
   const { open } = useCommandPalette();
 
   return (
-    <section id="popular-tools" className="mx-auto max-w-[1400px] px-8 pt-11">
+    <section id="popular-tools" className="w-full px-8 pt-11">
       <div className="mb-[18px] flex flex-wrap items-baseline justify-between gap-2.5">
         <div>
           <h2 className="font-[family-name:var(--font-display)] text-xl font-semibold tracking-[-0.01em]">

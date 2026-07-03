@@ -7,7 +7,7 @@ export default function ShortcutsCta() {
   const { open } = useCommandPalette();
 
   return (
-    <section className="mx-auto max-w-[1400px] px-8 pt-11">
+    <section className="w-full px-8 pt-11">
       <div className="grid grid-cols-1 gap-5 md:grid-cols-[1.3fr_1fr]">
         <div>
           <h2 className="mb-[14px] font-[family-name:var(--font-display)] text-xl font-semibold tracking-[-0.01em]">

@@ -2,7 +2,7 @@ import { CAT_META, type CatKey } from "@/lib/data/tools";
 
 export default function Categories() {
   return (
-    <section className="mx-auto max-w-[1400px] px-8 pt-11">
+    <section className="w-full px-8 pt-11">
       <h2 className="mb-[18px] font-[family-name:var(--font-display)] text-xl font-semibold tracking-[-0.01em]">
         Browse by category
       </h2>
