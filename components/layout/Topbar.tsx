@@ -7,9 +7,11 @@ import Logo from "@/components/core/Logo";
 import ThemeToggle from "@/components/core/ThemeToggle";
 import { TOPNAV_LINKS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+import { useCommandPalette } from "@/providers/command-palette-provider";
 
 export default function Topbar() {
   const pathname = usePathname();
+  const { open } = useCommandPalette();
 
   return (
     <header className="sticky top-0 z-50 flex h-[60px] flex-shrink-0 items-center gap-5 border-b border-[var(--border-soft)] bg-[var(--bg)]/85 px-5 backdrop-blur-md">
@@ -30,7 +32,10 @@ export default function Topbar() {
         ))}
       </nav>
 
-      <button className="ml-2 flex h-9 max-w-[380px] flex-1 items-center gap-2 rounded-[9px] border border-[var(--border)] bg-[var(--card)] px-3 text-[var(--text-faint)] transition-colors duration-150 hover:border-[var(--text-faint)]">
+      <button
+        onClick={open}
+        className="ml-2 flex h-9 max-w-[380px] flex-1 items-center gap-2 rounded-[9px] border border-[var(--border)] bg-[var(--card)] px-3 text-[var(--text-faint)] transition-colors duration-150 hover:border-[var(--text-faint)]"
+      >
         <Search size={15} className="flex-shrink-0" />
         <span className="flex-1 text-left text-[13px] text-[var(--text-faint)]">
           Search tools...

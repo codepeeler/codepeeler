@@ -23,6 +23,7 @@
   --cat-web: #22D3EE;
   --cat-image: #F472B6;
   --cat-sec: #F59E0B;
+  --cat-text: #A3E635;
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 18px;
@@ -31,6 +32,12 @@
   --font-display: var(--font-space-grotesk), sans-serif;
   --font-body: var(--font-inter), sans-serif;
   --font-mono: var(--font-jetbrains-mono), monospace;
+
+  /* workspace canvas — resizable panel widths */
+  --w-navrail: 186px;
+  --w-palette: 212px;
+  --w-inspector: 308px;
+  --h-bottom: 252px;
 }
 
 [data-theme="light"] {

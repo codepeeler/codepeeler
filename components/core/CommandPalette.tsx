@@ -5,62 +5,175 @@ import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import { useCommandPalette } from "@/providers/command-palette-provider";
 import { useToast } from "@/providers/toast-provider";
+import { useOptionalWorkflow, CANVAS_W } from "@/providers/workflow-provider";
 import { useTheme } from "next-themes";
 import { TOOLS } from "@/lib/data/tools";
+import { NODE_TYPES, NODE_CAT_COLOR, PALETTE_GROUPS } from "@/lib/data/node-types";
 import CategoryBadge from "@/components/ui/CategoryBadge";
 
+type ToolCat = "data" | "encode" | "gen" | "web" | "image" | "sec";
+
 type CmdItem = {
-  group: "Tools" | "Commands";
+  group: string;
   label: string;
   badge: string;
-  cat: "data" | "encode" | "gen" | "web" | "image" | "sec";
   shortcut?: string;
   action: () => void;
-};
+} & ({ kind: "tool"; cat: ToolCat } | { kind: "plain"; color: string });
 
 export default function CommandPalette() {
   const { isOpen, close } = useCommandPalette();
   const { toast } = useToast();
   const { theme, setTheme } = useTheme();
   const router = useRouter();
+  const wf = useOptionalWorkflow();
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const items: CmdItem[] = useMemo(
-    () => [
-      ...TOOLS.map((t) => ({
-        group: "Tools" as const,
-        label: t.name,
-        badge: t.badge,
-        cat: t.cat,
-        action: () => {
-          if (t.page) router.push(t.page);
-          else toast(`${t.name} is coming soon`);
+  const importFromFile = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "application/json";
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file || !wf) return;
+      try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+        if (!Array.isArray(data.nodes) || !Array.isArray(data.conns)) throw new Error();
+        wf.importWorkflow(data);
+        toast("Workflow imported");
+      } catch {
+        toast("Couldn't import that file");
+      }
+    };
+    input.click();
+  };
+
+  const items: CmdItem[] = useMemo(() => {
+    const themeCommand: CmdItem = {
+      group: "Commands",
+      kind: "plain",
+      label: "Toggle theme",
+      badge: "⌘",
+      color: "var(--secondary)",
+      shortcut: "⌘ J",
+      action: () => setTheme(theme === "dark" ? "light" : "dark"),
+    };
+
+    if (wf) {
+      const workspaceCommands: CmdItem[] = [
+        {
+          group: "Workspace",
+          kind: "plain",
+          label: "Run all",
+          badge: "▶",
+          color: "var(--success)",
+          action: () => wf.runAll(),
         },
-      })),
-      {
-        group: "Commands" as const,
-        label: "Toggle theme",
-        badge: "⌘",
-        cat: "web" as const,
-        shortcut: "⌘ J",
-        action: () => setTheme(theme === "dark" ? "light" : "dark"),
+        {
+          group: "Workspace",
+          kind: "plain",
+          label: "Undo",
+          badge: "↶",
+          color: "var(--text-faint)",
+          action: () => wf.undo(),
+        },
+        {
+          group: "Workspace",
+          kind: "plain",
+          label: "Redo",
+          badge: "↷",
+          color: "var(--text-faint)",
+          action: () => wf.redo(),
+        },
+        {
+          group: "Workspace",
+          kind: "plain",
+          label: "Fit to screen",
+          badge: "⤢",
+          color: "var(--text-faint)",
+          action: () => wf.setScale(1),
+        },
+        {
+          group: "Workspace",
+          kind: "plain",
+          label: "Export workflow",
+          badge: "↓",
+          color: "var(--primary)",
+          action: () => wf.exportWorkflow(),
+        },
+        {
+          group: "Workspace",
+          kind: "plain",
+          label: "Import workflow…",
+          badge: "↑",
+          color: "var(--primary)",
+          action: importFromFile,
+        },
+        {
+          group: "Workspace",
+          kind: "plain",
+          label: "New workflow",
+          badge: "+",
+          color: "var(--primary)",
+          action: () => wf.createWorkflow(),
+        },
+      ];
+
+      const workflowItems: CmdItem[] = wf.workflows.map((w) => ({
+        group: "Workflows",
+        kind: "plain",
+        label: w.name,
+        badge: w.id === wf.activeWorkflowId ? "●" : "○",
+        color: "var(--primary)",
+        action: () => wf.switchWorkflow(w.id),
+      }));
+
+      const addNodeItems: CmdItem[] = PALETTE_GROUPS.flatMap((g) => g.items).map((id) => {
+        const meta = NODE_TYPES[id];
+        return {
+          group: "Add Node",
+          kind: "plain",
+          label: meta.label,
+          badge: meta.badge,
+          color: NODE_CAT_COLOR[meta.cat],
+          action: () => wf.addNode(id, CANVAS_W / 4, 200 + Math.random() * 300),
+        };
+      });
+
+      return [...workspaceCommands, ...workflowItems, ...addNodeItems, themeCommand];
+    }
+
+    const toolItems: CmdItem[] = TOOLS.map((t) => ({
+      group: "Tools",
+      kind: "tool",
+      label: t.name,
+      badge: t.badge,
+      cat: t.cat,
+      action: () => {
+        if (t.page) router.push(t.page);
+        else toast(`${t.name} is coming soon`);
       },
+    }));
+
+    return [
+      ...toolItems,
+      themeCommand,
       {
-        group: "Commands" as const,
+        group: "Commands",
+        kind: "plain",
         label: "Open workspace",
         badge: "→",
-        cat: "gen" as const,
+        color: "var(--primary)",
         action: () => router.push("/workspace"),
       },
-    ],
-    [theme, router, toast, setTheme]
-  );
+    ];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [theme, router, toast, setTheme, wf]);
 
-  const filtered = items.filter((i) =>
-    i.label.toLowerCase().includes(query.trim().toLowerCase())
-  );
+  const filtered = items.filter((i) => i.label.toLowerCase().includes(query.trim().toLowerCase()));
 
   useEffect(() => {
     if (isOpen) {
@@ -100,7 +213,7 @@ export default function CommandPalette() {
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search tools, commands, collections..."
+            placeholder={wf ? "Add a node, switch workflow, run…" : "Search tools, commands, collections..."}
             autoComplete="off"
             className="flex-1 text-sm text-[var(--text)] placeholder:text-[var(--text-faint)]"
             onKeyDown={(e) => {
@@ -144,9 +257,21 @@ export default function CommandPalette() {
                     active === idx ? "bg-[var(--primary-dim)]" : ""
                   }`}
                 >
-                  <CategoryBadge cat={item.cat} size="sm">
-                    {item.badge}
-                  </CategoryBadge>
+                  {item.kind === "tool" ? (
+                    <CategoryBadge cat={item.cat} size="sm">
+                      {item.badge}
+                    </CategoryBadge>
+                  ) : (
+                    <span
+                      style={{
+                        color: item.color,
+                        background: `color-mix(in srgb, ${item.color} 14%, transparent)`,
+                      }}
+                      className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-[8px] font-[family-name:var(--font-mono)] text-[10.5px] font-bold"
+                    >
+                      {item.badge}
+                    </span>
+                  )}
                   <span>{item.label}</span>
                   {item.shortcut && (
                     <span className="ml-auto rounded-[5px] border border-[var(--border)] bg-[var(--border-soft)] px-[5px] py-0.5 font-[family-name:var(--font-mono)] text-[10.5px] text-[var(--text-faint)]">

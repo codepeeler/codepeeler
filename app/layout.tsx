@@ -3,7 +3,6 @@ import { inter, spaceGrotesk, jetbrainsMono } from "@/lib/fonts";
 import { ThemeProvider } from "@/providers/theme-provider";
 import { ToastProvider } from "@/providers/toast-provider";
 import { CommandPaletteProvider } from "@/providers/command-palette-provider";
-import AppShell from "@/components/layout/AppShell";
 import CommandPalette from "@/components/core/CommandPalette";
 import "./globals.css";
 
@@ -26,7 +25,7 @@ export default function RootLayout({
         <ThemeProvider>
           <ToastProvider>
             <CommandPaletteProvider>
-              <AppShell>{children}</AppShell>
+              {children}
               <CommandPalette />
             </CommandPaletteProvider>
           </ToastProvider>
