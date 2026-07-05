@@ -10,8 +10,8 @@ export default function Footer() {
           <Image
             src="/logo.png"
             alt="CodePeeler"
-            width={140}
-            height={36}
+            width={130}
+            height={32}
             style={{ height: "auto",width: "auto" }}
           />
         </div>
