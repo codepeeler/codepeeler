@@ -24,6 +24,13 @@
   --cat-image: #F472B6;
   --cat-sec: #F59E0B;
   --cat-text: #A3E635;
+  --get: #22C55E;
+  --post: #F59E0B;
+  --put: #4F9DFF;
+  --patch: #A78BFA;
+  --delete: #EF4444;
+  --head: #94A3B8;
+  --options: #94A3B8;
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 18px;

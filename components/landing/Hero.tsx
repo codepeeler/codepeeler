@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, ArrowRight } from "lucide-react";
-import Link from "next/link";
+import Button from "@/components/ui/Button";
 import styles from "./Hero.module.css";
 
 const TRUST_ITEMS = ["No sign-up", "Works fully offline", "Your data stays on-device"];
@@ -34,19 +34,13 @@ export default function Hero() {
         </p>
 
         <div className="mt-[26px] flex gap-2.5">
-          <button
-            onClick={scrollToPopularTools}
-            className="inline-flex items-center gap-[7px] rounded-[9px] bg-[var(--primary)] px-5 py-[11px] text-sm font-semibold text-white transition-all duration-150 hover:-translate-y-px hover:shadow-[var(--shadow-glow)] hover:brightness-[1.08]"
-          >
+          <Button onClick={scrollToPopularTools} size="lg">
             Explore tools
             <ArrowRight size={15} strokeWidth={2.2} />
-          </button>
-          <Link
-            href="/workspace"
-            className="inline-flex items-center gap-[7px] rounded-[9px] border border-[var(--border)] bg-[var(--card)] px-5 py-[11px] text-sm font-semibold text-[var(--text)] transition-colors duration-150 hover:border-[var(--text-faint)] hover:bg-[var(--card-hover)]"
-          >
+          </Button>
+          <Button href="/workspace" variant="outline" size="lg" className="text-[var(--text)] hover:bg-[var(--card-hover)]">
             See how workspace works
-          </Link>
+          </Button>
         </div>
 
         <div className="mt-8 flex flex-wrap gap-[22px]">

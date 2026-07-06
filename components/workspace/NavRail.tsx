@@ -2,16 +2,27 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { ChevronLeft, Database, Keyboard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NAV_RAIL_ITEMS } from "@/lib/data/workspace-shell";
 import { useWorkflow } from "@/providers/workflow-provider";
+import { useCommandPalette } from "@/providers/command-palette-provider";
 
 export default function NavRail() {
   const pathname = usePathname();
+  const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
   const { nodes, conns, workflows, activeWorkflowId, switchWorkflow, createWorkflow } = useWorkflow();
+  const { open: openCommandPalette } = useCommandPalette();
+
+  const goToTemplates = () => {
+    if (pathname === "/collections") {
+      document.getElementById("templates")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else {
+      router.push("/collections#templates");
+    }
+  };
 
   return (
     <nav
@@ -107,7 +118,10 @@ export default function NavRail() {
             <div className="mt-1.5 text-[10.5px] text-[var(--text-faint)]">0 KB / 5 MB</div>
           </div>
 
-          <button className="mx-2 mb-3 flex items-center justify-between rounded-lg border border-[var(--border-soft)] px-2.5 py-2 text-[11px] font-medium text-[var(--text-dim)] transition-colors duration-150 hover:bg-[var(--card-hover)] hover:text-[var(--text)]">
+          <button
+            onClick={openCommandPalette}
+            className="mx-2 mb-3 flex items-center justify-between rounded-lg border border-[var(--border-soft)] px-2.5 py-2 text-[11px] font-medium text-[var(--text-dim)] transition-colors duration-150 hover:bg-[var(--card-hover)] hover:text-[var(--text)]"
+          >
             <span className="flex items-center gap-1.5">
               <Keyboard size={13} /> Keyboard shortcuts
             </span>
@@ -121,7 +135,10 @@ export default function NavRail() {
             <div className="mb-2.5 text-[10.5px] leading-[1.5] text-[var(--text-faint)]">
               Use templates to supercharge your workflow creation.
             </div>
-            <button className="w-full rounded-md bg-[var(--primary)] py-1.5 text-center text-[11px] font-semibold text-white transition-[filter] duration-150 hover:brightness-[1.08]">
+            <button
+              onClick={goToTemplates}
+              className="w-full rounded-md bg-[var(--primary)] py-1.5 text-center text-[11px] font-semibold text-white transition-[filter] duration-150 hover:brightness-[1.08]"
+            >
               Browse templates
             </button>
           </div>
