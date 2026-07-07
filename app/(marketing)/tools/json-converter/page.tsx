@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import yaml from "js-yaml";
+import * as yaml from "js-yaml";
 import { XMLParser, XMLBuilder } from "fast-xml-parser";
 import ToolHeader from "@/components/tools/ToolHeader";
 import ToolLab from "@/components/tools/ToolLab";
