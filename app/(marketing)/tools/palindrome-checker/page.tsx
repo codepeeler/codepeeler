@@ -1,40 +1,65 @@
 "use client";
 
-import { TOOLS, CAT_META, type CatKey } from "@/lib/data/tools";
-import ToolCard from "@/components/ui/ToolCard";
-import { useToast } from "@/providers/toast-provider";
+import { useMemo, useState } from "react";
+import ToolHeader from "@/components/tools/ToolHeader";
+import ToolPanel from "@/components/tools/ToolPanel";
+import { PanelToolbar, PanelBody } from "@/components/tools/PanelParts";
+import { CheckboxOption } from "@/components/tools/FormFields";
+import VerdictBadge from "@/components/tools/VerdictBadge";
 
-export default function ToolsIndexPage() {
-  const { toast } = useToast();
-  const cats = Object.keys(CAT_META) as CatKey[];
+function normalize(s: string, ignoreSpaces: boolean, ignoreCase: boolean, ignorePunctuation: boolean): string {
+  let out = s;
+  if (ignorePunctuation) out = out.replace(/[^\w\s]/g, "");
+  if (ignoreSpaces) out = out.replace(/\s+/g, "");
+  if (ignoreCase) out = out.toLowerCase();
+  return out;
+}
+
+export default function PalindromeCheckerPage() {
+  const [input, setInput] = useState("");
+  const [ignoreSpaces, setIgnoreSpaces] = useState(true);
+  const [ignoreCase, setIgnoreCase] = useState(true);
+  const [ignorePunctuation, setIgnorePunctuation] = useState(true);
+
+  const { normalized, isPalindrome } = useMemo(() => {
+    const n = normalize(input, ignoreSpaces, ignoreCase, ignorePunctuation);
+    return { normalized: n, isPalindrome: n.length > 0 && n === [...n].reverse().join("") };
+  }, [input, ignoreSpaces, ignoreCase, ignorePunctuation]);
 
   return (
     <div className="mx-auto max-w-[1400px] px-8 py-10">
-      <div className="mb-8">
-        <h1 className="font-[family-name:var(--font-display)] text-[28px] font-semibold tracking-[-0.01em]">
-          All tools
-        </h1>
-        <p className="mt-1.5 text-[14px] text-[var(--text-dim)]">
-          Everything runs fully in your browser — nothing you type ever leaves your device.
-        </p>
-      </div>
+      <ToolHeader
+        cat="data"
+        badge="◫◫"
+        title="Palindrome Checker"
+        desc="Check whether a word or phrase reads the same forwards and backwards — with configurable normalization."
+      />
 
-      {cats.map((cat) => {
-        const items = TOOLS.filter((t) => t.cat === cat);
-        if (items.length === 0) return null;
-        return (
-          <div key={cat} className="mb-9">
-            <h2 className="mb-3 font-[family-name:var(--font-display)] text-[16px] font-semibold">
-              {CAT_META[cat].label}
-            </h2>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-              {items.map((tool) => (
-                <ToolCard key={tool.id} tool={tool} onUnavailable={(t) => toast(`${t.name} is coming soon`)} />
-              ))}
+      <ToolPanel>
+        <PanelToolbar className="justify-start">
+          <CheckboxOption label="Ignore spaces" checked={ignoreSpaces} onChange={setIgnoreSpaces} />
+          <CheckboxOption label="Ignore case" checked={ignoreCase} onChange={setIgnoreCase} />
+          <CheckboxOption label="Ignore punctuation" checked={ignorePunctuation} onChange={setIgnorePunctuation} />
+        </PanelToolbar>
+
+        <PanelBody>
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="A man, a plan, a canal: Panama"
+            className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] px-3.5 py-3 text-[15px] text-[var(--text)] placeholder:text-[var(--text-faint)]"
+          />
+
+          {input.trim() && (
+            <div className="mt-4 flex items-center gap-3">
+              <VerdictBadge pass={isPalindrome} passLabel="✓ It's a palindrome" failLabel="✗ Not a palindrome" />
+              <span className="font-[family-name:var(--font-mono)] text-[12.5px] text-[var(--text-faint)]">
+                normalized: &quot;{normalized}&quot;
+              </span>
             </div>
-          </div>
-        );
-      })}
+          )}
+        </PanelBody>
+      </ToolPanel>
     </div>
   );
 }

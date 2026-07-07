@@ -1,7 +1,6 @@
 "use client";
 
 import { SHORTCUTS } from "@/lib/data/tools";
-import Button from "@/components/ui/Button";
 import { useCommandPalette } from "@/providers/command-palette-provider";
 
 export default function ShortcutsCta() {
@@ -47,12 +46,15 @@ export default function ShortcutsCta() {
             Search every tool, command and collection from one place. No mouse
             required.
           </p>
-          <Button onClick={open} size="lg">
+          <button
+            onClick={open}
+            className="inline-flex items-center gap-[7px] rounded-[9px] bg-[var(--primary)] px-5 py-[11px] text-sm font-semibold text-white transition-all duration-150 hover:-translate-y-px hover:shadow-[var(--shadow-glow)] hover:brightness-[1.08]"
+          >
             Open command palette
             <span className="rounded-[5px] border border-white/20 bg-white/10 px-[5px] py-0.5 font-[family-name:var(--font-mono)] text-[10.5px]">
               ⌘K
             </span>
-          </Button>
+          </button>
         </div>
       </div>
     </section>
