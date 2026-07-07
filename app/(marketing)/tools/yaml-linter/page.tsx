@@ -1,15 +1,15 @@
 "use client";
 
-import yaml from "js-yaml";
+import { load, dump, YAMLException } from "js-yaml";
 import ToolHeader from "@/components/tools/ToolHeader";
 import ToolLab from "@/components/tools/ToolLab";
 
 function runYaml(input: string): string {
   try {
-    const parsed = yaml.load(input);
-    return yaml.dump(parsed, { indent: 2, lineWidth: -1 });
+    const parsed = load(input);
+    return dump(parsed, { indent: 2, lineWidth: -1 });
   } catch (e) {
-    if (e instanceof yaml.YAMLException) {
+    if (e instanceof YAMLException) {
       throw new Error(`${e.reason} (line ${e.mark?.line != null ? e.mark.line + 1 : "?"}, col ${e.mark?.column != null ? e.mark.column + 1 : "?"})`);
     }
     throw e;
