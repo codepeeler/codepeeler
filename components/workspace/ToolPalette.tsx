@@ -15,6 +15,7 @@ const CAT_CHIPS = [
   { key: "text", label: "Text" },
   { key: "sec", label: "Security" },
   { key: "gen", label: "Gen" },
+  { key: "image", label: "Image" },
 ] as const;
 
 export default function ToolPalette() {

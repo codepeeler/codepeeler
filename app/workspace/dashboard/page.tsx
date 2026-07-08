@@ -1,37 +1,78 @@
 "use client";
 
-import { BarChart3, Workflow, Wrench, Zap, RefreshCw, Clock } from "lucide-react";
-import NavRail from "@/components/workspace/NavRail";
+import Link from "next/link";
+import {
+  Layers,
+  Workflow,
+  Wrench,
+  Zap,
+  ChevronRight,
+  Clock,
+  Star,
+  Plus,
+  Rocket,
+  Grid2x2,
+  LayoutTemplate,
+  Upload,
+  Users,
+  BookOpen,
+  Sparkles,
+  Check,
+  Flame,
+} from "lucide-react";
+import Sidebar from "@/components/layout/Sidebar";
 import CollectionsStatsBar from "@/components/collections/CollectionsStatsBar";
 import CollectionIcon from "@/components/collections/CollectionIcon";
-import { WorkflowProvider } from "@/providers/workflow-provider";
+import Button from "@/components/ui/Button";
+import ToolCard from "@/components/ui/ToolCard";
 import { COLLECTIONS } from "@/lib/data/collections";
-import { TOOLS, CAT_META, type CatKey } from "@/lib/data/tools";
+import { TOOLS } from "@/lib/data/tools";
 import { parseAgoToMinutes } from "@/lib/utils";
 
-function StatCard({ icon: Icon, label, value }: { icon: typeof BarChart3; label: string; value: string | number }) {
+// Same six tools already surfaced as favorites elsewhere on the site.
+const FAVORITE_TOOL_IDS = ["json", "jwt", "base64", "regex", "hash", "url"];
+
+// Distinct from the sidebar nav — these are one-off actions, not another
+// copy of the same page links. Anything not shipped yet is marked
+// "Coming soon" instead of being left out entirely.
+const QUICK_ACTIONS = [
+  { key: "new-workspace", label: "Create New Workspace", icon: Rocket, href: "/workspace" },
+  { key: "browse-tools", label: "Browse All Tools", icon: Grid2x2, href: "/tools" },
+  { key: "templates", label: "Explore Templates", icon: LayoutTemplate, href: null },
+  { key: "import-workflow", label: "Import Workflow", icon: Upload, href: null },
+  { key: "community", label: "Join Community", icon: Users, href: null },
+  { key: "docs", label: "View Documentation", icon: BookOpen, href: null },
+];
+
+// Matches the status styling already used for workflows inside
+// CollectionDetailsPanel, so a workflow's status looks identical everywhere.
+const STATUS_META: Record<string, { label: string; color: string }> = {
+  active: { label: "Active", color: "var(--success)" },
+  draft: { label: "Draft", color: "var(--text-faint)" },
+  paused: { label: "Paused", color: "var(--warning)" },
+};
+
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+  color,
+}: {
+  icon: typeof Layers;
+  label: string;
+  value: string | number;
+  color: string;
+}) {
   return (
     <div className="rounded-[12px] border border-[var(--border)] bg-[var(--card)] p-4">
-      <div className="mb-2 flex h-8 w-8 items-center justify-center rounded-[9px] bg-[var(--primary-dim)] text-[var(--primary)]">
-        <Icon size={16} />
+      <div
+        className="mb-2.5 flex h-9 w-9 items-center justify-center rounded-[9px]"
+        style={{ color, background: `color-mix(in srgb, ${color} 14%, transparent)` }}
+      >
+        <Icon size={17} />
       </div>
       <div className="text-[22px] font-bold leading-none">{value}</div>
-      <div className="mt-1 text-[11.5px] text-[var(--text-faint)]">{label}</div>
-    </div>
-  );
-}
-
-function Bar({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
-  const pct = max > 0 ? Math.max(4, Math.round((value / max) * 100)) : 0;
-  return (
-    <div className="mb-3 last:mb-0">
-      <div className="mb-1 flex items-center justify-between text-[11.5px]">
-        <span className="text-[var(--text-dim)]">{label}</span>
-        <b className="text-[var(--text)]">{value}</b>
-      </div>
-      <div className="h-2 overflow-hidden rounded-full bg-[var(--border-soft)]">
-        <div className="h-full rounded-full transition-[width] duration-300" style={{ width: `${pct}%`, background: color }} />
-      </div>
+      <div className="mt-1.5 text-[11.5px] text-[var(--text-faint)]">{label}</div>
     </div>
   );
 }
@@ -40,107 +81,283 @@ export default function DashboardPage() {
   const totalWorkflows = COLLECTIONS.reduce((sum, c) => sum + c.workflows, 0);
   const totalTools = COLLECTIONS.reduce((sum, c) => sum + c.tools, 0);
   const totalExecutions = COLLECTIONS.reduce((sum, c) => sum + c.executions, 0);
-  const autoUpdateOn = COLLECTIONS.filter((c) => c.autoUpdate).length;
-  const autoUpdateOff = COLLECTIONS.length - autoUpdateOn;
 
-  const topByExecutions = [...COLLECTIONS].sort((a, b) => b.executions - a.executions).slice(0, 5);
-  const maxExecutions = Math.max(...topByExecutions.map((c) => c.executions), 1);
+  const recentCollections = [...COLLECTIONS]
+    .sort((a, b) => parseAgoToMinutes(a.updatedAgo) - parseAgoToMinutes(b.updatedAgo))
+    .slice(0, 5);
 
-  const catKeys = Object.keys(CAT_META) as CatKey[];
-  const toolsByCat = catKeys.map((key) => ({
-    key,
-    label: CAT_META[key].label,
-    color: CAT_META[key].color,
-    count: TOOLS.filter((t) => t.cat === key).length,
-  }));
-  const maxCatCount = Math.max(...toolsByCat.map((c) => c.count), 1);
+  const favoriteTools = FAVORITE_TOOL_IDS.map((id) => TOOLS.find((t) => t.id === id)).filter(
+    (t): t is (typeof TOOLS)[number] => !!t
+  );
 
-  const recentActivity = COLLECTIONS.flatMap((c) =>
-    c.activity.map((a) => ({ ...a, collectionName: c.name, icon: c.icon, color: c.color, minutes: parseAgoToMinutes(a.time) }))
+  const recentWorkflows = COLLECTIONS.flatMap((c) =>
+    c.workflowsList.map((wf) => ({
+      ...wf,
+      rowKey: `${c.id}-${wf.id}`,
+      collectionName: c.name,
+      minutes: parseAgoToMinutes(wf.lastRun),
+    }))
   )
     .sort((a, b) => a.minutes - b.minutes)
-    .slice(0, 8);
+    .slice(0, 7);
+
+  // "Most used collection" stands in for a community spotlight — this app
+  // has no accounts or community backend, so we surface the real thing
+  // that's closest to it instead of inventing a fake author/rating.
+  const spotlightCollection = [...COLLECTIONS].sort((a, b) => b.executions - a.executions)[0];
 
   return (
-    <WorkflowProvider>
+    <>
       <div className="relative flex min-h-0 flex-1">
-        <NavRail />
+        <Sidebar />
 
         <main className="flex-1 overflow-y-auto">
           <div className="mx-auto max-w-[1400px] px-6 py-7">
-            <div className="mb-7">
-              <h1 className="font-[family-name:var(--font-display)] text-[26px] font-bold tracking-[-0.01em]">
-                Dashboard
-              </h1>
-              <p className="mt-1 text-[13.5px] text-[var(--text-dim)]">
-                An overview of activity across all your collections
-              </p>
+            <div className="mb-7 flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h1 className="font-[family-name:var(--font-display)] text-[26px] font-bold tracking-[-0.01em]">
+                  Dashboard
+                </h1>
+                <p className="mt-1 text-[13.5px] text-[var(--text-dim)]">
+                  Welcome back 👋 — here&apos;s what&apos;s happening across your workspace today.
+                </p>
+              </div>
+              <Button href="/workspace">
+                <Plus size={14} /> New Workspace
+              </Button>
             </div>
 
             <div className="mb-7 grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <StatCard icon={BarChart3} label="Collections" value={COLLECTIONS.length} />
-              <StatCard icon={Workflow} label="Total Workflows" value={totalWorkflows} />
-              <StatCard icon={Wrench} label="Total Tools" value={totalTools} />
-              <StatCard icon={Zap} label="Total Executions" value={totalExecutions} />
+              <StatCard icon={Layers} label="Collections" value={COLLECTIONS.length} color="var(--primary)" />
+              <StatCard icon={Workflow} label="Total Workflows" value={totalWorkflows} color="var(--secondary)" />
+              <StatCard icon={Wrench} label="Total Tools" value={totalTools} color="var(--success)" />
+              <StatCard
+                icon={Zap}
+                label="Total Executions"
+                value={totalExecutions.toLocaleString()}
+                color="var(--warning)"
+              />
             </div>
 
-            <div className="mb-7 grid grid-cols-1 gap-4 lg:grid-cols-2">
-              <div className="rounded-[12px] border border-[var(--border)] bg-[var(--card)] p-4">
-                <h2 className="mb-3 text-[13px] font-semibold">Executions by Collection</h2>
-                {topByExecutions.map((c) => (
-                  <Bar key={c.id} label={c.name} value={c.executions} max={maxExecutions} color={c.color} />
-                ))}
-              </div>
-
-              <div className="rounded-[12px] border border-[var(--border)] bg-[var(--card)] p-4">
-                <h2 className="mb-3 text-[13px] font-semibold">Tools by Category</h2>
-                {toolsByCat.map((c) => (
-                  <Bar key={c.key} label={c.label} value={c.count} max={maxCatCount} color={c.color} />
-                ))}
-              </div>
-            </div>
-
-            <div className="mb-7 grid grid-cols-1 gap-4 lg:grid-cols-2">
-              <div className="rounded-[12px] border border-[var(--border)] bg-[var(--card)] p-4">
-                <h2 className="mb-3 flex items-center gap-1.5 text-[13px] font-semibold">
-                  <RefreshCw size={13} className="text-[var(--success)]" /> Auto-Update Status
+            <div className="mb-7">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="font-[family-name:var(--font-display)] text-[16px] font-semibold">
+                  Recent Collections
                 </h2>
-                <div className="flex items-center gap-4">
-                  <div className="flex-1 rounded-[10px] border border-[var(--border-soft)] p-3 text-center">
-                    <div className="text-[20px] font-bold text-[var(--success)]">{autoUpdateOn}</div>
-                    <div className="text-[10.5px] text-[var(--text-faint)]">Auto-Update On</div>
-                  </div>
-                  <div className="flex-1 rounded-[10px] border border-[var(--border-soft)] p-3 text-center">
-                    <div className="text-[20px] font-bold text-[var(--text-faint)]">{autoUpdateOff}</div>
-                    <div className="text-[10.5px] text-[var(--text-faint)]">Auto-Update Off</div>
-                  </div>
-                </div>
+                <Link href="/collections" className="text-[12.5px] font-medium text-[var(--primary)] hover:underline">
+                  View all →
+                </Link>
               </div>
-
-              <div className="rounded-[12px] border border-[var(--border)] bg-[var(--card)] p-4">
-                <h2 className="mb-3 text-[13px] font-semibold">Recent Activity</h2>
-                <div className="space-y-2.5">
-                  {recentActivity.map((a) => (
-                    <div key={`${a.collectionName}-${a.id}`} className="flex items-center gap-2.5">
-                      <CollectionIcon icon={a.icon} color={a.color} size="sm" />
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-[12px] text-[var(--text-dim)]">{a.text}</div>
-                        <div className="flex items-center gap-1 text-[10.5px] text-[var(--text-faint)]">
-                          <span className="font-medium">{a.collectionName}</span>
-                          <span>·</span>
-                          <Clock size={10} /> {a.time}
-                        </div>
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
+                {recentCollections.map((c) => (
+                  <Link
+                    key={c.id}
+                    href="/collections"
+                    className="flex items-center gap-3.5 rounded-[12px] border border-[var(--border)] bg-[var(--card)] p-3.5 transition-all duration-150 hover:-translate-y-0.5 hover:border-[color-mix(in_srgb,var(--primary)_45%,var(--border))] hover:shadow-[var(--shadow-soft)]"
+                  >
+                    <CollectionIcon icon={c.icon} color={c.color} size="md" />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="truncate text-[13.5px] font-semibold">{c.name}</span>
+                        {c.starred && (
+                          <Star size={12} className="flex-shrink-0 fill-[var(--warning)] text-[var(--warning)]" />
+                        )}
                       </div>
+                      <div className="truncate text-[11.5px] text-[var(--text-faint)]">Updated {c.updatedAgo}</div>
                     </div>
-                  ))}
-                </div>
+                    <ChevronRight size={16} className="flex-shrink-0 text-[var(--text-faint)]" />
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            <div className="mb-7">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="font-[family-name:var(--font-display)] text-[16px] font-semibold">Favorite Tools</h2>
+                <Link
+                  href="/workspace/favorites"
+                  className="text-[12.5px] font-medium text-[var(--primary)] hover:underline"
+                >
+                  View all →
+                </Link>
+              </div>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                {favoriteTools.map((t) => (
+                  <ToolCard key={t.id} tool={t} />
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="font-[family-name:var(--font-display)] text-[16px] font-semibold">
+                  Recent Workflows
+                </h2>
+                <Link
+                  href="/workspace/history"
+                  className="text-[12.5px] font-medium text-[var(--primary)] hover:underline"
+                >
+                  View all →
+                </Link>
+              </div>
+              <div className="overflow-hidden rounded-[12px] border border-[var(--border)] bg-[var(--card)]">
+                <table className="w-full border-collapse text-left text-[12.5px]">
+                  <thead>
+                    <tr className="border-b border-[var(--border-soft)] text-[10.5px] uppercase tracking-[0.05em] text-[var(--text-faint)]">
+                      <th className="px-4 py-2.5 font-semibold">Workflow</th>
+                      <th className="px-4 py-2.5 font-semibold">Status</th>
+                      <th className="px-4 py-2.5 font-semibold">Steps</th>
+                      <th className="hidden px-4 py-2.5 font-semibold sm:table-cell">Collection</th>
+                      <th className="px-4 py-2.5 text-right font-semibold">Last Run</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recentWorkflows.map((wf) => (
+                      <tr
+                        key={wf.rowKey}
+                        className="border-b border-[var(--border-soft)] last:border-b-0 hover:bg-[var(--card-hover)]"
+                      >
+                        <td className="px-4 py-3 font-medium">{wf.name}</td>
+                        <td className="px-4 py-3">
+                          <span
+                            className="flex items-center gap-1.5 text-[11px] font-semibold"
+                            style={{ color: STATUS_META[wf.status].color }}
+                          >
+                            <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                            {STATUS_META[wf.status].label}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-[var(--text-dim)]">{wf.steps}</td>
+                        <td className="hidden px-4 py-3 text-[var(--text-dim)] sm:table-cell">{wf.collectionName}</td>
+                        <td className="px-4 py-3 text-right text-[var(--text-faint)]">
+                          <span className="inline-flex items-center gap-1">
+                            <Clock size={11} /> {wf.lastRun}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
         </main>
+
+        <aside className="z-[40] flex w-[260px] flex-shrink-0 flex-col overflow-y-auto border-l border-[var(--border-soft)] bg-[var(--bg-elev)] px-3.5 py-4">
+          <h2 className="mb-2.5 px-1 font-[family-name:var(--font-display)] text-[15px] font-semibold">
+            Quick Actions
+          </h2>
+          <div className="rounded-[12px] border border-[var(--border)] bg-[var(--card)] p-1.5">
+            {QUICK_ACTIONS.map(({ key, label, href, icon: Icon }) =>
+              href ? (
+                <Link
+                  key={key}
+                  href={href}
+                  className="flex items-center gap-2.5 rounded-[9px] px-2.5 py-2.5 text-[12.5px] font-medium text-[var(--text-dim)] transition-colors duration-150 hover:bg-[var(--card-hover)] hover:text-[var(--text)]"
+                >
+                  <Icon size={15} className="flex-shrink-0 text-[var(--text-faint)]" />
+                  <span className="flex-1">{label}</span>
+                  <ChevronRight size={14} className="flex-shrink-0 text-[var(--text-faint)]" />
+                </Link>
+              ) : (
+                <div
+                  key={key}
+                  title="Coming soon"
+                  className="flex cursor-not-allowed items-center gap-2.5 rounded-[9px] px-2.5 py-2.5 text-[12.5px] font-medium text-[var(--text-faint)] opacity-60"
+                >
+                  <Icon size={15} className="flex-shrink-0 text-[var(--text-faint)]" />
+                  <span className="flex-1">{label}</span>
+                  <span className="flex-shrink-0 rounded-full border border-[var(--border)] px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-[0.03em] text-[var(--text-faint)]">
+                    Soon
+                  </span>
+                </div>
+              )
+            )}
+          </div>
+
+          <div className="mt-4">
+            <h2 className="mb-2.5 px-1 font-[family-name:var(--font-display)] text-[15px] font-semibold">
+              Your Plan
+            </h2>
+            <div className="rounded-[12px] border border-[var(--border)] bg-[linear-gradient(160deg,var(--primary-dim),transparent)] p-4">
+              <div className="mb-3 flex items-center gap-2.5">
+                <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[9px] bg-[color-mix(in_srgb,var(--primary)_16%,transparent)] text-[var(--primary)]">
+                  <Sparkles size={15} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[13px] font-semibold">Free &amp; Local</div>
+                  <div className="text-[11px] text-[var(--text-faint)]">No account needed</div>
+                </div>
+                <span className="flex-shrink-0 rounded-full bg-[color-mix(in_srgb,var(--success)_16%,transparent)] px-2 py-0.5 text-[10px] font-semibold text-[var(--success)]">
+                  Active
+                </span>
+              </div>
+              <ul className="mb-3 space-y-1.5">
+                {[
+                  "Unlimited workflows",
+                  "All tools included",
+                  "100% local storage",
+                  "No sign-up required",
+                ].map((f) => (
+                  <li key={f} className="flex items-center gap-2 text-[12px] text-[var(--text-dim)]">
+                    <Check size={13} className="flex-shrink-0 text-[var(--success)]" />
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <Link
+                href="/workspace/settings"
+                className="flex w-full items-center justify-center rounded-[9px] border border-[var(--border)] bg-[var(--card)] py-2 text-[12px] font-semibold text-[var(--text)] transition-colors duration-150 hover:bg-[var(--card-hover)]"
+              >
+                View Settings
+              </Link>
+            </div>
+          </div>
+
+          {spotlightCollection && (
+            <div className="mt-4">
+              <div className="mb-2.5 flex items-center justify-between px-1">
+                <h2 className="font-[family-name:var(--font-display)] text-[15px] font-semibold">
+                  Community Spotlight
+                </h2>
+                <Link href="/collections" className="text-[11.5px] font-medium text-[var(--primary)] hover:underline">
+                  View all →
+                </Link>
+              </div>
+              <div className="rounded-[12px] border border-[var(--border)] bg-[var(--card)] p-4">
+                <div className="mb-2.5 flex items-center gap-1.5 text-[11px] font-semibold text-[var(--warning)]">
+                  <Flame size={13} /> Most used collection
+                </div>
+                <div className="mb-2.5 flex items-center gap-2.5">
+                  <CollectionIcon icon={spotlightCollection.icon} color={spotlightCollection.color} size="sm" />
+                  <span className="truncate text-[13px] font-semibold">{spotlightCollection.name}</span>
+                </div>
+                <p className="mb-3 line-clamp-2 text-[11.5px] leading-[1.5] text-[var(--text-faint)]">
+                  {spotlightCollection.desc}
+                </p>
+                <div className="mb-3 flex items-center gap-4 text-[11px] text-[var(--text-dim)]">
+                  <span className="flex items-center gap-1">
+                    <Zap size={12} className="text-[var(--text-faint)]" />
+                    {spotlightCollection.executions.toLocaleString()} runs
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Workflow size={12} className="text-[var(--text-faint)]" />
+                    {spotlightCollection.workflows} workflows
+                  </span>
+                </div>
+                <Link
+                  href="/collections"
+                  className="flex w-full items-center justify-center rounded-[9px] bg-[var(--primary)] py-2 text-[12px] font-semibold text-white transition-[filter] duration-150 hover:brightness-[1.08]"
+                >
+                  Browse Collections
+                </Link>
+              </div>
+            </div>
+          )}
+        </aside>
       </div>
 
       <CollectionsStatsBar />
-    </WorkflowProvider>
+    </>
   );
 }

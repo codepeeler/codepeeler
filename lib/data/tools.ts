@@ -53,6 +53,15 @@ export const TOOLS: Tool[] = [
   { id: "readability", name: "Readability Checker", desc: "Flesch score, grade level & reading time", badge: "📖", cat: "data", page: "/tools/readability-checker" },
   { id: "smart-quotes", name: "Typographic Quotes Converter", desc: "Straight ↔ curly quotes, dashes & ellipses", badge: "“ ”", cat: "data", page: "/tools/typographic-quotes" },
   { id: "random-pick", name: "Random Line Picker", desc: "Pick one or more random lines from a list", badge: "🎲", cat: "gen", page: "/tools/random-line-picker" },
+  // --- new tools ---
+  { id: "unix-timestamp", name: "Unix Timestamp Converter", desc: "Convert between Unix time and readable dates", badge: "⏱", cat: "gen", page: "/tools/unix-timestamp-converter" },
+  { id: "cron-parser", name: "Cron Expression Parser", desc: "Explain a cron schedule & preview upcoming runs", badge: "⏲", cat: "gen", page: "/tools/cron-parser" },
+  { id: "color-convert", name: "Color Format Converter", desc: "Convert between HEX, RGB & HSL", badge: "◐", cat: "image", page: "/tools/color-converter" },
+  { id: "color-contrast", name: "Color Contrast Checker", desc: "Check WCAG AA/AAA contrast between two colors", badge: "◐◑", cat: "image", page: "/tools/color-contrast-checker" },
+  { id: "hex-encode", name: "Hex Encode/Decode", desc: "Convert text to and from hex bytes", badge: "0x", cat: "encode", page: "/tools/hex-encoder" },
+  { id: "css-unit", name: "CSS Unit Converter", desc: "Convert between px, rem, em & pt", badge: "px", cat: "web", page: "/tools/css-unit-converter" },
+  { id: "http-header", name: "HTTP Header Parser", desc: "Parse raw HTTP headers into structured JSON", badge: "H:", cat: "web", page: "/tools/http-header-parser" },
+  { id: "base-convert", name: "Base Converter", desc: "Convert between binary, octal, decimal & hex", badge: "10₂", cat: "data", page: "/tools/base-converter" },
 ];
 
 export const CAT_META: Record<CatKey, { label: string; color: string }> = {

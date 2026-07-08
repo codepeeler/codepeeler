@@ -4,7 +4,7 @@
 // tool card elsewhere on the site. Only two categories have no landing-page
 // equivalent: "flow" (start/end nodes — uses --primary directly, no new
 // token) and "text" (needs exactly one new token, --cat-text).
-export type NodeCat = "flow" | "data" | "encode" | "web" | "text" | "sec" | "gen";
+export type NodeCat = "flow" | "data" | "encode" | "web" | "text" | "sec" | "gen" | "image";
 
 export const NODE_CAT_COLOR: Record<NodeCat, string> = {
   flow: "var(--primary)",
@@ -14,6 +14,7 @@ export const NODE_CAT_COLOR: Record<NodeCat, string> = {
   text: "var(--cat-text)",
   sec: "var(--cat-sec)",
   gen: "var(--cat-gen)",
+  image: "var(--cat-image)",
 };
 
 export type NodeTypeId =
@@ -63,7 +64,16 @@ export type NodeTypeId =
   | "readability"
   | "smart-quotes"
   | "random-pick"
-  | "lorem-gen";
+  | "lorem-gen"
+  // --- new tools ---
+  | "unix-timestamp"
+  | "cron-parse"
+  | "color-convert"
+  | "hex-encode"
+  | "hex-decode"
+  | "css-unit-convert"
+  | "http-header-parse"
+  | "base-convert";
 
 export const NODE_TYPES: Record<
   NodeTypeId,
@@ -124,6 +134,16 @@ export const NODE_TYPES: Record<
   "smart-quotes": { label: "Typographic Quotes", desc: "Straight ↔ curly quotes, dashes & ellipses", badge: "“”", cat: "text" },
   "random-pick": { label: "Random Line Picker", desc: "Pick one or more random lines", badge: "🎲", cat: "gen" },
   "lorem-gen": { label: "Lorem Ipsum Generator", desc: "Placeholder text by word, sentence or paragraph", badge: "¶", cat: "gen", noInput: true },
+
+  // --- new tools ---
+  "unix-timestamp": { label: "Unix Timestamp Converter", desc: "Convert between Unix time and readable dates", badge: "⏱", cat: "gen" },
+  "cron-parse": { label: "Cron Parser", desc: "Explain a cron expression & show upcoming runs", badge: "⏲", cat: "gen" },
+  "color-convert": { label: "Color Format Converter", desc: "Convert between HEX, RGB & HSL", badge: "◐", cat: "image" },
+  "hex-encode": { label: "Hex Encode", desc: "Encode text as hex bytes", badge: "0x", cat: "encode" },
+  "hex-decode": { label: "Hex Decode", desc: "Decode hex bytes back to text", badge: "0x", cat: "encode" },
+  "css-unit-convert": { label: "CSS Unit Converter", desc: "Convert between px, rem, em & pt", badge: "px", cat: "web" },
+  "http-header-parse": { label: "HTTP Header Parser", desc: "Parse raw headers into structured JSON", badge: "H:", cat: "web" },
+  "base-convert": { label: "Base Converter", desc: "Convert between binary, octal, decimal & hex", badge: "10₂", cat: "data" },
 };
 
 export const PALETTE_GROUPS: { label: string; items: NodeTypeId[] }[] = [
@@ -143,10 +163,11 @@ export const PALETTE_GROUPS: { label: string; items: NodeTypeId[] }[] = [
       "markdown-preview",
       "json-yaml",
       "yaml-lint",
+      "base-convert",
     ],
   },
-  { label: "Encode / Decode", items: ["base64-encode", "base64-decode"] },
-  { label: "Web", items: ["url-encode", "url-decode", "regex-test"] },
+  { label: "Encode / Decode", items: ["base64-encode", "base64-decode", "hex-encode", "hex-decode"] },
+  { label: "Web", items: ["url-encode", "url-decode", "regex-test", "css-unit-convert", "http-header-parse"] },
   {
     label: "Text Tools",
     items: [
@@ -174,4 +195,6 @@ export const PALETTE_GROUPS: { label: string; items: NodeTypeId[] }[] = [
   },
   { label: "Security", items: ["hash", "jwt-decode"] },
   { label: "Generator", items: ["password-gen", "uuid-gen", "qr-gen", "lorem-gen", "random-pick"] },
+  { label: "Time & Date", items: ["unix-timestamp", "cron-parse"] },
+  { label: "Image", items: ["color-convert"] },
 ];
