@@ -55,14 +55,19 @@ export const TOOLS: Tool[] = [
   { id: "random-pick", name: "Random Line Picker", desc: "Pick one or more random lines from a list", badge: "🎲", cat: "gen", page: "/tools/random-line-picker" },
 ];
 
-export const CAT_META: Record<CatKey, { label: string; color: string; count: string }> = {
-  data: { label: "Data & Formatting", color: "var(--cat-data)", count: "18 tools" },
-  encode: { label: "Encode / Decode", color: "var(--cat-encode)", count: "12 tools" },
-  gen: { label: "Generators", color: "var(--cat-gen)", count: "15 tools" },
-  web: { label: "Web Dev Tools", color: "var(--cat-web)", count: "20 tools" },
-  image: { label: "Image Tools", color: "var(--cat-image)", count: "8 tools" },
-  sec: { label: "Security & API", color: "var(--cat-sec)", count: "10 tools" },
+export const CAT_META: Record<CatKey, { label: string; color: string }> = {
+  data: { label: "Data & Formatting", color: "var(--cat-data)" },
+  encode: { label: "Encode / Decode", color: "var(--cat-encode)" },
+  gen: { label: "Generators", color: "var(--cat-gen)" },
+  web: { label: "Web Dev Tools", color: "var(--cat-web)" },
+  image: { label: "Image Tools", color: "var(--cat-image)" },
+  sec: { label: "Security & API", color: "var(--cat-sec)" },
 };
+
+/** Actual tool count per category, always in sync with TOOLS above. */
+export function getCategoryCount(cat: CatKey): number {
+  return TOOLS.filter((t) => t.cat === cat).length;
+}
 
 export const SHORTCUTS: [string, string][] = [
   ["Open search", "⌘ K"],

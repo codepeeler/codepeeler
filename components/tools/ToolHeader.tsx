@@ -1,7 +1,12 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 import CategoryBadge from "@/components/ui/CategoryBadge";
 import type { CatKey } from "@/lib/data/tools";
+import { recordToolVisit } from "@/lib/tool-usage";
 
 type ToolHeaderProps = {
   cat: CatKey;
@@ -11,6 +16,14 @@ type ToolHeaderProps = {
 };
 
 export default function ToolHeader({ cat, badge, title, desc }: ToolHeaderProps) {
+  const pathname = usePathname();
+
+  // Record a visit each time a tool page is opened, so "Popular tools" on
+  // the landing page can reflect what this user actually reaches for.
+  useEffect(() => {
+    if (pathname) recordToolVisit(pathname);
+  }, [pathname]);
+
   return (
     <div className="mb-6">
       <div className="mb-4 flex items-center gap-1 text-[12.5px] text-[var(--text-faint)]">

@@ -1,4 +1,5 @@
-import { CAT_META, type CatKey } from "@/lib/data/tools";
+import Link from "next/link";
+import { CAT_META, getCategoryCount, type CatKey } from "@/lib/data/tools";
 
 export default function Categories() {
   return (
@@ -10,14 +11,15 @@ export default function Categories() {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {(Object.entries(CAT_META) as [CatKey, (typeof CAT_META)[CatKey]][]).map(
           ([key, cat]) => (
-            <div
+            <Link
               key={key}
+              href={`/tools?cat=${key}`}
               style={{ borderLeftColor: cat.color }}
               className="cursor-pointer rounded-[12px] border border-[var(--border)] border-l-[3px] bg-[var(--card)] px-[18px] py-4 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-[var(--shadow-soft)]"
             >
               <div className="mb-[3px] text-[14.5px] font-semibold">{cat.label}</div>
-              <div className="text-xs text-[var(--text-faint)]">{cat.count}</div>
-            </div>
+              <div className="text-xs text-[var(--text-faint)]">{getCategoryCount(key)} tools</div>
+            </Link>
           )
         )}
       </div>
