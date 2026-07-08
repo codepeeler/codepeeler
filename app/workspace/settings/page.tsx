@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 import { Sun, Moon, Trash2, RotateCcw } from "lucide-react";
-import Topbar from "@/components/layout/Topbar";
 import NavRail from "@/components/workspace/NavRail";
 import CollectionsStatsBar from "@/components/collections/CollectionsStatsBar";
 import Toggle from "@/components/ui/Toggle";
@@ -51,8 +50,6 @@ export default function SettingsPage() {
 
   return (
     <WorkflowProvider>
-      <Topbar />
-
       <div className="relative flex min-h-0 flex-1">
         <NavRail />
 

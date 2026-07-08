@@ -2,18 +2,37 @@
 
 import { useRef, useState } from "react";
 import { Undo2, Redo2, Scan, Upload } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { WORKSPACE_TABS } from "@/lib/data/workspace-shell";
 import { useWorkflow } from "@/providers/workflow-provider";
 import { useToast } from "@/providers/toast-provider";
 import type { WorkflowSnapshot } from "@/lib/types/workflow";
 
 export default function TabsBar() {
-  const [activeTab, setActiveTab] = useState<string>("workflow");
-  const { scale, setScale, canUndo, canRedo, undo, redo, runAll, isRunning, exportWorkflow, importWorkflow } =
-    useWorkflow();
+  const {
+    scale,
+    setScale,
+    canUndo,
+    canRedo,
+    undo,
+    redo,
+    runAll,
+    isRunning,
+    exportWorkflow,
+    importWorkflow,
+    activeWorkflowId,
+    workflowName,
+    renameWorkflow,
+  } = useWorkflow();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [draft, setDraft] = useState(workflowName);
+
+  // re-sync the draft only when switching to a different workflow, without
+  // calling setState from inside a useEffect (which would cascade renders)
+  const [syncedWorkflowId, setSyncedWorkflowId] = useState(activeWorkflowId);
+  if (activeWorkflowId !== syncedWorkflowId) {
+    setSyncedWorkflowId(activeWorkflowId);
+    setDraft(workflowName);
+  }
 
   const handleRunAll = async () => {
     const result = await runAll();
@@ -45,21 +64,20 @@ export default function TabsBar() {
 
   return (
     <div className="flex h-11 flex-shrink-0 flex-wrap items-center gap-2 border-b border-[var(--border-soft)] bg-[var(--bg-elev)] px-3">
-      <div className="flex items-center gap-0.5">
-        {WORKSPACE_TABS.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={cn(
-              "rounded-[7px] px-3 py-2 text-[12.5px] font-semibold text-[var(--text-faint)] transition-colors duration-150 hover:bg-[var(--card-hover)] hover:text-[var(--text)]",
-              activeTab === tab.key &&
-                "bg-[var(--card)] text-[var(--text)] shadow-[inset_0_0_0_1px_var(--border)]"
-            )}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <input
+        value={draft}
+        spellCheck={false}
+        title="Workflow name"
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => renameWorkflow(activeWorkflowId, draft)}
+        onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+        className="min-w-[100px] max-w-[200px] flex-shrink-0 rounded-[7px] border border-transparent bg-transparent px-[9px] py-1.5 font-[family-name:var(--font-display)] text-[13px] font-semibold transition-colors duration-150 hover:border-[var(--border)] hover:bg-[var(--card)] focus:border-[var(--primary)] focus:bg-[var(--card)]"
+      />
+
+      <span className="flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-[color-mix(in_srgb,var(--success)_14%,transparent)] py-1 pl-[7px] pr-[9px] text-[11px] font-semibold text-[var(--success)]">
+        <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-current" />
+        Saved locally
+      </span>
 
       <div className="ml-auto flex items-center gap-1">
         <button

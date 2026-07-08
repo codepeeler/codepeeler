@@ -1,7 +1,6 @@
 "use client";
 
 import { BarChart3, Workflow, Wrench, Zap, RefreshCw, Clock } from "lucide-react";
-import Topbar from "@/components/layout/Topbar";
 import NavRail from "@/components/workspace/NavRail";
 import CollectionsStatsBar from "@/components/collections/CollectionsStatsBar";
 import CollectionIcon from "@/components/collections/CollectionIcon";
@@ -64,8 +63,6 @@ export default function DashboardPage() {
 
   return (
     <WorkflowProvider>
-      <Topbar />
-
       <div className="relative flex min-h-0 flex-1">
         <NavRail />
 

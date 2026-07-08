@@ -1,5 +1,4 @@
 import { WorkflowProvider } from "@/providers/workflow-provider";
-import WorkspaceTopbar from "@/components/workspace/WorkspaceTopbar";
 import TabsBar from "@/components/workspace/TabsBar";
 import CanvasToolbar from "@/components/workspace/CanvasToolbar";
 import NavRail from "@/components/workspace/NavRail";
@@ -12,7 +11,6 @@ import MobileFabs from "@/components/workspace/MobileFabs";
 export default function WorkspacePage() {
   return (
     <WorkflowProvider>
-      <WorkspaceTopbar />
       <TabsBar />
       <CanvasToolbar />
 

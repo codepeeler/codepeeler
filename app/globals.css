@@ -55,6 +55,12 @@
   --shadow-glow: 0 0 0 1px rgba(109, 93, 246, 0.12), 0 8px 24px -8px rgba(109, 93, 246, 0.18);
 }
 
+/* the logo asset is white-on-transparent (designed for dark backgrounds),
+   so in light mode we invert it to render dark instead of disappearing */
+[data-theme="light"] .logo-img {
+  filter: invert(1) brightness(0.2);
+}
+
 /* ============================= BASE RESETS ============================= */
 /* Wrapped in @layer base so Tailwind utility classes always win over these */
 @layer base {

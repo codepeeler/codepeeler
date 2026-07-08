@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { Search, ChevronDown, SlidersHorizontal, Plus, Check, X } from "lucide-react";
-import NavRail from "@/components/workspace/NavRail";
-import Topbar from "@/components/layout/Topbar";
+import Sidebar from "@/components/layout/Sidebar";
+import Footer from "@/components/layout/Footer";
 import Dropdown from "@/components/ui/Dropdown";
 import SnippetCard from "@/components/snippets/SnippetCard";
 import SnippetsStatsRow from "@/components/snippets/SnippetsStatsRow";
@@ -145,9 +145,8 @@ export default function SnippetsPage() {
 
   return (
     <WorkflowProvider>
-      <Topbar />
       <div className="relative flex min-h-0 flex-1">
-        <NavRail />
+        <Sidebar />
 
         <main className="flex-1 overflow-y-auto">
           <div className="mx-auto max-w-[1400px] px-6 py-7">
@@ -376,6 +375,8 @@ export default function SnippetsPage() {
               </div>
             )}
           </div>
+
+          <Footer />
         </main>
 
         <div className="py-7 pr-6">

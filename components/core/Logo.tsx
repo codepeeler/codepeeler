@@ -14,7 +14,8 @@ export default function Logo({ width = 140, height = 36 }: LogoProps) {
         alt="CodePeeler"
         width={width}
         height={height}
-        style={{ height: "auto", width: "auto" }}
+        style={{ width, height: "auto" }}
+        className="logo-img"
         priority
       />
     </Link>

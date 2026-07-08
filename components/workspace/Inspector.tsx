@@ -3,9 +3,77 @@
 import { Trash2 } from "lucide-react";
 import { useWorkflow } from "@/providers/workflow-provider";
 import { NODE_TYPES, NODE_CAT_COLOR } from "@/lib/data/node-types";
-import type { HashAlgo } from "@/lib/transforms";
+import type { HashAlgo, SortMode, ReverseMode, ShuffleMode, TruncUnit, LoremUnit, CsvTsvDirection, YamlDirection } from "@/lib/transforms";
 
 const HASH_ALGOS: HashAlgo[] = ["SHA-1", "SHA-256", "SHA-384", "SHA-512"];
+
+function TextField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <div>
+      <label className="mb-1.5 block text-[11px] font-semibold text-[var(--text-dim)]">{label}</label>
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-md border border-[var(--border)] bg-[var(--card)] px-2.5 py-2 text-[12px] text-[var(--text)]"
+      />
+    </div>
+  );
+}
+
+function NumberField({ label, value, onChange, min, max }: { label: string; value: number; onChange: (v: number) => void; min?: number; max?: number }) {
+  return (
+    <div>
+      <label className="mb-1.5 block text-[11px] font-semibold text-[var(--text-dim)]">{label}</label>
+      <input
+        type="number"
+        value={value}
+        min={min}
+        max={max}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="w-full rounded-md border border-[var(--border)] bg-[var(--card)] px-2.5 py-2 text-[12px] text-[var(--text)]"
+      />
+    </div>
+  );
+}
+
+function SelectField<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: T;
+  options: readonly T[];
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div>
+      <label className="mb-1.5 block text-[11px] font-semibold text-[var(--text-dim)]">{label}</label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value as T)}
+        className="w-full rounded-md border border-[var(--border)] bg-[var(--card)] px-2.5 py-2 text-[12px] text-[var(--text)]"
+      >
+        {options.map((o) => (
+          <option key={o} value={o}>
+            {o}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+function CheckField({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <label className="flex items-center justify-between text-[11.5px] text-[var(--text-dim)]">
+      <span>{label}</span>
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="accent-[var(--primary)]" />
+    </label>
+  );
+}
 
 export default function Inspector() {
   const { nodes, selectedIds, deleteSelected, conns, updateNodeSettings, inspectorWidth, setInspectorWidth } =
@@ -161,6 +229,127 @@ export default function Inspector() {
                   />
                 </label>
               ))}
+            </div>
+          )}
+
+          {node.type === "regex-test" && (
+            <div className="mb-4 space-y-3">
+              <TextField label="Pattern" value={node.settings?.pattern ?? ""} onChange={(v) => updateNodeSettings(node.id, { pattern: v })} />
+              <TextField label="Flags" value={node.settings?.flags ?? "g"} onChange={(v) => updateNodeSettings(node.id, { flags: v })} />
+            </div>
+          )}
+
+          {node.type === "find-replace" && (
+            <div className="mb-4 space-y-3">
+              <TextField label="Find" value={node.settings?.find ?? ""} onChange={(v) => updateNodeSettings(node.id, { find: v })} />
+              <TextField label="Replace" value={node.settings?.replace ?? ""} onChange={(v) => updateNodeSettings(node.id, { replace: v })} />
+              <CheckField label="Use regex" checked={node.settings?.useRegex ?? false} onChange={(v) => updateNodeSettings(node.id, { useRegex: v })} />
+            </div>
+          )}
+
+          {node.type === "text-repeat" && (
+            <div className="mb-4 space-y-3">
+              <NumberField label="Times" value={node.settings?.times ?? 3} min={1} onChange={(v) => updateNodeSettings(node.id, { times: v })} />
+              <TextField label="Separator" value={node.settings?.separator ?? "\n"} onChange={(v) => updateNodeSettings(node.id, { separator: v })} />
+            </div>
+          )}
+
+          {node.type === "text-truncate" && (
+            <div className="mb-4 space-y-3">
+              <NumberField label="Length" value={node.settings?.truncLength ?? 100} min={0} onChange={(v) => updateNodeSettings(node.id, { truncLength: v })} />
+              <SelectField<TruncUnit>
+                label="Unit"
+                value={node.settings?.truncUnit ?? "chars"}
+                options={["chars", "words"]}
+                onChange={(v) => updateNodeSettings(node.id, { truncUnit: v })}
+              />
+              <TextField label="Suffix" value={node.settings?.suffix ?? "…"} onChange={(v) => updateNodeSettings(node.id, { suffix: v })} />
+            </div>
+          )}
+
+          {node.type === "lorem-gen" && (
+            <div className="mb-4 space-y-3">
+              <SelectField<LoremUnit>
+                label="Unit"
+                value={node.settings?.loremUnit ?? "paragraphs"}
+                options={["words", "sentences", "paragraphs"]}
+                onChange={(v) => updateNodeSettings(node.id, { loremUnit: v })}
+              />
+              <NumberField label="Count" value={node.settings?.loremCount ?? 3} min={1} onChange={(v) => updateNodeSettings(node.id, { loremCount: v })} />
+            </div>
+          )}
+
+          {node.type === "random-pick" && (
+            <div className="mb-4 space-y-3">
+              <NumberField label="How many lines" value={node.settings?.pickCount ?? 1} min={1} onChange={(v) => updateNodeSettings(node.id, { pickCount: v })} />
+            </div>
+          )}
+
+          {node.type === "line-shuffle" && (
+            <div className="mb-4 space-y-3">
+              <SelectField<ShuffleMode>
+                label="Shuffle"
+                value={node.settings?.shuffleMode ?? "lines"}
+                options={["lines", "words"]}
+                onChange={(v) => updateNodeSettings(node.id, { shuffleMode: v })}
+              />
+            </div>
+          )}
+
+          {node.type === "text-sort" && (
+            <div className="mb-4 space-y-3">
+              <SelectField<SortMode>
+                label="Sort by"
+                value={node.settings?.sortMode ?? "alpha"}
+                options={["alpha", "numeric", "length"]}
+                onChange={(v) => updateNodeSettings(node.id, { sortMode: v })}
+              />
+              <CheckField label="Reverse" checked={node.settings?.sortReverse ?? false} onChange={(v) => updateNodeSettings(node.id, { sortReverse: v })} />
+            </div>
+          )}
+
+          {node.type === "csv-tsv" && (
+            <div className="mb-4 space-y-3">
+              <SelectField<CsvTsvDirection>
+                label="Direction"
+                value={node.settings?.csvDirection ?? "csv2tsv"}
+                options={["csv2tsv", "tsv2csv"]}
+                onChange={(v) => updateNodeSettings(node.id, { csvDirection: v })}
+              />
+            </div>
+          )}
+
+          {node.type === "jsonpath" && (
+            <div className="mb-4 space-y-3">
+              <TextField label="JSONPath expression" value={node.settings?.jsonPath ?? "$"} onChange={(v) => updateNodeSettings(node.id, { jsonPath: v })} />
+            </div>
+          )}
+
+          {node.type === "json-yaml" && (
+            <div className="mb-4 space-y-3">
+              <SelectField<YamlDirection>
+                label="Direction"
+                value={node.settings?.yamlDirection ?? "json2yaml"}
+                options={["json2yaml", "yaml2json"]}
+                onChange={(v) => updateNodeSettings(node.id, { yamlDirection: v })}
+              />
+            </div>
+          )}
+
+          {node.type === "text-reverse" && (
+            <div className="mb-4 space-y-3">
+              <SelectField<ReverseMode>
+                label="Reverse by"
+                value={node.settings?.reverseMode ?? "line"}
+                options={["char", "word", "line"]}
+                onChange={(v) => updateNodeSettings(node.id, { reverseMode: v })}
+              />
+            </div>
+          )}
+
+          {node.type === "line-number" && (
+            <div className="mb-4 space-y-3">
+              <NumberField label="Start at" value={node.settings?.lineStart ?? 1} min={0} onChange={(v) => updateNodeSettings(node.id, { lineStart: v })} />
             </div>
           )}
 

@@ -2,8 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Plus, Search, LayoutGrid, List, ChevronDown, SlidersHorizontal, X, Check } from "lucide-react";
-import NavRail from "@/components/workspace/NavRail";
-import Topbar from "@/components/layout/Topbar";
+import Sidebar from "@/components/layout/Sidebar";
 import CollectionCard from "@/components/collections/CollectionCard";
 import CollectionDetailsPanel from "@/components/collections/CollectionDetailsPanel";
 import CollectionsStatsBar from "@/components/collections/CollectionsStatsBar";
@@ -205,10 +204,8 @@ export default function CollectionsPage() {
 
   return (
     <WorkflowProvider>
-      <Topbar />
-
       <div className="relative flex min-h-0 flex-1">
-        <NavRail />
+        <Sidebar />
 
         <main className="flex-1 overflow-y-auto">
           <div className="mx-auto max-w-[1400px] px-6 py-7">

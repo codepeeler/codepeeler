@@ -1,39 +1,46 @@
-import {
-  LayoutDashboard,
-  Wrench,
-  FolderOpen,
-  BookOpen,
-  Settings,
-} from "lucide-react";
+"use client";
 
-const items = [
-  LayoutDashboard,
-  Wrench,
-  FolderOpen,
-  BookOpen,
-  Settings,
-];
+import { useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { ChevronLeft } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { NAV_RAIL_ITEMS } from "@/lib/data/workspace-shell";
 
 export default function Sidebar() {
-  return (
-    <aside className="flex w-20 flex-col items-center border-r border-[var(--border)] bg-[var(--surface)]">
+  const pathname = usePathname();
+  const [collapsed, setCollapsed] = useState(false);
 
-      <div className="flex h-20 items-center justify-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--primary)] font-bold text-white">
-          CP
-        </div>
+  return (
+    <nav
+      style={{ width: collapsed ? "64px" : "var(--w-navrail)" }}
+      className="z-[40] flex flex-shrink-0 flex-col overflow-y-auto border-r border-[var(--border-soft)] bg-[var(--bg-elev)] transition-[width] duration-150"
+    >
+      <div className="flex items-center justify-end px-2.5 pb-1 pt-2.5">
+        <button
+          onClick={() => setCollapsed((v) => !v)}
+          title="Collapse sidebar"
+          className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md text-[var(--text-faint)] transition-colors duration-150 hover:bg-[var(--card-hover)] hover:text-[var(--text)]"
+        >
+          <ChevronLeft size={14} className={cn("transition-transform", collapsed && "rotate-180")} />
+        </button>
       </div>
 
-      <nav className="flex flex-1 flex-col gap-3 pt-6">
-        {items.map((Icon, index) => (
-          <button
-            key={index}
-            className="flex h-12 w-12 items-center justify-center rounded-xl text-[var(--text-muted)] transition hover:bg-[var(--card)] hover:text-white"
+      <div className="px-2 pb-2 pt-1">
+        {NAV_RAIL_ITEMS.map(({ key, label, href, icon: Icon }) => (
+          <Link
+            key={key}
+            href={href}
+            className={cn(
+              "mb-px flex items-center gap-2.5 rounded-lg px-[9px] py-2 text-[12.5px] font-semibold text-[var(--text-dim)] transition-colors duration-150 hover:bg-[var(--card-hover)] hover:text-[var(--text)]",
+              pathname === href && "bg-[var(--primary-dim)] text-[var(--primary)]"
+            )}
           >
-            <Icon size={22} />
-          </button>
+            <Icon size={15} className="flex-shrink-0 opacity-85" />
+            {!collapsed && <span>{label}</span>}
+          </Link>
         ))}
-      </nav>
-    </aside>
+      </div>
+    </nav>
   );
 }

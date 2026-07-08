@@ -32,7 +32,38 @@ export type NodeTypeId =
   | "hash"
   | "jwt-decode"
   | "password-gen"
-  | "export";
+  | "export"
+  // --- newly added node types (bring workspace up to parity with the 42 tool pages) ---
+  | "title-case"
+  | "sentence-case"
+  | "uuid-gen"
+  | "regex-test"
+  | "qr-gen"
+  | "json-tree"
+  | "csv-view"
+  | "csv-clean"
+  | "csv-tsv"
+  | "jsonpath"
+  | "markdown-preview"
+  | "json-yaml"
+  | "yaml-lint"
+  | "text-sort"
+  | "dedupe-lines"
+  | "remove-empty-lines"
+  | "whitespace-clean"
+  | "find-replace"
+  | "text-reverse"
+  | "slug-gen"
+  | "palindrome-check"
+  | "text-repeat"
+  | "char-freq"
+  | "line-number"
+  | "text-truncate"
+  | "line-shuffle"
+  | "readability"
+  | "smart-quotes"
+  | "random-pick"
+  | "lorem-gen";
 
 export const NODE_TYPES: Record<
   NodeTypeId,
@@ -61,14 +92,86 @@ export const NODE_TYPES: Record<
   "jwt-decode": { label: "JWT Decoder", desc: "Decode JWT tokens", badge: "JWT", cat: "sec" },
   "password-gen": { label: "Password Generator", desc: "Create strong passwords", badge: "••", cat: "gen" },
   export: { label: "Export", desc: "Save to Collection", badge: "↓", cat: "flow", noOutput: true },
+
+  // --- newly added ---
+  "title-case": { label: "Title Case", desc: "Capitalize Each Word", badge: "Aa", cat: "text" },
+  "sentence-case": { label: "Sentence case", desc: "Capitalize the first letter of each sentence", badge: "A.", cat: "text" },
+  "uuid-gen": { label: "UUID Generator", desc: "Generate a random UUID v4", badge: "id", cat: "gen", noInput: true },
+  "regex-test": { label: "Regex Tester", desc: "Test a pattern against the input", badge: ".*", cat: "web" },
+  "qr-gen": { label: "QR Generator", desc: "Generate a QR code (data URI)", badge: "▦", cat: "gen" },
+  "json-tree": { label: "JSON Tree Viewer", desc: "Explore JSON as an indented tree", badge: "⌂", cat: "data" },
+  "csv-view": { label: "CSV Viewer", desc: "Render CSV as an aligned table", badge: "▤", cat: "data" },
+  "csv-clean": { label: "CSV Cleaner", desc: "Trim, dedupe & strip empty rows/cols", badge: "✓", cat: "data" },
+  "csv-tsv": { label: "CSV ↔ TSV Converter", desc: "Convert between CSV and TSV", badge: "⇥", cat: "data" },
+  jsonpath: { label: "JSONPath Tester", desc: "Query JSON with a JSONPath expression", badge: "$.", cat: "data" },
+  "markdown-preview": { label: "Markdown Previewer", desc: "Convert Markdown to HTML", badge: "M↓", cat: "data" },
+  "json-yaml": { label: "JSON ⇄ YAML", desc: "Convert between JSON and basic YAML", badge: "⇄", cat: "data" },
+  "yaml-lint": { label: "YAML Formatter", desc: "Validate & re-indent basic YAML", badge: "Y", cat: "data" },
+  "text-sort": { label: "Text Sorter", desc: "Sort lines alphabetically, numerically & more", badge: "↕", cat: "text" },
+  "dedupe-lines": { label: "Remove Duplicate Lines", desc: "Strip repeated lines, keep first occurrence", badge: "≠=", cat: "text" },
+  "remove-empty-lines": { label: "Remove Empty Lines", desc: "Strip blank/whitespace-only lines", badge: "⌫", cat: "text" },
+  "whitespace-clean": { label: "Whitespace Cleaner", desc: "Trim & collapse extra spaces/tabs/blank lines", badge: "⎵", cat: "text" },
+  "find-replace": { label: "Find & Replace", desc: "Bulk replace text, with optional regex", badge: "⇄", cat: "text" },
+  "text-reverse": { label: "Text Reverser", desc: "Reverse by character, word, or line", badge: "⇋", cat: "text" },
+  "slug-gen": { label: "Slug Generator", desc: "Turn titles into URL-safe slugs", badge: "/-/", cat: "text" },
+  "palindrome-check": { label: "Palindrome Checker", desc: "Check if text reads the same backwards", badge: "◫◫", cat: "text" },
+  "text-repeat": { label: "Text Repeater", desc: "Repeat text N times with a separator", badge: "×N", cat: "text" },
+  "char-freq": { label: "Character & Word Frequency", desc: "Rank how often each char/word appears", badge: "▦#", cat: "text" },
+  "line-number": { label: "Line Numberer", desc: "Add sequential numbers to each line", badge: "1.", cat: "text" },
+  "text-truncate": { label: "Text Truncator", desc: "Truncate by chars or words with a suffix", badge: "…", cat: "text" },
+  "line-shuffle": { label: "Line / Word Shuffle", desc: "Randomly shuffle lines or words", badge: "⤨", cat: "text" },
+  readability: { label: "Readability Checker", desc: "Flesch score, grade level & reading time", badge: "📖", cat: "text" },
+  "smart-quotes": { label: "Typographic Quotes", desc: "Straight ↔ curly quotes, dashes & ellipses", badge: "“”", cat: "text" },
+  "random-pick": { label: "Random Line Picker", desc: "Pick one or more random lines", badge: "🎲", cat: "gen" },
+  "lorem-gen": { label: "Lorem Ipsum Generator", desc: "Placeholder text by word, sentence or paragraph", badge: "¶", cat: "gen", noInput: true },
 };
 
 export const PALETTE_GROUPS: { label: string; items: NodeTypeId[] }[] = [
   { label: "Flow", items: ["input", "export"] },
-  { label: "Data & Formatting", items: ["json-format", "json-minify", "csv-json", "xml-format"] },
+  {
+    label: "Data & Formatting",
+    items: [
+      "json-format",
+      "json-minify",
+      "csv-json",
+      "xml-format",
+      "json-tree",
+      "csv-view",
+      "csv-clean",
+      "csv-tsv",
+      "jsonpath",
+      "markdown-preview",
+      "json-yaml",
+      "yaml-lint",
+    ],
+  },
   { label: "Encode / Decode", items: ["base64-encode", "base64-decode"] },
-  { label: "Web", items: ["url-encode", "url-decode"] },
-  { label: "Text Tools", items: ["uppercase", "lowercase", "word-count"] },
+  { label: "Web", items: ["url-encode", "url-decode", "regex-test"] },
+  {
+    label: "Text Tools",
+    items: [
+      "uppercase",
+      "lowercase",
+      "title-case",
+      "sentence-case",
+      "word-count",
+      "text-sort",
+      "dedupe-lines",
+      "remove-empty-lines",
+      "whitespace-clean",
+      "find-replace",
+      "text-reverse",
+      "slug-gen",
+      "palindrome-check",
+      "text-repeat",
+      "char-freq",
+      "line-number",
+      "text-truncate",
+      "line-shuffle",
+      "readability",
+      "smart-quotes",
+    ],
+  },
   { label: "Security", items: ["hash", "jwt-decode"] },
-  { label: "Generator", items: ["password-gen"] },
+  { label: "Generator", items: ["password-gen", "uuid-gen", "qr-gen", "lorem-gen", "random-pick"] },
 ];
