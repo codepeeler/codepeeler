@@ -3,15 +3,22 @@ import type {
   ApiResponse,
   AuthConfig,
   Collection,
+  CollectionItem,
   Environment,
+  EnvironmentVariable,
   GlobalVariable,
   HistoryEntry,
   KVRow,
   RequestBody,
   RequestError,
   RequestTab,
+  RunnerDataRow,
+  RunnerRequestResult,
+  RunnerSummary,
+  StoredCookie,
   TestResult,
 } from "./types";
+import { deepDiff } from "@/lib/json-diff";
 
 /* ============================= id / factory helpers ============================= */
 export function uid(): string {
@@ -24,7 +31,27 @@ export function newRow(extra: Partial<KVRow> = {}): KVRow {
 
 export function emptyRequest(overrides: Partial<ApiRequest> = {}): ApiRequest {
   const body: RequestBody = { mode: "none", raw: "", rawType: "json", formData: [newRow()], urlencoded: [newRow()] };
-  const auth: AuthConfig = { type: "none", token: "", username: "", password: "", apiKeyName: "", apiKeyValue: "", apiKeyIn: "header" };
+  const auth: AuthConfig = {
+    type: "none",
+    token: "",
+    username: "",
+    password: "",
+    apiKeyName: "",
+    apiKeyValue: "",
+    apiKeyIn: "header",
+    oauth2: {
+      grantType: "client_credentials",
+      accessTokenUrl: "",
+      clientId: "",
+      clientSecret: "",
+      scope: "",
+      username: "",
+      password: "",
+      manualToken: "",
+      headerPrefix: "Bearer",
+    },
+    awsv4: { accessKeyId: "", secretAccessKey: "", sessionToken: "", region: "us-east-1", service: "execute-api" },
+  };
   return {
     method: "GET",
     url: "",
@@ -36,7 +63,9 @@ export function emptyRequest(overrides: Partial<ApiRequest> = {}): ApiRequest {
       "// Runs before the request is sent.\n// pt.environment.set('token', '123');\n// pt.variables.set('now', Date.now());\n",
     testScript:
       '// Runs after the response is received.\npt.test("Status code is 2xx", () => {\n  pt.expect(pt.response.status).toBeBetween(200, 299);\n});\n',
-    settings: { timeout: 30000, followRedirects: true, sslVerify: true },
+    settings: { timeout: 30000, followRedirects: true, sslVerify: true, maxRetries: 0, retryDelayMs: 500, forceProxy: false },
+    localVars: [],
+    description: "",
     ...overrides,
   };
 }
@@ -55,16 +84,27 @@ export function newTab(overrides: Partial<RequestTab> = {}): RequestTab {
     reqTab: "params",
     respTab: "pretty",
     testResults: null,
+    previousResponse: null,
     ...overrides,
   };
 }
 
-/* ============================= variable interpolation ============================= */
-export function collectVars(environments: Environment[], activeEnvId: string | null, globalVars: GlobalVariable[]): Record<string, string> {
+/* ============================= variable interpolation =============================
+ * Precedence, lowest to highest: global -> environment -> collection -> request-local.
+ * Each later layer overrides keys set by earlier ones, mirroring Postman's variable scope order. */
+export function collectVars(
+  environments: Environment[],
+  activeEnvId: string | null,
+  globalVars: GlobalVariable[],
+  collectionVars: EnvironmentVariable[] = [],
+  localVars: EnvironmentVariable[] = []
+): Record<string, string> {
   const map: Record<string, string> = {};
   globalVars.forEach((v) => { if (v.key) map[v.key] = v.value; });
   const env = environments.find((e) => e.id === activeEnvId);
   if (env) env.variables.forEach((v) => { if (v.key && v.enabled !== false) map[v.key] = v.value; });
+  collectionVars.forEach((v) => { if (v.key && v.enabled !== false) map[v.key] = v.value; });
+  localVars.forEach((v) => { if (v.key && v.enabled !== false) map[v.key] = v.value; });
   return map;
 }
 
@@ -85,6 +125,104 @@ export function buildFinalUrl(request: ApiRequest, vars: Record<string, string>)
   return qs ? `${path}?${qs}` : path;
 }
 
+/* ---- crypto helpers (Web Crypto, available in browser & modern Node) ---- */
+async function sha256Hex(input: string | ArrayBuffer): Promise<string> {
+  const data = typeof input === "string" ? new TextEncoder().encode(input) : input;
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+async function hmacSha256(key: ArrayBuffer | string, data: string): Promise<ArrayBuffer> {
+  const keyData = typeof key === "string" ? new TextEncoder().encode(key) : key;
+  const cryptoKey = await crypto.subtle.importKey("raw", keyData as BufferSource, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  return crypto.subtle.sign("HMAC", cryptoKey, new TextEncoder().encode(data));
+}
+
+/** In-memory OAuth2 token cache, keyed by token endpoint + client id + scope. Cleared on page reload — mirrors a lightweight client credentials cache without persisting secrets to localStorage. */
+const oauth2TokenCache = new Map<string, { token: string; expiry: number }>();
+
+async function fetchOAuth2Token(auth: AuthConfig, vars: Record<string, string>): Promise<string> {
+  const cfg = auth.oauth2;
+  if (cfg.grantType === "authorization_code_manual") return interpolate(cfg.manualToken, vars);
+
+  const url = interpolate(cfg.accessTokenUrl, vars);
+  const clientId = interpolate(cfg.clientId, vars);
+  const clientSecret = interpolate(cfg.clientSecret, vars);
+  const scope = interpolate(cfg.scope, vars);
+  const cacheKey = `${url}|${clientId}|${scope}|${cfg.grantType}`;
+  const cached = oauth2TokenCache.get(cacheKey);
+  if (cached && cached.expiry > Date.now() + 5000) return cached.token;
+
+  if (!url) throw new Error("OAuth 2.0: Access Token URL is required");
+  const form = new URLSearchParams();
+  form.set("grant_type", cfg.grantType);
+  if (clientId) form.set("client_id", clientId);
+  if (clientSecret) form.set("client_secret", clientSecret);
+  if (scope) form.set("scope", scope);
+  if (cfg.grantType === "password") {
+    form.set("username", interpolate(cfg.username, vars));
+    form.set("password", interpolate(cfg.password, vars));
+  }
+  const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: form.toString() });
+  const text = await res.text();
+  let json: any;
+  try { json = JSON.parse(text); } catch { throw new Error(`OAuth 2.0 token endpoint did not return JSON (status ${res.status})`); }
+  if (!res.ok || !json.access_token) throw new Error(json.error_description || json.error || `OAuth 2.0 token request failed (status ${res.status})`);
+  const expiresIn = Number(json.expires_in) || 3600;
+  oauth2TokenCache.set(cacheKey, { token: json.access_token, expiry: Date.now() + expiresIn * 1000 });
+  return json.access_token as string;
+}
+
+/** AWS Signature Version 4 — signs headers for direct calls to AWS services (e.g. API Gateway, S3). */
+async function signAwsV4(
+  auth: AuthConfig,
+  vars: Record<string, string>,
+  method: string,
+  url: string,
+  headers: Record<string, string>,
+  body: string | undefined
+): Promise<Record<string, string>> {
+  const cfg = auth.awsv4;
+  const accessKeyId = interpolate(cfg.accessKeyId, vars);
+  const secretAccessKey = interpolate(cfg.secretAccessKey, vars);
+  const sessionToken = interpolate(cfg.sessionToken, vars);
+  const region = interpolate(cfg.region, vars) || "us-east-1";
+  const service = interpolate(cfg.service, vars) || "execute-api";
+  if (!accessKeyId || !secretAccessKey) return {};
+
+  const u = new URL(url);
+  const now = new Date();
+  const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, "");
+  const dateStamp = amzDate.slice(0, 8);
+
+  const signedHeaders: Record<string, string> = { ...headers, host: u.host, "x-amz-date": amzDate };
+  if (sessionToken) signedHeaders["x-amz-security-token"] = sessionToken;
+  const sortedHeaderKeys = Object.keys(signedHeaders).map((k) => k.toLowerCase()).sort();
+  const canonicalHeaders = sortedHeaderKeys.map((k) => `${k}:${(Object.entries(signedHeaders).find(([hk]) => hk.toLowerCase() === k)?.[1] || "").trim()}\n`).join("");
+  const signedHeadersList = sortedHeaderKeys.join(";");
+
+  const searchParams = new URLSearchParams(u.search);
+  const sortedQuery = Array.from(searchParams.entries()).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+  const canonicalQuery = sortedQuery.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join("&");
+
+  const payloadHash = await sha256Hex(body || "");
+  const canonicalRequest = [method.toUpperCase(), u.pathname || "/", canonicalQuery, canonicalHeaders, signedHeadersList, payloadHash].join("\n");
+
+  const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
+  const stringToSign = ["AWS4-HMAC-SHA256", amzDate, credentialScope, await sha256Hex(canonicalRequest)].join("\n");
+
+  const kDate = await hmacSha256(`AWS4${secretAccessKey}`, dateStamp);
+  const kRegion = await hmacSha256(kDate, region);
+  const kService = await hmacSha256(kRegion, service);
+  const kSigning = await hmacSha256(kService, "aws4_request");
+  const signatureBuf = await hmacSha256(kSigning, stringToSign);
+  const signature = Array.from(new Uint8Array(signatureBuf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+
+  const authorizationHeader = `AWS4-HMAC-SHA256 Credential=${accessKeyId}/${credentialScope}, SignedHeaders=${signedHeadersList}, Signature=${signature}`;
+  const out: Record<string, string> = { "X-Amz-Date": amzDate, Authorization: authorizationHeader };
+  if (sessionToken) out["X-Amz-Security-Token"] = sessionToken;
+  return out;
+}
+
 function buildAuthHeaders(auth: AuthConfig, vars: Record<string, string>) {
   const headers: Record<string, string> = {};
   const params: Record<string, string> = {};
@@ -98,8 +236,33 @@ function buildAuthHeaders(auth: AuthConfig, vars: Record<string, string>) {
     const val = interpolate(auth.apiKeyValue, vars);
     if (auth.apiKeyIn === "query") params[interpolate(auth.apiKeyName, vars)] = val;
     else headers[interpolate(auth.apiKeyName, vars)] = val;
+  } else if (auth.type === "oauth2" && (auth.oauth2.manualToken || auth.oauth2.accessTokenUrl)) {
+    // Preview only — actual token fetch happens asynchronously in buildAuthHeadersAsync at send time.
+    headers["Authorization"] = `${auth.oauth2.headerPrefix || "Bearer"} <token fetched at send time>`;
+  } else if (auth.type === "awsv4" && auth.awsv4.accessKeyId) {
+    headers["Authorization"] = "AWS4-HMAC-SHA256 <computed at send time>";
   }
   return { headers, params };
+}
+
+/** Async variant used when actually sending: resolves OAuth2 tokens and computes AWS SigV4 signatures for real. */
+async function buildAuthHeadersAsync(
+  auth: AuthConfig,
+  vars: Record<string, string>,
+  method: string,
+  urlForSigning: string,
+  headersForSigning: Record<string, string>,
+  bodyForSigning: string | undefined
+): Promise<{ headers: Record<string, string>; params: Record<string, string> }> {
+  if (auth.type === "oauth2") {
+    const token = await fetchOAuth2Token(auth, vars);
+    return { headers: { Authorization: `${auth.oauth2.headerPrefix || "Bearer"} ${token}` }, params: {} };
+  }
+  if (auth.type === "awsv4") {
+    const headers = await signAwsV4(auth, vars, method, urlForSigning, headersForSigning, bodyForSigning);
+    return { headers, params: {} };
+  }
+  return buildAuthHeaders(auth, vars);
 }
 
 const CONTENT_TYPES: Record<string, string> = { json: "application/json", text: "text/plain", html: "text/html", xml: "application/xml", js: "application/javascript" };
@@ -130,6 +293,44 @@ export function buildHeadersAndBody(request: ApiRequest, vars: Record<string, st
     body = interpolate(request.body.raw, vars);
     if (!hasCT()) headers["Content-Type"] = "application/json";
   }
+  return { headers, body, authParams };
+}
+
+/** Async variant used at send time: fetches real OAuth2 tokens and computes real AWS SigV4 signatures. */
+export async function buildHeadersAndBodyAsync(request: ApiRequest, vars: Record<string, string>, finalUrl: string) {
+  const headers: Record<string, string> = {};
+  request.headers.filter((h) => h.enabled && h.key).forEach((h) => { headers[interpolate(h.key, vars)] = interpolate(h.value, vars); });
+
+  let body: string | FormData | undefined;
+  const mode = request.body.mode;
+  const hasCT = () => Object.keys(headers).some((h) => h.toLowerCase() === "content-type");
+
+  if (mode === "raw" && request.body.raw) {
+    body = interpolate(request.body.raw, vars);
+    if (!hasCT()) headers["Content-Type"] = CONTENT_TYPES[request.body.rawType] || "text/plain";
+  } else if (mode === "urlencoded") {
+    const usp = new URLSearchParams();
+    request.body.urlencoded.filter((r) => r.enabled && r.key).forEach((r) => usp.append(interpolate(r.key, vars), interpolate(r.value, vars)));
+    body = usp.toString();
+    if (!hasCT()) headers["Content-Type"] = "application/x-www-form-urlencoded";
+  } else if (mode === "form-data") {
+    const fd = new FormData();
+    request.body.formData.filter((r) => r.enabled && r.key).forEach((r) => fd.append(interpolate(r.key, vars), interpolate(r.value, vars)));
+    body = fd as unknown as string;
+  } else if (mode === "graphql") {
+    body = interpolate(request.body.raw, vars);
+    if (!hasCT()) headers["Content-Type"] = "application/json";
+  }
+
+  const { headers: authHeaders, params: authParams } = await buildAuthHeadersAsync(
+    request.auth,
+    vars,
+    request.method,
+    finalUrl,
+    headers,
+    typeof body === "string" ? body : undefined
+  );
+  Object.assign(headers, authHeaders);
   return { headers, body, authParams };
 }
 
@@ -212,6 +413,48 @@ function runScript(code: string, ctx: unknown): { ok: boolean; error: string | n
   }
 }
 
+/* ============================= cookie jar =============================
+ * Browsers never expose Set-Cookie to JS, even same-origin — so instead of pretending to read
+ * response cookies, CodePeeler keeps an explicit, editable jar per domain (like Postman's engine,
+ * which isn't bound by browser fetch restrictions either) and attaches it as a Cookie header. */
+export function cookieHeaderForUrl(cookies: StoredCookie[], url: string): string {
+  let host = "";
+  try { host = new URL(url).hostname; } catch { return ""; }
+  const matches = cookies.filter((c) => c.enabled && c.name && host.endsWith(c.domain.replace(/^\./, "")));
+  return matches.map((c) => `${c.name}=${c.value}`).join("; ");
+}
+
+/** Calls the server-side proxy route (app/api/proxy) to relay a request outside the browser's CORS sandbox. Only supports string bodies — form-data (multipart) requests can't be serialized to JSON, so they always go out directly. */
+async function sendViaProxy(
+  method: string,
+  url: string,
+  headers: Record<string, string>,
+  body: string | undefined,
+  timeout: number
+): Promise<{ response?: ApiResponse; errorMessage?: string }> {
+  const res = await fetch("/api/proxy", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ method, url, headers, body, timeout }),
+  });
+  const data = await res.json();
+  if (data.proxyError) return { errorMessage: data.proxyError };
+  const bodyText: string = data.bodyText ?? "";
+  return {
+    response: {
+      status: data.status,
+      statusText: data.statusText,
+      ok: data.ok,
+      headers: data.headers || {},
+      bodyText,
+      size: new Blob([bodyText]).size,
+      duration: data.duration,
+      url: data.finalUrl || url,
+      viaProxy: true,
+    },
+  };
+}
+
 /* ============================= sending the request ============================= */
 export interface ExecuteContext {
   environments: Environment[];
@@ -219,6 +462,10 @@ export interface ExecuteContext {
   globalVars: GlobalVariable[];
   setEnvironments: (envs: Environment[]) => void;
   setGlobalVars: (vars: GlobalVariable[]) => void;
+  collectionVars?: EnvironmentVariable[];
+  cookies?: StoredCookie[];
+  /** Override for iteration data in the Collection Runner: merged on top of everything else. */
+  extraVars?: Record<string, string>;
 }
 export interface ExecuteResult {
   response: ApiResponse | null;
@@ -226,10 +473,11 @@ export interface ExecuteResult {
   testResults: TestResult[] | null;
   preScriptError: string | null;
   finalUrl: string;
+  attempts: number;
 }
 
 export async function executeRequest(tab: RequestTab, ctxArgs: ExecuteContext): Promise<ExecuteResult> {
-  const { environments, activeEnvId, globalVars, setEnvironments, setGlobalVars } = ctxArgs;
+  const { environments, activeEnvId, globalVars, setEnvironments, setGlobalVars, collectionVars = [], cookies = [], extraVars = {} } = ctxArgs;
   const request = tab.request;
   const localEnvironments = environments.map((e) => ({ ...e, variables: e.variables.map((v) => ({ ...v })) }));
   const localGlobalVars = globalVars.map((v) => ({ ...v }));
@@ -237,39 +485,75 @@ export async function executeRequest(tab: RequestTab, ctxArgs: ExecuteContext): 
   const { ctx: preCtx } = makeScriptContext({ localEnvironments, activeEnvId, localGlobalVars, request });
   const preResult = runScript(request.preScript, preCtx);
 
-  const finalVars = collectVars(localEnvironments, activeEnvId, localGlobalVars);
-  let url = buildFinalUrl(request, finalVars);
-  const { headers, body, authParams } = buildHeadersAndBody(request, finalVars);
-  if (Object.keys(authParams).length) {
-    const usp = new URLSearchParams(url.includes("?") ? url.split("?")[1] : "");
-    Object.entries(authParams).forEach(([k, v]) => usp.set(k, v));
-    url = `${url.split("?")[0]}?${usp.toString()}`;
-  }
+  const finalVars = { ...collectVars(localEnvironments, activeEnvId, localGlobalVars, collectionVars, request.localVars), ...extraVars };
+  const url = buildFinalUrl(request, finalVars);
 
   const controller = new AbortController();
   const timeout = request.settings?.timeout || 30000;
-  const timer = setTimeout(() => controller.abort(), timeout);
-  const start = performance.now();
+  const maxRetries = Math.max(0, request.settings?.maxRetries || 0);
+  const retryDelay = Math.max(0, request.settings?.retryDelayMs ?? 500);
 
   let response: ApiResponse | null = null;
   let error: RequestError | null = null;
-  try {
-    const fetchInit: RequestInit = { method: request.method, headers, signal: controller.signal };
-    if (!["GET", "HEAD"].includes(request.method) && body !== undefined) fetchInit.body = body as BodyInit;
-    const res = await fetch(url, fetchInit);
-    const duration = performance.now() - start;
-    const bodyText = await res.text();
-    const size = new Blob([bodyText]).size;
-    const resHeaders: Record<string, string> = {};
-    res.headers.forEach((v, k) => { resHeaders[k] = v; });
-    response = { status: res.status, statusText: res.statusText, ok: res.ok, headers: resHeaders, bodyText, size, duration, url };
-  } catch (e: any) {
-    const duration = performance.now() - start;
-    if (e?.name === "AbortError") error = { message: `Request timed out after ${timeout}ms`, duration };
-    else error = { message: e?.message || "Network error — the request could not be completed (often CORS, an unreachable host, or mixed content).", duration };
-  } finally {
-    clearTimeout(timer);
+  let attempts = 0;
+  const overallStart = performance.now();
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    attempts = attempt + 1;
+    const { headers, body, authParams } = await buildHeadersAndBodyAsync(request, finalVars, url);
+    let attemptUrl = url;
+    if (Object.keys(authParams).length) {
+      const usp = new URLSearchParams(attemptUrl.includes("?") ? attemptUrl.split("?")[1] : "");
+      Object.entries(authParams).forEach(([k, v]) => usp.set(k, v));
+      attemptUrl = `${attemptUrl.split("?")[0]}?${usp.toString()}`;
+    }
+    const cookieHeader = cookieHeaderForUrl(cookies, attemptUrl);
+    if (cookieHeader && !Object.keys(headers).some((h) => h.toLowerCase() === "cookie")) headers["Cookie"] = cookieHeader;
+
+    const canProxy = typeof body === "string" || body === undefined;
+    const timer = setTimeout(() => controller.abort(), timeout);
+    const start = performance.now();
+
+    if (request.settings?.forceProxy && canProxy) {
+      clearTimeout(timer);
+      const proxied = await sendViaProxy(request.method, attemptUrl, headers, body as string | undefined, timeout);
+      if (proxied.response) { response = proxied.response; error = null; break; }
+      error = { message: proxied.errorMessage || "Proxied request failed", duration: performance.now() - start };
+      if (attempt < maxRetries) await new Promise((r) => setTimeout(r, retryDelay));
+      continue;
+    }
+
+    try {
+      const fetchInit: RequestInit = { method: request.method, headers, signal: controller.signal, redirect: request.settings?.followRedirects === false ? "manual" : "follow" };
+      if (!["GET", "HEAD"].includes(request.method) && body !== undefined) fetchInit.body = body as BodyInit;
+      const res = await fetch(attemptUrl, fetchInit);
+      const duration = performance.now() - start;
+      const bodyText = await res.text();
+      const size = new Blob([bodyText]).size;
+      const resHeaders: Record<string, string> = {};
+      res.headers.forEach((v, k) => { resHeaders[k] = v; });
+      response = { status: res.status, statusText: res.statusText, ok: res.ok, headers: resHeaders, bodyText, size, duration, url: attemptUrl };
+      error = null;
+      clearTimeout(timer);
+      break;
+    } catch (e: any) {
+      clearTimeout(timer);
+      // A direct fetch that fails is almost always CORS (the target didn't send an Access-Control-Allow-Origin
+      // header) or a network issue — browsers report both identically as a generic TypeError. Try the
+      // server-side proxy once before treating this as a genuine failure; it isn't bound by CORS at all.
+      if (canProxy) {
+        const proxied = await sendViaProxy(request.method, attemptUrl, headers, body as string | undefined, timeout);
+        if (proxied.response) { response = proxied.response; error = null; break; }
+      }
+      const duration = performance.now() - start;
+      if (e?.name === "AbortError") error = { message: `Request timed out after ${timeout}ms`, duration };
+      else error = { message: e?.message || "Network error — the request could not be completed (often CORS, an unreachable host, or mixed content).", duration };
+      if (attempt < maxRetries) await new Promise((r) => setTimeout(r, retryDelay));
+    }
   }
+
+  const totalDuration = performance.now() - overallStart;
+  if (response) response = { ...response, duration: attempts > 1 ? totalDuration : response.duration };
 
   let testResults: TestResult[] | null = null;
   if (response) {
@@ -281,7 +565,7 @@ export async function executeRequest(tab: RequestTab, ctxArgs: ExecuteContext): 
   setEnvironments(localEnvironments);
   setGlobalVars(localGlobalVars);
 
-  return { response, error, testResults, preScriptError: preResult.error, finalUrl: url };
+  return { response, error, testResults, preScriptError: preResult.error, finalUrl: url, attempts };
 }
 
 /* ============================= code generation ============================= */
@@ -390,4 +674,256 @@ export function pruneCollectionItems(items: Collection["items"], id: string): Co
 }
 export function renameCollectionItems(items: Collection["items"], id: string, name: string): Collection["items"] {
   return items.map((i) => (i.id === id ? { ...i, name } : i.type === "folder" ? { ...i, children: renameCollectionItems(i.children, id, name) } : i));
+}
+
+/* ============================= Collection Runner =============================
+ * Flattens folders into a request list, then runs every request once per data row
+ * (or once, if no data file is supplied) — Postman's "Collection Runner" equivalent. */
+export function flattenCollectionItems(items: CollectionItem[]): Extract<CollectionItem, { type: "request" }>[] {
+  const out: Extract<CollectionItem, { type: "request" }>[] = [];
+  for (const item of items) {
+    if (item.type === "request") out.push(item);
+    else out.push(...flattenCollectionItems(item.children));
+  }
+  return out;
+}
+
+export interface RunCollectionArgs {
+  collection: Collection;
+  environments: Environment[];
+  activeEnvId: string | null;
+  globalVars: GlobalVariable[];
+  cookies?: StoredCookie[];
+  dataRows?: RunnerDataRow[];
+  delayMs?: number;
+  onProgress?: (result: RunnerRequestResult, index: number, total: number) => void;
+  onDone?: (finalEnvironments: Environment[], finalGlobalVars: GlobalVariable[]) => void;
+}
+
+export async function runCollection(args: RunCollectionArgs): Promise<RunnerSummary> {
+  const { collection, environments, activeEnvId, globalVars, cookies = [], dataRows, delayMs = 0, onProgress } = args;
+  const requests = flattenCollectionItems(collection.items);
+  const rows: RunnerDataRow[] = dataRows && dataRows.length ? dataRows : [{}];
+  const results: RunnerRequestResult[] = [];
+  const start = performance.now();
+  let localEnvironments = environments.map((e) => ({ ...e, variables: e.variables.map((v) => ({ ...v })) }));
+  let localGlobalVars = globalVars.map((v) => ({ ...v }));
+
+  let index = 0;
+  const total = requests.length * rows.length;
+  for (let iteration = 0; iteration < rows.length; iteration++) {
+    const extraVars = rows[iteration];
+    for (const item of requests) {
+      index++;
+      const tab = newTab({ request: item.request });
+      const result = await executeRequest(tab, {
+        environments: localEnvironments,
+        activeEnvId,
+        globalVars: localGlobalVars,
+        setEnvironments: (e) => { localEnvironments = e; },
+        setGlobalVars: (g) => { localGlobalVars = g; },
+        collectionVars: collection.variables,
+        cookies,
+        extraVars,
+      });
+      const entry: RunnerRequestResult = {
+        itemId: item.id,
+        name: item.name,
+        method: item.request.method,
+        url: result.finalUrl,
+        status: result.response?.status ?? null,
+        ok: result.response?.ok ?? false,
+        duration: result.response?.duration ?? null,
+        error: result.error?.message ?? null,
+        testResults: result.testResults,
+        iteration,
+      };
+      results.push(entry);
+      onProgress?.(entry, index, total);
+      if (delayMs > 0 && index < total) await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+
+  const totalTests = results.reduce((s, r) => s + (r.testResults?.length || 0), 0);
+  const testsPassed = results.reduce((s, r) => s + (r.testResults?.filter((t) => t.pass).length || 0), 0);
+  const failed = results.filter((r) => !r.ok || (r.testResults?.some((t) => !t.pass) ?? false)).length;
+
+  args.onDone?.(localEnvironments, localGlobalVars);
+
+  return {
+    total,
+    passed: total - failed,
+    failed,
+    requestsRun: results.length,
+    totalTests,
+    testsPassed,
+    durationMs: performance.now() - start,
+    results,
+  };
+}
+
+/* ============================= Postman v2.1 collection import/export =============================
+ * Lets users migrate an existing Postman collection in, or export CodePeeler collections back out
+ * as standard Postman-compatible JSON so they aren't locked in either direction. */
+function pmHeadersToRows(pmHeaders: any[] | undefined): KVRow[] {
+  const rows = (pmHeaders || []).map((h: any) => newRow({ key: h.key || "", value: h.value || "", enabled: !h.disabled, desc: h.description || "" }));
+  return rows.length ? rows : [newRow()];
+}
+function pmParamsToRows(pmUrl: any): KVRow[] {
+  const q = pmUrl?.query || [];
+  const rows = q.map((p: any) => newRow({ key: p.key || "", value: p.value || "", enabled: !p.disabled, desc: p.description || "" }));
+  return rows.length ? rows : [newRow()];
+}
+function pmBodyToRequestBody(pmBody: any): RequestBody {
+  const empty: RequestBody = { mode: "none", raw: "", rawType: "json", formData: [newRow()], urlencoded: [newRow()] };
+  if (!pmBody || !pmBody.mode) return empty;
+  if (pmBody.mode === "raw") {
+    const lang = pmBody.options?.raw?.language;
+    return { ...empty, mode: "raw", raw: pmBody.raw || "", rawType: lang === "xml" ? "xml" : lang === "html" ? "html" : lang === "javascript" ? "js" : "json" };
+  }
+  if (pmBody.mode === "urlencoded") {
+    const rows = (pmBody.urlencoded || []).map((p: any) => newRow({ key: p.key || "", value: p.value || "", enabled: !p.disabled }));
+    return { ...empty, mode: "urlencoded", urlencoded: rows.length ? rows : [newRow()] };
+  }
+  if (pmBody.mode === "formdata") {
+    const rows = (pmBody.formdata || []).map((p: any) => newRow({ key: p.key || "", value: p.value || "", enabled: !p.disabled }));
+    return { ...empty, mode: "form-data", formData: rows.length ? rows : [newRow()] };
+  }
+  if (pmBody.mode === "graphql") {
+    return { ...empty, mode: "graphql", raw: JSON.stringify({ query: pmBody.graphql?.query || "", variables: safeParseJSON(pmBody.graphql?.variables) }, null, 2) };
+  }
+  return empty;
+}
+function safeParseJSON(s: any) { try { return JSON.parse(s || "{}"); } catch { return {}; } }
+function pmAuthToAuthConfig(pmAuth: any): AuthConfig {
+  const base = emptyRequest().auth;
+  if (!pmAuth || !pmAuth.type || pmAuth.type === "noauth") return base;
+  const kv = (arr: any[] | undefined, key: string) => (arr || []).find((x) => x.key === key)?.value ?? "";
+  if (pmAuth.type === "bearer") return { ...base, type: "bearer", token: kv(pmAuth.bearer, "token") };
+  if (pmAuth.type === "basic") return { ...base, type: "basic", username: kv(pmAuth.basic, "username"), password: kv(pmAuth.basic, "password") };
+  if (pmAuth.type === "apikey") return { ...base, type: "apikey", apiKeyName: kv(pmAuth.apikey, "key"), apiKeyValue: kv(pmAuth.apikey, "value"), apiKeyIn: kv(pmAuth.apikey, "in") === "query" ? "query" : "header" };
+  if (pmAuth.type === "oauth2") {
+    return {
+      ...base,
+      type: "oauth2",
+      oauth2: {
+        ...base.oauth2,
+        accessTokenUrl: kv(pmAuth.oauth2, "accessTokenUrl"),
+        clientId: kv(pmAuth.oauth2, "clientId"),
+        clientSecret: kv(pmAuth.oauth2, "clientSecret"),
+        scope: kv(pmAuth.oauth2, "scope"),
+        manualToken: kv(pmAuth.oauth2, "accessToken"),
+        grantType: kv(pmAuth.oauth2, "accessToken") ? "authorization_code_manual" : "client_credentials",
+      },
+    };
+  }
+  if (pmAuth.type === "awsv4") {
+    return {
+      ...base,
+      type: "awsv4",
+      awsv4: { accessKeyId: kv(pmAuth.awsv4, "accessKey"), secretAccessKey: kv(pmAuth.awsv4, "secretKey"), sessionToken: kv(pmAuth.awsv4, "sessionToken"), region: kv(pmAuth.awsv4, "region") || "us-east-1", service: kv(pmAuth.awsv4, "service") || "execute-api" },
+    };
+  }
+  return base;
+}
+function pmUrlToString(pmUrl: any): string {
+  if (typeof pmUrl === "string") return pmUrl;
+  return pmUrl?.raw || "";
+}
+function pmItemToRequest(pmItem: any): ApiRequest {
+  const req = pmItem.request || {};
+  const base = emptyRequest();
+  return {
+    ...base,
+    method: (req.method || "GET").toUpperCase(),
+    url: pmUrlToString(req.url),
+    params: pmParamsToRows(req.url),
+    headers: pmHeadersToRows(req.header),
+    body: pmBodyToRequestBody(req.body),
+    auth: pmAuthToAuthConfig(req.auth),
+    description: typeof req.description === "string" ? req.description : req.description?.content || "",
+  };
+}
+function pmItemsToCollectionItems(pmItems: any[]): CollectionItem[] {
+  return (pmItems || []).map((it: any) => {
+    if (it.item) return { id: uid(), type: "folder", name: it.name || "Folder", children: pmItemsToCollectionItems(it.item) };
+    return { id: uid(), type: "request", name: it.name || "Request", request: pmItemToRequest(it) };
+  });
+}
+
+export function importPostmanCollection(json: any): Collection {
+  const pmVars = (json.variable || []).map((v: any) => ({ id: uid(), key: v.key || "", value: v.value ?? "", enabled: v.disabled !== true }));
+  return {
+    id: uid(),
+    name: json.info?.name || "Imported Collection",
+    items: pmItemsToCollectionItems(json.item || []),
+    variables: pmVars,
+  };
+}
+export function importPostmanEnvironment(json: any): Environment {
+  const vars = (json.values || json.variable || []).map((v: any) => ({ id: uid(), key: v.key || "", value: v.value ?? "", enabled: v.enabled !== false && v.disabled !== true }));
+  return { id: uid(), name: json.name || "Imported Environment", variables: vars };
+}
+/** Detects whether a pasted/uploaded JSON blob looks like a Postman collection or environment export. */
+export function detectPostmanJson(json: any): "collection" | "environment" | null {
+  if (json && json.info && Array.isArray(json.item)) return "collection";
+  if (json && (Array.isArray(json.values) || (json.name && Array.isArray(json.variable))) && !json.item) return "environment";
+  return null;
+}
+
+function rowsToPmHeaders(rows: KVRow[]) {
+  return rows.filter((r) => r.key).map((r) => ({ key: r.key, value: r.value, disabled: !r.enabled }));
+}
+function requestToPmItem(name: string, req: ApiRequest): any {
+  const query = req.params.filter((p) => p.key).map((p) => ({ key: p.key, value: p.value, disabled: !p.enabled }));
+  let body: any = undefined;
+  if (req.body.mode === "raw") body = { mode: "raw", raw: req.body.raw, options: { raw: { language: req.body.rawType === "json" ? "json" : req.body.rawType } } };
+  else if (req.body.mode === "urlencoded") body = { mode: "urlencoded", urlencoded: req.body.urlencoded.filter((r) => r.key).map((r) => ({ key: r.key, value: r.value, disabled: !r.enabled })) };
+  else if (req.body.mode === "form-data") body = { mode: "formdata", formdata: req.body.formData.filter((r) => r.key).map((r) => ({ key: r.key, value: r.value, disabled: !r.enabled })) };
+  else if (req.body.mode === "graphql") { const g = safeParseJSON(req.body.raw); body = { mode: "graphql", graphql: { query: g.query || "", variables: JSON.stringify(g.variables || {}) } }; }
+
+  return {
+    name,
+    request: {
+      method: req.method,
+      header: rowsToPmHeaders(req.headers),
+      url: { raw: req.url, query },
+      body,
+      description: req.description || undefined,
+    },
+    response: [],
+  };
+}
+function collectionItemsToPmItems(items: CollectionItem[]): any[] {
+  return items.map((it) => (it.type === "folder" ? { name: it.name, item: collectionItemsToPmItems(it.children) } : requestToPmItem(it.name, it.request)));
+}
+export function exportPostmanCollection(collection: Collection): object {
+  return {
+    info: { name: collection.name, schema: "https://schema.getpostman.com/json/collection/v2.1.0/collection.json" },
+    item: collectionItemsToPmItems(collection.items),
+    variable: collection.variables.map((v) => ({ key: v.key, value: v.value })),
+  };
+}
+
+/* ============================= response diff & value extraction ============================= */
+export type { DiffEntry } from "@/lib/json-diff";
+export function diffResponses(prevBodyText: string, nextBodyText: string) {
+  const prev = tryParseJson(prevBodyText);
+  const next = tryParseJson(nextBodyText);
+  return deepDiff(prev, next);
+}
+function tryParseJson(text: string): unknown {
+  try { return JSON.parse(text); } catch { return text; }
+}
+
+/** Reads a dot/bracket path like "data.items[0].id" out of a JSON response body — used to save a
+ * response value directly as a variable from the Response panel without writing a test script. */
+export function getByPath(data: any, path: string): unknown {
+  const parts = path.replace(/\[(\d+)\]/g, ".$1").split(".").filter(Boolean);
+  let cur = data;
+  for (const p of parts) {
+    if (cur == null) return undefined;
+    cur = cur[p];
+  }
+  return cur;
 }

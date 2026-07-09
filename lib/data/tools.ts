@@ -62,6 +62,9 @@ export const TOOLS: Tool[] = [
   { id: "css-unit", name: "CSS Unit Converter", desc: "Convert between px, rem, em & pt", badge: "px", cat: "web", page: "/tools/css-unit-converter" },
   { id: "http-header", name: "HTTP Header Parser", desc: "Parse raw HTTP headers into structured JSON", badge: "H:", cat: "web", page: "/tools/http-header-parser" },
   { id: "base-convert", name: "Base Converter", desc: "Convert between binary, octal, decimal & hex", badge: "10₂", cat: "data", page: "/tools/base-converter" },
+  { id: "sql-format", name: "SQL Formatter / Minify", desc: "Beautify or minify SQL queries", badge: "SQL", cat: "data", page: "/tools/sql-formatter" },
+  { id: "html-format", name: "HTML Formatter / Minify", desc: "Beautify or minify HTML markup", badge: "<>", cat: "data", page: "/tools/html-formatter" },
+  { id: "css-format", name: "CSS Formatter / Minify", desc: "Beautify or minify CSS rules", badge: "{ }", cat: "data", page: "/tools/css-formatter" },
 ];
 
 export const CAT_META: Record<CatKey, { label: string; color: string }> = {

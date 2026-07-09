@@ -1,43 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import { Bell, Settings, Plus, X, Send, Save, Code2, MoreVertical, Copy, Upload, Loader2 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import ThemeToggle from "@/components/core/ThemeToggle";
+import { Plus, X, Send, Save, Code2, MoreVertical, Copy, Upload, Loader2 } from "lucide-react";
 import { useApiTester } from "@/providers/api-tester-provider";
 import { HTTP_METHODS } from "@/lib/api-tester/types";
-
-/* ============================= Top bar ============================= */
-export function ApiTesterTopbar() {
-  return (
-    <header className="relative z-[80] flex h-14 flex-shrink-0 items-center gap-4 border-b border-[var(--border-soft)] bg-[var(--bg)]/88 px-4 backdrop-blur-md">
-      <Link href="/" className="flex flex-shrink-0 items-center gap-[9px]">
-        <div className="flex h-[26px] w-[26px] items-center justify-center rounded-[7px] bg-[linear-gradient(140deg,var(--primary),var(--secondary))] font-[family-name:var(--font-mono)] text-xs font-bold text-white">
-          {"{ }"}
-        </div>
-        <span className="font-[family-name:var(--font-display)] text-base font-bold tracking-[-0.02em]">CodePeeler</span>
-      </Link>
-      <span className="flex-shrink-0 text-[13px] text-[var(--text-faint)]">/</span>
-      <span className="flex-shrink-0 text-[13px] font-semibold text-[var(--text-dim)]">API Tester</span>
-
-      <span className="ml-auto flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-[color-mix(in_srgb,var(--success)_14%,transparent)] py-1 pl-[7px] pr-[9px] text-[11px] font-semibold text-[var(--success)]">
-        <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-current" />
-        Saved locally
-      </span>
-      <ThemeToggle />
-      <button className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--text-dim)] transition-colors duration-150 hover:bg-[var(--card-hover)] hover:text-[var(--text)]">
-        <Bell size={17} />
-      </button>
-      <button className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--text-dim)] transition-colors duration-150 hover:bg-[var(--card-hover)] hover:text-[var(--text)]">
-        <Settings size={17} />
-      </button>
-      <div className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-full bg-[linear-gradient(140deg,var(--secondary),var(--primary))] font-[family-name:var(--font-mono)] text-[10.5px] font-bold text-white">
-        AD
-      </div>
-    </header>
-  );
-}
 
 /* ============================= Page header ============================= */
 export function PageHeader({ onImport }: { onImport: () => void }) {
@@ -48,6 +14,10 @@ export function PageHeader({ onImport }: { onImport: () => void }) {
         <div className="font-[family-name:var(--font-display)] text-2xl font-bold tracking-[-0.01em]">API Tester</div>
         <div className="mt-0.5 text-[12.5px] text-[var(--text-faint)]">Test and debug your APIs with powerful features.</div>
       </div>
+      <span className="flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-[color-mix(in_srgb,var(--success)_14%,transparent)] py-1 pl-[7px] pr-[9px] text-[11px] font-semibold text-[var(--success)]">
+        <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-current" />
+        Saved locally
+      </span>
       <div className="flex gap-2">
         <button onClick={onImport} className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-[7px] text-xs font-semibold text-[var(--text-dim)] hover:border-[var(--text-faint)] hover:text-[var(--text)]">
           <Upload size={13} /> Import

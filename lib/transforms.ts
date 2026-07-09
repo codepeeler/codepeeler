@@ -14,6 +14,10 @@ export type TimestampDirection = "toDate" | "toTimestamp";
 export type ColorFormat = "hex" | "rgb" | "hsl";
 export type CssUnitFrom = "px" | "rem" | "em" | "pt";
 export type BaseFrom = "bin" | "oct" | "dec" | "hex";
+export type SqlKeywordCase = "upper" | "lower" | "preserve";
+export type SqlMode = "format" | "minify";
+export type HtmlMode = "format" | "minify";
+export type CssMode = "format" | "minify";
 
 export interface NodeSettings {
   indent?: number; // json-format
@@ -51,6 +55,16 @@ export interface NodeSettings {
   cssUnitFrom?: CssUnitFrom; // css-unit-convert
   baseRootPx?: number; // css-unit-convert (root font size for rem/em)
   baseFrom?: BaseFrom; // base-convert
+  sqlMode?: SqlMode; // sql-format
+  sqlKeywordCase?: SqlKeywordCase; // sql-format
+  sqlIndent?: number; // sql-format
+  htmlMode?: HtmlMode; // html-format
+  htmlIndent?: number; // html-format
+  htmlCollapseWhitespace?: boolean; // html-format (minify)
+  htmlRemoveComments?: boolean; // html-format (minify)
+  cssMode?: CssMode; // css-format
+  cssIndent?: number; // css-format
+  cssRemoveComments?: boolean; // css-format (minify)
 }
 
 export const DEFAULT_SETTINGS: Partial<Record<NodeTypeId, NodeSettings>> = {
@@ -74,6 +88,9 @@ export const DEFAULT_SETTINGS: Partial<Record<NodeTypeId, NodeSettings>> = {
   "color-convert": { colorFormat: "hex" },
   "css-unit-convert": { cssUnitFrom: "px", baseRootPx: 16 },
   "base-convert": { baseFrom: "dec" },
+  "sql-format": { sqlMode: "format", sqlKeywordCase: "upper", sqlIndent: 2 },
+  "html-format": { htmlMode: "format", htmlIndent: 2, htmlCollapseWhitespace: true, htmlRemoveComments: true },
+  "css-format": { cssMode: "format", cssIndent: 2, cssRemoveComments: true },
 };
 
 function base64UrlDecode(str: string): string {
@@ -964,6 +981,729 @@ function baseConvert(input: string, from: BaseFrom): string {
   ].join("\n");
 }
 
+// ---------------------------------------------------------------------------
+// SQL Formatter / Minifier
+// ---------------------------------------------------------------------------
+const SQL_MAJOR_KEYWORDS = [
+  "SELECT",
+  "FROM",
+  "WHERE",
+  "GROUP BY",
+  "ORDER BY",
+  "HAVING",
+  "LIMIT",
+  "OFFSET",
+  "INSERT INTO",
+  "VALUES",
+  "UPDATE",
+  "SET",
+  "DELETE FROM",
+  "UNION ALL",
+  "UNION",
+  "RETURNING",
+];
+
+const SQL_JOIN_KEYWORDS = [
+  "LEFT OUTER JOIN",
+  "RIGHT OUTER JOIN",
+  "FULL OUTER JOIN",
+  "LEFT JOIN",
+  "RIGHT JOIN",
+  "INNER JOIN",
+  "CROSS JOIN",
+  "FULL JOIN",
+  "JOIN",
+];
+
+const SQL_INDENT_KEYWORDS = ["AND", "OR", "ON"];
+
+// Keywords that always get a space before "(" — as opposed to function
+// names, which glue directly onto "(".
+const SQL_SPACE_BEFORE_PAREN_KEYWORDS = new Set(["IN", "EXISTS", "NOT", "VALUES", "AND", "OR", "BETWEEN"]);
+
+const SQL_ALL_KEYWORDS = [
+  "SELECT",
+  "DISTINCT",
+  "FROM",
+  "WHERE",
+  "AND",
+  "OR",
+  "NOT",
+  "IN",
+  "IS",
+  "NULL",
+  "AS",
+  "ON",
+  "GROUP",
+  "GROUP BY",
+  "ORDER",
+  "ORDER BY",
+  "BY",
+  "HAVING",
+  "LIMIT",
+  "OFFSET",
+  "INSERT",
+  "INSERT INTO",
+  "INTO",
+  "VALUES",
+  "UPDATE",
+  "SET",
+  "DELETE",
+  "DELETE FROM",
+  "CREATE",
+  "TABLE",
+  "ALTER",
+  "DROP",
+  "JOIN",
+  "INNER JOIN",
+  "LEFT JOIN",
+  "RIGHT JOIN",
+  "FULL JOIN",
+  "CROSS JOIN",
+  "LEFT OUTER JOIN",
+  "RIGHT OUTER JOIN",
+  "FULL OUTER JOIN",
+  "UNION",
+  "UNION ALL",
+  "CASE",
+  "WHEN",
+  "THEN",
+  "ELSE",
+  "END",
+  "BETWEEN",
+  "LIKE",
+  "EXISTS",
+  "ASC",
+  "DESC",
+  "RETURNING",
+  "PRIMARY KEY",
+  "FOREIGN KEY",
+  "REFERENCES",
+  "DEFAULT",
+  "WITH",
+];
+
+/**
+ * Strips string/quoted literals out of a SQL statement so the rest of the
+ * formatter never has to worry about keywords appearing inside them —
+ * replaces each literal with a placeholder token and returns both the
+ * "masked" SQL and the list of original literals to restore afterwards.
+ */
+function extractSqlLiterals(sql: string): { masked: string; literals: string[] } {
+  const literals: string[] = [];
+  // Matches '...' (with doubled '' escapes) or "..." or `...` identifiers.
+  const masked = sql.replace(/'(?:[^']|'')*'|"(?:[^"]|"")*"|`(?:[^`])*`/g, (m) => {
+    literals.push(m);
+    return `\u0000${literals.length - 1}\u0000`;
+  });
+  return { masked, literals };
+}
+
+function restoreSqlLiterals(sql: string, literals: string[]): string {
+  return sql.replace(/\u0000(\d+)\u0000/g, (_, i) => literals[Number(i)]);
+}
+
+function stripSqlComments(sql: string): string {
+  // Line comments (-- ...) and block comments (/* ... */); literals are
+  // already masked by the caller so this can't accidentally eat a string.
+  return sql.replace(/--[^\n]*/g, "").replace(/\/\*[\s\S]*?\*\//g, "");
+}
+
+function applySqlKeywordCase(token: string, mode: SqlKeywordCase): string {
+  if (mode === "preserve") return token;
+  const isKeyword = SQL_ALL_KEYWORDS.includes(token.toUpperCase());
+  if (!isKeyword) return token;
+  return mode === "upper" ? token.toUpperCase() : token.toLowerCase();
+}
+
+// Multi-word keywords that must be matched as a single unit, longest-first
+// so e.g. "LEFT OUTER JOIN" is never partially matched as just "JOIN".
+const SQL_MULTI_WORD_KEYWORDS = [...SQL_MAJOR_KEYWORDS, ...SQL_JOIN_KEYWORDS]
+  .filter((kw) => kw.includes(" "))
+  .sort((a, b) => b.length - a.length);
+
+/** Tokens that should never get a space inserted before them (they glue to the previous token). */
+const SQL_NO_SPACE_BEFORE = new Set([",", ")", ";", "."]);
+
+/** Tokenizes masked SQL into words, numbers, qualified identifiers, operators, punctuation, and placeholder literals, merging multi-word keywords into single tokens. */
+function tokenizeSql(sql: string): string[] {
+  // Split into raw tokens: literal placeholders, dotted identifiers (a.b), numbers
+  // (incl. decimals), words, multi-char operators, or single punctuation chars.
+  const raw =
+    sql.match(
+      /\u0000\d+\u0000|[A-Za-z_][A-Za-z_0-9]*(?:\.[A-Za-z_][A-Za-z_0-9]*)*|\d+(?:\.\d+)?|<=|>=|<>|!=|[(),;]|[=<>+\-*/%]/g
+    ) ?? [];
+
+  // Greedily merge consecutive tokens that form one of the known multi-word keywords.
+  const tokens: string[] = [];
+  let i = 0;
+  outer: while (i < raw.length) {
+    for (const kw of SQL_MULTI_WORD_KEYWORDS) {
+      const parts = kw.split(" ");
+      if (raw.slice(i, i + parts.length).map((t) => t.toUpperCase()).join(" ") === kw) {
+        tokens.push(parts.join(" "));
+        i += parts.length;
+        continue outer;
+      }
+    }
+    tokens.push(raw[i]);
+    i += 1;
+  }
+  return tokens;
+}
+
+function isMajorClauseToken(tok: string): boolean {
+  const upper = tok.toUpperCase();
+  return SQL_MAJOR_KEYWORDS.includes(upper) || SQL_JOIN_KEYWORDS.includes(upper);
+}
+
+function formatSql(input: string, keywordCase: SqlKeywordCase, indentSize: number): string {
+  if (!input.trim()) throw new Error("Enter a SQL query to format");
+
+  const { masked, literals } = extractSqlLiterals(input);
+  const stripped = stripSqlComments(masked).trim();
+  if (!stripped) throw new Error("Enter a SQL query to format");
+
+  const tokens = tokenizeSql(stripped);
+  const indent = " ".repeat(indentSize);
+
+  const lines: string[] = [];
+  // Each line is built as an array of rendered tokens, joined with correct
+  // spacing only at the very end — avoids ad-hoc string-suffix checks.
+  let currentTokens: string[] = [];
+  let currentIndent = "";
+  let depth = 0;
+  // Tracks whether the current line is a comma-separated clause body
+  // (columns after SELECT, values after VALUES, columns after GROUP BY...)
+  // so subsequent top-level commas break onto their own indented line.
+  let inColumnList = false;
+
+  const joinLine = (toks: string[]): string => {
+    let out = "";
+    for (let i = 0; i < toks.length; i++) {
+      const t = toks[i];
+      const prev = toks[i - 1];
+      const isFunctionCallParen =
+        t === "(" &&
+        prev !== undefined &&
+        /^[A-Za-z_][A-Za-z_0-9.]*$/.test(prev) &&
+        !isMajorClauseToken(prev) &&
+        !SQL_INDENT_KEYWORDS.includes(prev.toUpperCase()) &&
+        !SQL_SPACE_BEFORE_PAREN_KEYWORDS.has(prev.toUpperCase());
+      if (out && !SQL_NO_SPACE_BEFORE.has(t) && !out.endsWith("(") && !out.endsWith(".") && !isFunctionCallParen) out += " ";
+      out += t;
+    }
+    return out;
+  };
+
+  const flush = () => {
+    if (currentTokens.length > 0) lines.push(currentIndent + joinLine(currentTokens));
+    currentTokens = [];
+    currentIndent = "";
+  };
+
+  for (const tok of tokens) {
+    const upper = tok.toUpperCase();
+
+    if (tok === "(") {
+      depth += 1;
+      currentTokens.push("(");
+      continue;
+    }
+    if (tok === ")") {
+      depth = Math.max(0, depth - 1);
+      currentTokens.push(")");
+      continue;
+    }
+
+    if (isMajorClauseToken(tok)) {
+      flush();
+      inColumnList = ["SELECT", "GROUP BY", "ORDER BY", "VALUES"].includes(upper);
+      currentTokens = [applySqlKeywordCase(tok, keywordCase)];
+      continue;
+    }
+
+    if (SQL_INDENT_KEYWORDS.includes(upper) && depth === 0) {
+      flush();
+      currentIndent = indent;
+      currentTokens = [applySqlKeywordCase(tok, keywordCase)];
+      continue;
+    }
+
+    if (tok === "," && depth === 0 && inColumnList) {
+      currentTokens.push(",");
+      flush();
+      currentIndent = indent;
+      continue;
+    }
+
+    currentTokens.push(applySqlKeywordCase(tok, keywordCase));
+  }
+  flush();
+
+  const result = lines.join("\n");
+  return restoreSqlLiterals(result, literals).trim();
+}
+
+function minifySql(input: string): string {
+  if (!input.trim()) throw new Error("Enter a SQL query to minify");
+  const { masked, literals } = extractSqlLiterals(input);
+  let sql = stripSqlComments(masked);
+  sql = sql
+    .replace(/\s+/g, " ")
+    .replace(/\s*,\s*/g, ",")
+    .replace(/\(\s+/g, "(")
+    .replace(/\s+\)/g, ")")
+    .trim();
+  return restoreSqlLiterals(sql, literals);
+}
+
+// ---------------------------------------------------------------------------
+// HTML Formatter / Minifier
+// ---------------------------------------------------------------------------
+const HTML_VOID_ELEMENTS = new Set([
+  "area", "base", "br", "col", "embed", "hr", "img", "input",
+  "link", "meta", "param", "source", "track", "wbr",
+]);
+
+// Elements whose inner content must never be reformatted or have its
+// whitespace collapsed (raw text / significant-whitespace elements).
+const HTML_PRESERVE_CONTENT = new Set(["pre", "textarea", "script", "style"]);
+
+type HtmlToken =
+  | { kind: "doctype"; raw: string }
+  | { kind: "comment"; raw: string }
+  | { kind: "open"; name: string; raw: string; selfClosed: boolean }
+  | { kind: "close"; name: string; raw: string }
+  | { kind: "text"; raw: string }
+  | { kind: "raw"; raw: string }; // verbatim content of <script>/<style>/<pre>/<textarea>
+
+/** Tokenizes an HTML string into tags, text runs, comments, and doctype — respecting raw-text elements. */
+function tokenizeHtml(html: string): HtmlToken[] {
+  const tokens: HtmlToken[] = [];
+  let i = 0;
+  const n = html.length;
+
+  while (i < n) {
+    if (html.startsWith("<!--", i)) {
+      const end = html.indexOf("-->", i + 4);
+      const stop = end === -1 ? n : end + 3;
+      tokens.push({ kind: "comment", raw: html.slice(i, stop) });
+      i = stop;
+      continue;
+    }
+
+    if (html.startsWith("<!", i)) {
+      const end = html.indexOf(">", i);
+      const stop = end === -1 ? n : end + 1;
+      tokens.push({ kind: "doctype", raw: html.slice(i, stop) });
+      i = stop;
+      continue;
+    }
+
+    if (html[i] === "<" && /[a-zA-Z/]/.test(html[i + 1] ?? "")) {
+      const end = html.indexOf(">", i);
+      if (end === -1) {
+        tokens.push({ kind: "text", raw: html.slice(i) });
+        break;
+      }
+      const raw = html.slice(i, end + 1);
+      const isClose = raw[1] === "/";
+      const nameMatch = raw.match(isClose ? /^<\/\s*([a-zA-Z0-9-]+)/ : /^<\s*([a-zA-Z0-9-]+)/);
+      const name = (nameMatch?.[1] ?? "").toLowerCase();
+
+      if (isClose) {
+        tokens.push({ kind: "close", name, raw });
+        i = end + 1;
+        continue;
+      }
+
+      const selfClosed = /\/\s*>$/.test(raw) || HTML_VOID_ELEMENTS.has(name);
+      tokens.push({ kind: "open", name, raw, selfClosed });
+      i = end + 1;
+
+      // Raw-text elements: capture everything up to the matching close tag verbatim.
+      if (HTML_PRESERVE_CONTENT.has(name) && !selfClosed) {
+        const closeRe = new RegExp(`</\\s*${name}\\s*>`, "i");
+        const rest = html.slice(i);
+        const m = closeRe.exec(rest);
+        const contentEnd = m ? m.index : rest.length;
+        const content = rest.slice(0, contentEnd);
+        if (content) tokens.push({ kind: "raw", raw: content });
+        i += contentEnd;
+        if (m) {
+          tokens.push({ kind: "close", name, raw: m[0] });
+          i += m[0].length;
+        }
+      }
+      continue;
+    }
+
+    // Plain text run up to the next tag/comment.
+    const nextLt = html.indexOf("<", i);
+    const stop = nextLt === -1 ? n : nextLt;
+    tokens.push({ kind: "text", raw: html.slice(i, stop) });
+    i = stop === i ? i + 1 : stop;
+  }
+
+  return tokens;
+}
+
+// Inline elements: their presence as a child doesn't force the parent
+// onto multiple lines (used together with HTML_TEXT_CONTAINER_ELEMENTS below).
+const HTML_INLINE_ELEMENTS = new Set([
+  "a", "abbr", "b", "bdi", "bdo", "br", "cite", "code", "data", "dfn", "em",
+  "i", "kbd", "mark", "q", "s", "samp", "small", "span", "strong", "sub",
+  "sup", "time", "u", "var", "wbr",
+]);
+
+// Elements that typically hold a short run of prose/inline content — safe
+// to collapse onto a single line when their children are inline-only.
+// Generic containers (div, ul, section, ...) always expand instead, even
+// if their immediate children happen to be inline elements.
+const HTML_TEXT_CONTAINER_ELEMENTS = new Set([
+  "p", "li", "dt", "dd", "td", "th", "figcaption", "label", "button",
+  "h1", "h2", "h3", "h4", "h5", "h6", "caption", "summary", "legend", "option", "title",
+]);
+
+function formatHtml(input: string, indentSize: number): string {
+  if (!input.trim()) throw new Error("Enter HTML to format");
+
+  const tokens = tokenizeHtml(input);
+  const indentUnit = " ".repeat(indentSize);
+  const lines: string[] = [];
+  let depth = 0;
+
+  const pushLine = (text: string, depthOverride?: number) => {
+    const d = depthOverride ?? depth;
+    lines.push(indentUnit.repeat(Math.max(0, d)) + text);
+  };
+
+  // Renders a run of tokens (text + inline tags, possibly nested) into a
+  // single flat string with normal spacing — used so inline content like
+  // "some text <a href=#>a link</a>." stays on one line instead of
+  // exploding every inline tag onto its own line.
+  const renderInlineRun = (run: HtmlToken[]): string => {
+    let out = "";
+    for (const t of run) {
+      if (t.kind === "text") {
+        // Collapse internal whitespace but keep a leading/trailing single
+        // space if the original text had one — that's what separates
+        // "text " from a following <a> tag, or "</a> " from following text.
+        const collapsed = t.raw.replace(/\s+/g, " ");
+        out += collapsed;
+      } else {
+        out += t.kind === "raw" ? t.raw : t.raw.trim();
+      }
+    }
+    return out.replace(/\s+/g, " ").trim();
+  };
+
+  let idx = 0;
+  while (idx < tokens.length) {
+    const tok = tokens[idx];
+
+    if (tok.kind === "doctype") {
+      pushLine(tok.raw.trim());
+      idx += 1;
+      continue;
+    }
+
+    if (tok.kind === "comment") {
+      pushLine(tok.raw.trim());
+      idx += 1;
+      continue;
+    }
+
+    if (tok.kind === "text") {
+      // A stray text run between block-level tags (usually just whitespace) —
+      // collapse and only emit if it has real content.
+      const trimmed = tok.raw.replace(/\s+/g, " ").trim();
+      if (trimmed) pushLine(trimmed);
+      idx += 1;
+      continue;
+    }
+
+    if (tok.kind === "raw") {
+      const trimmed = tok.raw.replace(/^\n/, "").replace(/\s+$/, "");
+      if (trimmed) {
+        for (const line of trimmed.split("\n")) pushLine(line);
+      }
+      idx += 1;
+      continue;
+    }
+
+    if (tok.kind === "close") {
+      depth = Math.max(0, depth - 1);
+      pushLine(tok.raw.trim());
+      idx += 1;
+      continue;
+    }
+
+    // tok.kind === "open"
+    if (tok.selfClosed) {
+      pushLine(tok.raw.trim());
+      idx += 1;
+      continue;
+    }
+
+    if (HTML_PRESERVE_CONTENT.has(tok.name)) {
+      pushLine(tok.raw.trim());
+      depth += 1;
+      idx += 1;
+      continue;
+    }
+
+    // Look ahead: does this element's content consist only of text and
+    // inline elements (no block-level children)? If so, render the whole
+    // subtree as one inline run on a single line.
+    let scan = idx + 1;
+    let inlineDepth = 0;
+    let onlyInline = true;
+    while (scan < tokens.length) {
+      const s = tokens[scan];
+      if (s.kind === "close" && s.name === tok.name && inlineDepth === 0) break;
+      if (s.kind === "open") {
+        if (!HTML_INLINE_ELEMENTS.has(s.name) && !s.selfClosed) {
+          onlyInline = false;
+          break;
+        }
+        if (!s.selfClosed) inlineDepth += 1;
+      } else if (s.kind === "close") {
+        inlineDepth = Math.max(0, inlineDepth - 1);
+      } else if (s.kind === "raw" || s.kind === "comment" || s.kind === "doctype") {
+        onlyInline = false;
+        break;
+      }
+      scan += 1;
+    }
+    const hasMatchingClose = scan < tokens.length && tokens[scan].kind === "close" && (tokens[scan] as { name: string }).name === tok.name;
+
+    const canCollapse = HTML_TEXT_CONTAINER_ELEMENTS.has(tok.name) || HTML_INLINE_ELEMENTS.has(tok.name);
+    if (onlyInline && hasMatchingClose && canCollapse) {
+      const run = tokens.slice(idx + 1, scan);
+      const inner = renderInlineRun(run);
+      const openTag = tok.raw.trim();
+      const closeTag = tokens[scan].raw.trim();
+      pushLine(inner ? `${openTag}${inner}${closeTag}` : `${openTag}${closeTag}`);
+      idx = scan + 1;
+      continue;
+    }
+
+    // Otherwise it's a genuine block-level container: open tag on its own
+    // line, recurse into children normally, close tag on its own line.
+    pushLine(tok.raw.trim());
+    depth += 1;
+    idx += 1;
+  }
+
+  return lines.filter((l) => l.trim().length > 0).join("\n");
+}
+
+function minifyHtml(input: string, collapseWhitespace: boolean, removeComments: boolean): string {
+  if (!input.trim()) throw new Error("Enter HTML to minify");
+
+  const tokens = tokenizeHtml(input);
+  let out = "";
+
+  for (const tok of tokens) {
+    if (tok.kind === "comment") {
+      if (!removeComments) out += tok.raw;
+      continue;
+    }
+    if (tok.kind === "doctype") {
+      out += tok.raw.replace(/\s+/g, " ").trim() + " ";
+      continue;
+    }
+    if (tok.kind === "open" || tok.kind === "close") {
+      out += tok.raw.replace(/\s+/g, " ").replace(/\s*>/g, ">").replace(/<\s*/g, "<").trim();
+      continue;
+    }
+    if (tok.kind === "raw") {
+      out += tok.raw;
+      continue;
+    }
+    if (tok.kind === "text") {
+      out += collapseWhitespace ? tok.raw.replace(/\s+/g, " ") : tok.raw;
+      continue;
+    }
+  }
+
+  // Collapse whitespace introduced between adjacent tags, but never touch
+  // anything inside preserved raw blocks (already emitted verbatim above).
+  if (collapseWhitespace) {
+    out = out.replace(/>\s+</g, "><").trim();
+  }
+
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// CSS Formatter / Minifier
+// ---------------------------------------------------------------------------
+
+/** Masks CSS string literals and comments so brace/semicolon scanning can't be confused by their contents. */
+function extractCssLiterals(css: string): { masked: string; literals: string[] } {
+  const literals: string[] = [];
+  const masked = css.replace(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|\/\*[\s\S]*?\*\//g, (m) => {
+    literals.push(m);
+    return `\u0000${literals.length - 1}\u0000`;
+  });
+  return { masked, literals };
+}
+
+function restoreCssLiterals(css: string, literals: string[]): string {
+  return css.replace(/\u0000(\d+)\u0000/g, (_, i) => literals[Number(i)]);
+}
+
+/** True if a masked placeholder token is standing in for a /* comment *​/ (as opposed to a string literal). */
+function isCommentLiteral(literal: string): boolean {
+  return literal.startsWith("/*");
+}
+
+function formatCss(input: string, indentSize: number): string {
+  if (!input.trim()) throw new Error("Enter CSS to format");
+
+  const { masked, literals } = extractCssLiterals(input);
+  const trimmed = masked.trim();
+  if (!trimmed) throw new Error("Enter CSS to format");
+
+  const indentUnit = " ".repeat(indentSize);
+  const lines: string[] = [];
+  let depth = 0;
+  let buf = "";
+
+  const flushSelectorOrAtRule = (text: string) => {
+    const t = text.trim();
+    if (!t) return;
+    lines.push(indentUnit.repeat(depth) + t + " {");
+  };
+
+  const flushDeclarationsBlock = (text: string) => {
+    // Splits a run of "prop: value; prop2: value2;" (with masked literals)
+    // into one declaration per line, normalizing "prop:value" -> "prop: value".
+    // Only splits on semicolons at paren-depth 0, so a semicolon embedded in
+    // e.g. url(data:image/png;base64,...) doesn't break the declaration.
+    const decls: string[] = [];
+    let cur = "";
+    let pd = 0;
+    for (const c of text) {
+      if (c === "(") pd += 1;
+      if (c === ")") pd = Math.max(0, pd - 1);
+      if (c === ";" && pd === 0) {
+        decls.push(cur);
+        cur = "";
+      } else {
+        cur += c;
+      }
+    }
+    if (cur.trim()) decls.push(cur);
+
+    for (const raw of decls) {
+      const d = raw.trim();
+      if (!d) continue;
+      // Only touch the first colon (the property/value separator) — pseudo-selectors
+      // like "::before" or values containing ":" (e.g. URLs) never reach here since
+      // this only runs on flushed declaration text, not selectors.
+      const colonIdx = d.indexOf(":");
+      const normalized =
+        colonIdx === -1 ? d : `${d.slice(0, colonIdx).trim()}: ${d.slice(colonIdx + 1).trim()}`;
+      lines.push(indentUnit.repeat(depth) + normalized + ";");
+    }
+  };
+
+  let i = 0;
+  const n = trimmed.length;
+  let parenDepth = 0;
+  while (i < n) {
+    const ch = trimmed[i];
+
+    if (ch === "\u0000") {
+      // A masked literal (string or comment) sitting outside any other
+      // token — emit comments as their own line, fold strings into buf.
+      const end = trimmed.indexOf("\u0000", i + 1);
+      const token = trimmed.slice(i, end + 1);
+      const idxMatch = token.match(/\u0000(\d+)\u0000/);
+      const literal = idxMatch ? literals[Number(idxMatch[1])] : "";
+      if (isCommentLiteral(literal) && buf.trim() === "" && parenDepth === 0) {
+        lines.push(indentUnit.repeat(depth) + literal);
+      } else {
+        buf += token;
+      }
+      i = end + 1;
+      continue;
+    }
+
+    if (ch === "(") {
+      parenDepth += 1;
+      buf += ch;
+      i += 1;
+      continue;
+    }
+
+    if (ch === ")") {
+      parenDepth = Math.max(0, parenDepth - 1);
+      buf += ch;
+      i += 1;
+      continue;
+    }
+
+    if (ch === "{" && parenDepth === 0) {
+      flushSelectorOrAtRule(buf);
+      buf = "";
+      depth += 1;
+      i += 1;
+      continue;
+    }
+
+    if (ch === "}" && parenDepth === 0) {
+      if (buf.trim()) flushDeclarationsBlock(buf);
+      buf = "";
+      depth = Math.max(0, depth - 1);
+      lines.push(indentUnit.repeat(depth) + "}");
+      i += 1;
+      continue;
+    }
+
+    if (ch === ";" && parenDepth === 0) {
+      buf += ";";
+      flushDeclarationsBlock(buf);
+      buf = "";
+      i += 1;
+      continue;
+    }
+
+    buf += ch;
+    i += 1;
+  }
+
+  if (buf.trim()) lines.push(indentUnit.repeat(depth) + buf.trim());
+
+  const result = lines.join("\n");
+  return restoreCssLiterals(result, literals).trim();
+}
+
+function minifyCss(input: string, removeComments: boolean): string {
+  if (!input.trim()) throw new Error("Enter CSS to minify");
+
+  const { masked, literals } = extractCssLiterals(input);
+  let css = masked;
+
+  css = css
+    .replace(/\s+/g, " ")
+    .replace(/\s*([{}:;,])\s*/g, "$1")
+    .replace(/;}/g, "}")
+    .trim();
+
+  const restored = css.replace(/\u0000(\d+)\u0000/g, (_, i) => {
+    const literal = literals[Number(i)];
+    if (isCommentLiteral(literal)) return removeComments ? "" : literal;
+    return literal;
+  });
+
+  return restored.replace(/\s+/g, " ").trim();
+}
+
 export async function runTransform(
   type: NodeTypeId,
   input: string,
@@ -1082,6 +1822,18 @@ export async function runTransform(
       return httpHeaderParse(input);
     case "base-convert":
       return baseConvert(input, settings.baseFrom ?? "dec");
+    case "sql-format":
+      return (settings.sqlMode ?? "format") === "minify"
+        ? minifySql(input)
+        : formatSql(input, settings.sqlKeywordCase ?? "upper", settings.sqlIndent ?? 2);
+    case "html-format":
+      return (settings.htmlMode ?? "format") === "minify"
+        ? minifyHtml(input, settings.htmlCollapseWhitespace ?? true, settings.htmlRemoveComments ?? true)
+        : formatHtml(input, settings.htmlIndent ?? 2);
+    case "css-format":
+      return (settings.cssMode ?? "format") === "minify"
+        ? minifyCss(input, settings.cssRemoveComments ?? true)
+        : formatCss(input, settings.cssIndent ?? 2);
 
     default:
       return input;

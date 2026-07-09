@@ -73,7 +73,10 @@ export type NodeTypeId =
   | "hex-decode"
   | "css-unit-convert"
   | "http-header-parse"
-  | "base-convert";
+  | "base-convert"
+  | "sql-format"
+  | "html-format"
+  | "css-format";
 
 export const NODE_TYPES: Record<
   NodeTypeId,
@@ -144,6 +147,9 @@ export const NODE_TYPES: Record<
   "css-unit-convert": { label: "CSS Unit Converter", desc: "Convert between px, rem, em & pt", badge: "px", cat: "web" },
   "http-header-parse": { label: "HTTP Header Parser", desc: "Parse raw headers into structured JSON", badge: "H:", cat: "web" },
   "base-convert": { label: "Base Converter", desc: "Convert between binary, octal, decimal & hex", badge: "10₂", cat: "data" },
+  "sql-format": { label: "SQL Formatter / Minify", desc: "Beautify or minify a SQL query", badge: "SQL", cat: "data" },
+  "html-format": { label: "HTML Formatter / Minify", desc: "Beautify or minify HTML markup", badge: "<>", cat: "data" },
+  "css-format": { label: "CSS Formatter / Minify", desc: "Beautify or minify CSS rules", badge: "{ }", cat: "data" },
 };
 
 export const PALETTE_GROUPS: { label: string; items: NodeTypeId[] }[] = [
@@ -164,6 +170,9 @@ export const PALETTE_GROUPS: { label: string; items: NodeTypeId[] }[] = [
       "json-yaml",
       "yaml-lint",
       "base-convert",
+      "sql-format",
+      "html-format",
+      "css-format",
     ],
   },
   { label: "Encode / Decode", items: ["base64-encode", "base64-decode", "hex-encode", "hex-decode"] },

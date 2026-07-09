@@ -4,8 +4,6 @@ import { useEffect, useState } from "react";
 import { ApiTesterProvider, useApiTester } from "@/providers/api-tester-provider";
 import { PageHeader, RequestTabsBar, UrlBar } from "@/components/api-tester/ApiTesterTopbar";
 import { WorkflowProvider } from "@/providers/workflow-provider";
-import Sidebar from "@/components/layout/Sidebar";
-import Footer from "@/components/layout/Footer";
 import ApiSidebar from "@/components/api-tester/ApiSidebar";
 import EnvironmentPanel from "@/components/api-tester/EnvironmentPanel";
 import RequestPanel from "@/components/api-tester/RequestPanel";
@@ -34,7 +32,6 @@ function ApiTesterShell() {
   return (
     <>
       <div className="flex min-h-0 flex-1">
-        <Sidebar />
         <ApiSidebar />
         <main className="flex min-w-0 flex-1 flex-col overflow-y-auto">
           <PageHeader onImport={() => setModal("import")} />
@@ -50,7 +47,6 @@ function ApiTesterShell() {
               <ResponsePanel />
             </div>
           </div>
-          <Footer />
         </main>
         <EnvironmentPanel onOpenManager={() => setModal("env")} />
       </div>

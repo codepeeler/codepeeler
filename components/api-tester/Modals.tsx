@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { X, Copy, Plus, Trash2 } from "lucide-react";
+import { X, Copy, Plus, Trash2, Play, Upload, Loader2, CheckCircle2, XCircle } from "lucide-react";
+import Papa from "papaparse";
 import KeyValueTable from "@/components/api-tester/KeyValueTable";
 import { useApiTester } from "@/providers/api-tester-provider";
 import { genAxios, genCurl, genFetch, genNodeHttp, genPython, uid } from "@/lib/api-tester/engine";
-import type { ApiRequest, Environment } from "@/lib/api-tester/types";
+import type { ApiRequest, Environment, RunnerDataRow } from "@/lib/api-tester/types";
 
 /* ============================= Generic modal shell ============================= */
 export function Modal({
@@ -222,18 +223,35 @@ export function EnvironmentManagerModal({ onClose }: { onClose: () => void }) {
 
 /* ============================= Import modal ============================= */
 export function ImportModal({ onClose }: { onClose: () => void }) {
-  const { importFromCurl, toast } = useApiTester();
+  const { importFromCurl, importPostmanJson, toast } = useApiTester();
   const [text, setText] = useState("");
 
   const doImport = () => {
-    if (!text.trim()) return;
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    // Try Postman collection/environment JSON first, then fall back to cURL.
+    if (trimmed.startsWith("{")) {
+      try {
+        const json = JSON.parse(trimmed);
+        const kind = importPostmanJson(json);
+        if (kind) { onClose(); return; }
+        toast("That JSON doesn't look like a Postman collection or environment export");
+        return;
+      } catch {
+        // not valid JSON — fall through to curl parsing below
+      }
+    }
     try {
       importFromCurl(text);
       toast("Request imported");
       onClose();
     } catch {
-      toast("Couldn't parse that curl command");
+      toast("Couldn't parse that as a curl command or Postman export");
     }
+  };
+
+  const onFile = (file: File) => {
+    file.text().then((content) => setText(content));
   };
 
   return (
@@ -248,13 +266,123 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
         </>
       }
     >
-      <div className="mb-2 text-xs text-[var(--text-faint)]">Paste a cURL command to import it as a new request.</div>
+      <div className="mb-2 flex items-center justify-between text-xs text-[var(--text-faint)]">
+        <span>Paste a cURL command, or a Postman collection/environment JSON export.</span>
+        <label className="cursor-pointer rounded-lg border border-[var(--border)] bg-[var(--card)] px-2.5 py-1 font-semibold text-[var(--text-dim)] hover:border-[var(--text-faint)] hover:text-[var(--text)]">
+          Upload file
+          <input type="file" accept=".json,.txt" className="hidden" onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])} />
+        </label>
+      </div>
       <textarea
-        className="h-[180px] w-full resize-y rounded-lg border border-[var(--border)] bg-[var(--bg-elev)] p-2.5 font-[family-name:var(--font-mono)] text-[12.5px] leading-[1.6]"
-        placeholder={"curl --location 'https://api.example.com/users' \\\n--header 'Authorization: Bearer {{token}}'"}
+        className="h-[220px] w-full resize-y rounded-lg border border-[var(--border)] bg-[var(--bg-elev)] p-2.5 font-[family-name:var(--font-mono)] text-[12.5px] leading-[1.6]"
+        placeholder={"curl --location 'https://api.example.com/users' \\\n--header 'Authorization: Bearer {{token}}'\n\n— or —\n\n{ \"info\": { \"name\": \"My Postman Collection\" }, \"item\": [...] }"}
         value={text}
         onChange={(e) => setText(e.target.value)}
       />
+    </Modal>
+  );
+}
+
+/* ============================= Collection Runner modal ============================= */
+export function CollectionRunnerModal({ collectionId, onClose }: { collectionId: string; onClose: () => void }) {
+  const { collections, runCollectionById, runningCollectionId, runnerResult, clearRunnerResult } = useApiTester();
+  const collection = collections.find((c) => c.id === collectionId);
+  const [dataRows, setDataRows] = useState<RunnerDataRow[] | undefined>(undefined);
+  const [fileName, setFileName] = useState("");
+  const [delayMs, setDelayMs] = useState(0);
+  const isRunning = runningCollectionId === collectionId;
+
+  const onFile = (file: File) => {
+    setFileName(file.name);
+    if (file.name.endsWith(".json")) {
+      file.text().then((t) => { try { setDataRows(JSON.parse(t)); } catch { setDataRows(undefined); } });
+    } else {
+      Papa.parse<RunnerDataRow>(file, { header: true, skipEmptyLines: true, complete: (res) => setDataRows(res.data) });
+    }
+  };
+
+  if (!collection) return null;
+  const iterations = dataRows?.length || 1;
+
+  return (
+    <Modal title={`Run Collection — ${collection.name}`} onClose={onClose} width={640}>
+      {!runnerResult ? (
+        <>
+          <div className="mb-3 text-xs text-[var(--text-faint)]">
+            Runs every request in this collection in order{dataRows ? `, once per row in ${fileName} (${iterations} iterations)` : ""}. Test scripts and pre-request scripts run exactly as they would normally.
+          </div>
+          <div className="mb-3 flex items-center gap-2.5">
+            <label className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] px-2.5 py-1.5 text-[11.5px] font-semibold text-[var(--text-dim)] hover:border-[var(--text-faint)] hover:text-[var(--text)]">
+              <Upload size={12} /> {fileName || "Upload CSV/JSON data file (optional)"}
+              <input type="file" accept=".csv,.json" className="hidden" onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])} />
+            </label>
+            {dataRows && <button onClick={() => { setDataRows(undefined); setFileName(""); }} className="text-[11px] text-[var(--text-faint)] hover:text-[var(--danger)]">Clear</button>}
+          </div>
+          <label className="mb-4 flex items-center gap-2 text-[12px]">
+            Delay between requests (ms)
+            <input type="number" min={0} className="w-20 rounded-lg border border-[var(--border)] bg-[var(--bg-elev)] px-2 py-1 font-[family-name:var(--font-mono)] text-[12px]" value={delayMs} onChange={(e) => setDelayMs(Math.max(0, Number(e.target.value) || 0))} />
+          </label>
+          <button
+            disabled={isRunning}
+            onClick={() => runCollectionById(collectionId, dataRows, delayMs)}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-[linear-gradient(135deg,var(--primary),#7C4CF0)] py-2.5 text-[13px] font-bold text-white disabled:opacity-60"
+          >
+            {isRunning ? <Loader2 size={15} className="animate-spin" /> : <Play size={14} />}
+            {isRunning ? "Running…" : "Run Collection"}
+          </button>
+        </>
+      ) : (
+        <div>
+          <div className="mb-3 flex items-center gap-4 rounded-lg bg-[var(--bg-elev)] p-3">
+            <div>
+              <div className="text-[20px] font-extrabold text-[var(--success)]">{runnerResult.passed}/{runnerResult.total}</div>
+              <div className="text-[10.5px] uppercase tracking-wide text-[var(--text-faint)]">Requests passed</div>
+            </div>
+            <div>
+              <div className="text-[20px] font-extrabold">{runnerResult.testsPassed}/{runnerResult.totalTests}</div>
+              <div className="text-[10.5px] uppercase tracking-wide text-[var(--text-faint)]">Assertions passed</div>
+            </div>
+            <div>
+              <div className="text-[20px] font-extrabold">{(runnerResult.durationMs / 1000).toFixed(1)}s</div>
+              <div className="text-[10.5px] uppercase tracking-wide text-[var(--text-faint)]">Total time</div>
+            </div>
+          </div>
+          <div className="max-h-[320px] overflow-y-auto">
+            {runnerResult.results.map((r, i) => (
+              <div key={i} className="mb-1 flex items-center gap-2.5 rounded-lg border border-[var(--border-soft)] px-2.5 py-2">
+                {r.ok ? <CheckCircle2 size={15} className="flex-shrink-0 text-[var(--success)]" /> : <XCircle size={15} className="flex-shrink-0 text-[var(--danger)]" />}
+                <span className="rounded-md bg-[var(--bg-elev)] px-1.5 py-0.5 font-[family-name:var(--font-mono)] text-[10.5px] font-bold">{r.method}</span>
+                <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[12px]">{r.name}{iterations > 1 ? ` (#${r.iteration + 1})` : ""}</span>
+                {r.testResults && <span className="text-[11px] text-[var(--text-faint)]">{r.testResults.filter((t) => t.pass).length}/{r.testResults.length} tests</span>}
+                <span className="text-[11px] font-bold text-[var(--text-faint)]">{r.status ?? r.error ?? "—"}</span>
+              </div>
+            ))}
+          </div>
+          <button onClick={() => { setDataRows(undefined); setFileName(""); clearRunnerResult(); }} className="mt-3 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 text-xs font-semibold text-[var(--text-dim)]">
+            Run again
+          </button>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+/* ============================= Collection variables modal ============================= */
+export function CollectionVariablesModal({ collectionId, onClose }: { collectionId: string; onClose: () => void }) {
+  const { collections, updateCollectionVariables, toast } = useApiTester();
+  const collection = collections.find((c) => c.id === collectionId);
+  if (!collection) return null;
+  return (
+    <Modal
+      title={`Variables — ${collection.name}`}
+      onClose={onClose}
+      width={560}
+      footer={<button onClick={() => { toast("Collection variables saved"); onClose(); }} className="rounded-lg bg-[linear-gradient(135deg,var(--primary),#7C4CF0)] px-3.5 py-2 text-xs font-semibold text-white">Done</button>}
+    >
+      <div className="mb-2.5 text-xs text-[var(--text-faint)]">
+        Shared by every request in this collection. Precedence: Global → Environment → Collection → Request-local (later wins).
+      </div>
+      <KeyValueTable rows={collection.variables} onChange={(vars) => updateCollectionVariables(collectionId, vars)} keyPlaceholder="Variable" valuePlaceholder="Value" showDesc={false} />
     </Modal>
   );
 }

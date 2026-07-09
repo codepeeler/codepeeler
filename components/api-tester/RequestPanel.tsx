@@ -16,6 +16,7 @@ const REQUEST_TABS: { key: ReqTabKey; label: string }[] = [
   { key: "prescript", label: "Pre-request Script" },
   { key: "tests", label: "Tests" },
   { key: "settings", label: "Settings" },
+  { key: "docs", label: "Docs" },
 ];
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -140,6 +141,8 @@ const AUTH_TYPES: { key: AuthType; label: string }[] = [
   { key: "bearer", label: "Bearer Token" },
   { key: "basic", label: "Basic Auth" },
   { key: "apikey", label: "API Key" },
+  { key: "oauth2", label: "OAuth 2.0" },
+  { key: "awsv4", label: "AWS Signature v4" },
 ];
 function AuthPanel({ request, updateRequest }: { request: ApiRequest; updateRequest: (p: Partial<ApiRequest>) => void }) {
   const auth = request.auth;
@@ -181,6 +184,53 @@ function AuthPanel({ request, updateRequest }: { request: ApiRequest; updateRequ
                 <option value="query">Query Params</option>
               </select>
             </Field>
+          </>
+        )}
+        {auth.type === "oauth2" && (
+          <>
+            <Field label="Grant Type">
+              <select
+                className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-elev)] px-2 py-[7px] text-[12.5px]"
+                value={auth.oauth2.grantType}
+                onChange={(e) => setAuth({ oauth2: { ...auth.oauth2, grantType: e.target.value as any } })}
+              >
+                <option value="client_credentials">Client Credentials</option>
+                <option value="password">Password (Resource Owner)</option>
+                <option value="authorization_code_manual">Paste Existing Access Token</option>
+              </select>
+            </Field>
+            {auth.oauth2.grantType === "authorization_code_manual" ? (
+              <Field label="Access Token">
+                <input className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-elev)] px-2.5 py-[7px] font-[family-name:var(--font-mono)] text-[12.5px]" placeholder="{{access_token}}" value={auth.oauth2.manualToken} onChange={(e) => setAuth({ oauth2: { ...auth.oauth2, manualToken: e.target.value } })} />
+              </Field>
+            ) : (
+              <>
+                <Field label="Access Token URL">
+                  <input className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-elev)] px-2.5 py-[7px] font-[family-name:var(--font-mono)] text-[12.5px]" placeholder="https://auth.example.com/oauth/token" value={auth.oauth2.accessTokenUrl} onChange={(e) => setAuth({ oauth2: { ...auth.oauth2, accessTokenUrl: e.target.value } })} />
+                </Field>
+                <Field label="Client ID"><input className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-elev)] px-2.5 py-[7px] font-[family-name:var(--font-mono)] text-[12.5px]" value={auth.oauth2.clientId} onChange={(e) => setAuth({ oauth2: { ...auth.oauth2, clientId: e.target.value } })} /></Field>
+                <Field label="Client Secret"><input type="password" className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-elev)] px-2.5 py-[7px] font-[family-name:var(--font-mono)] text-[12.5px]" value={auth.oauth2.clientSecret} onChange={(e) => setAuth({ oauth2: { ...auth.oauth2, clientSecret: e.target.value } })} /></Field>
+                {auth.oauth2.grantType === "password" && (
+                  <>
+                    <Field label="Username"><input className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-elev)] px-2.5 py-[7px] text-[12.5px]" value={auth.oauth2.username} onChange={(e) => setAuth({ oauth2: { ...auth.oauth2, username: e.target.value } })} /></Field>
+                    <Field label="Password"><input type="password" className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-elev)] px-2.5 py-[7px] text-[12.5px]" value={auth.oauth2.password} onChange={(e) => setAuth({ oauth2: { ...auth.oauth2, password: e.target.value } })} /></Field>
+                  </>
+                )}
+                <Field label="Scope"><input className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-elev)] px-2.5 py-[7px] font-[family-name:var(--font-mono)] text-[12.5px]" placeholder="read write" value={auth.oauth2.scope} onChange={(e) => setAuth({ oauth2: { ...auth.oauth2, scope: e.target.value } })} /></Field>
+                <div className="text-[11px] leading-[1.6] text-[var(--text-faint)]">Fetches a fresh token from the URL above the first time this request sends, then caches it in memory until it expires — no separate &quot;Get New Access Token&quot; click needed.</div>
+              </>
+            )}
+            <Field label="Header Prefix"><input className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-elev)] px-2.5 py-[7px] font-[family-name:var(--font-mono)] text-[12.5px]" value={auth.oauth2.headerPrefix} onChange={(e) => setAuth({ oauth2: { ...auth.oauth2, headerPrefix: e.target.value } })} /></Field>
+          </>
+        )}
+        {auth.type === "awsv4" && (
+          <>
+            <Field label="Access Key ID"><input className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-elev)] px-2.5 py-[7px] font-[family-name:var(--font-mono)] text-[12.5px]" value={auth.awsv4.accessKeyId} onChange={(e) => setAuth({ awsv4: { ...auth.awsv4, accessKeyId: e.target.value } })} /></Field>
+            <Field label="Secret Access Key"><input type="password" className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-elev)] px-2.5 py-[7px] font-[family-name:var(--font-mono)] text-[12.5px]" value={auth.awsv4.secretAccessKey} onChange={(e) => setAuth({ awsv4: { ...auth.awsv4, secretAccessKey: e.target.value } })} /></Field>
+            <Field label="Session Token (optional)"><input className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-elev)] px-2.5 py-[7px] font-[family-name:var(--font-mono)] text-[12.5px]" value={auth.awsv4.sessionToken} onChange={(e) => setAuth({ awsv4: { ...auth.awsv4, sessionToken: e.target.value } })} /></Field>
+            <Field label="Region"><input className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-elev)] px-2.5 py-[7px] font-[family-name:var(--font-mono)] text-[12.5px]" placeholder="us-east-1" value={auth.awsv4.region} onChange={(e) => setAuth({ awsv4: { ...auth.awsv4, region: e.target.value } })} /></Field>
+            <Field label="Service"><input className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-elev)] px-2.5 py-[7px] font-[family-name:var(--font-mono)] text-[12.5px]" placeholder="execute-api" value={auth.awsv4.service} onChange={(e) => setAuth({ awsv4: { ...auth.awsv4, service: e.target.value } })} /></Field>
+            <div className="text-[11px] leading-[1.6] text-[var(--text-faint)]">Signs the request with Signature Version 4 at send time — works for API Gateway, S3, and other AWS services callable directly from the browser.</div>
           </>
         )}
       </div>
@@ -250,6 +300,41 @@ function SettingsPanel({ request, updateRequest }: { request: ApiRequest; update
           <div className="text-[11px] text-[var(--text-faint)]">Browsers always verify certificates; this mirrors desktop client behavior for exported code</div>
         </div>
       </label>
+      <div className="my-3.5 h-px bg-[var(--border-soft)]" />
+      <label className="flex cursor-pointer items-center gap-2.5 py-2">
+        <input type="checkbox" checked={s.forceProxy} onChange={(e) => setS({ forceProxy: e.target.checked })} className="h-3.5 w-3.5 accent-[var(--primary)]" />
+        <div>
+          <div className="text-[12.5px] font-semibold">Always send through server proxy</div>
+          <div className="text-[11px] text-[var(--text-faint)]">
+            Off by default: a direct browser request is tried first, and only falls back to the server proxy if it's blocked by CORS. Turn this on to skip straight to the proxy (e.g. for a site you already know blocks browser calls).
+          </div>
+        </div>
+      </label>
+      <div className="my-3.5 h-px bg-[var(--border-soft)]" />
+      <Field label="Retry on failure (max attempts)">
+        <input type="number" min={0} max={10} className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-elev)] px-2.5 py-[7px] font-[family-name:var(--font-mono)] text-[12.5px]" value={s.maxRetries} onChange={(e) => setS({ maxRetries: Math.max(0, Number(e.target.value) || 0) })} />
+      </Field>
+      <Field label="Delay between retries (ms)">
+        <input type="number" min={0} className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-elev)] px-2.5 py-[7px] font-[family-name:var(--font-mono)] text-[12.5px]" value={s.retryDelayMs} onChange={(e) => setS({ retryDelayMs: Math.max(0, Number(e.target.value) || 0) })} />
+      </Field>
+      <div className="text-[11px] leading-[1.6] text-[var(--text-faint)]">On network errors or timeouts, CodePeeler will retry up to this many times before showing a failure — useful for flaky endpoints during testing.</div>
+    </div>
+  );
+}
+
+function DocsPanel({ request, updateRequest }: { request: ApiRequest; updateRequest: (p: Partial<ApiRequest>) => void }) {
+  return (
+    <div className="flex h-full flex-col">
+      <div className="border-b border-[var(--border-soft)] p-3.5 pb-2.5 text-[11px] leading-[1.6] text-[var(--text-faint)]">
+        Notes shown alongside this request — describe what it does, expected responses, or gotchas for teammates. Supports plain text or Markdown.
+      </div>
+      <textarea
+        spellCheck={false}
+        value={request.description}
+        placeholder="e.g. Returns the current user's profile. Requires a valid bearer token. 404 means the user was deleted."
+        onChange={(e) => updateRequest({ description: e.target.value })}
+        className="flex-1 resize-none bg-[var(--bg-elev)] p-3.5 text-[12.5px] leading-[1.6] text-[var(--text)] outline-none"
+      />
     </div>
   );
 }
@@ -285,6 +370,7 @@ export default function RequestPanel() {
         {activeTab.reqTab === "prescript" && <div className="h-full"><ScriptPanel value={req.preScript} onChange={(v) => updateRequest({ preScript: v })} variant="pre" /></div>}
         {activeTab.reqTab === "tests" && <div className="h-full"><ScriptPanel value={req.testScript} onChange={(v) => updateRequest({ testScript: v })} variant="test" /></div>}
         {activeTab.reqTab === "settings" && <SettingsPanel request={req} updateRequest={updateRequest} />}
+        {activeTab.reqTab === "docs" && <DocsPanel request={req} updateRequest={updateRequest} />}
       </div>
     </div>
   );

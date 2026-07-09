@@ -3,7 +3,24 @@
 import { Trash2 } from "lucide-react";
 import { useWorkflow } from "@/providers/workflow-provider";
 import { NODE_TYPES, NODE_CAT_COLOR } from "@/lib/data/node-types";
-import type { HashAlgo, SortMode, ReverseMode, ShuffleMode, TruncUnit, LoremUnit, CsvTsvDirection, YamlDirection } from "@/lib/transforms";
+import type {
+  HashAlgo,
+  SortMode,
+  ReverseMode,
+  ShuffleMode,
+  TruncUnit,
+  LoremUnit,
+  CsvTsvDirection,
+  YamlDirection,
+  TimestampDirection,
+  ColorFormat,
+  CssUnitFrom,
+  BaseFrom,
+  SqlMode,
+  SqlKeywordCase,
+  HtmlMode,
+  CssMode,
+} from "@/lib/transforms";
 
 const HASH_ALGOS: HashAlgo[] = ["SHA-1", "SHA-256", "SHA-384", "SHA-512"];
 
@@ -350,6 +367,138 @@ export default function Inspector() {
           {node.type === "line-number" && (
             <div className="mb-4 space-y-3">
               <NumberField label="Start at" value={node.settings?.lineStart ?? 1} min={0} onChange={(v) => updateNodeSettings(node.id, { lineStart: v })} />
+            </div>
+          )}
+
+          {node.type === "unix-timestamp" && (
+            <div className="mb-4 space-y-3">
+              <SelectField<TimestampDirection>
+                label="Direction"
+                value={node.settings?.timestampDirection ?? "toDate"}
+                options={["toDate", "toTimestamp"]}
+                onChange={(v) => updateNodeSettings(node.id, { timestampDirection: v })}
+              />
+            </div>
+          )}
+
+          {node.type === "color-convert" && (
+            <div className="mb-4 space-y-3">
+              <SelectField<ColorFormat>
+                label="Convert to"
+                value={node.settings?.colorFormat ?? "hex"}
+                options={["hex", "rgb", "hsl"]}
+                onChange={(v) => updateNodeSettings(node.id, { colorFormat: v })}
+              />
+            </div>
+          )}
+
+          {node.type === "css-unit-convert" && (
+            <div className="mb-4 space-y-3">
+              <SelectField<CssUnitFrom>
+                label="Input unit"
+                value={node.settings?.cssUnitFrom ?? "px"}
+                options={["px", "rem", "em", "pt"]}
+                onChange={(v) => updateNodeSettings(node.id, { cssUnitFrom: v })}
+              />
+              <NumberField label="Root font size (px)" value={node.settings?.baseRootPx ?? 16} min={1} onChange={(v) => updateNodeSettings(node.id, { baseRootPx: v })} />
+            </div>
+          )}
+
+          {node.type === "base-convert" && (
+            <div className="mb-4 space-y-3">
+              <SelectField<BaseFrom>
+                label="Input base"
+                value={node.settings?.baseFrom ?? "dec"}
+                options={["bin", "oct", "dec", "hex"]}
+                onChange={(v) => updateNodeSettings(node.id, { baseFrom: v })}
+              />
+            </div>
+          )}
+
+          {node.type === "sql-format" && (
+            <div className="mb-4 space-y-3">
+              <SelectField<SqlMode>
+                label="Mode"
+                value={node.settings?.sqlMode ?? "format"}
+                options={["format", "minify"]}
+                onChange={(v) => updateNodeSettings(node.id, { sqlMode: v })}
+              />
+              {(node.settings?.sqlMode ?? "format") === "format" && (
+                <>
+                  <SelectField<SqlKeywordCase>
+                    label="Keyword case"
+                    value={node.settings?.sqlKeywordCase ?? "upper"}
+                    options={["upper", "lower", "preserve"]}
+                    onChange={(v) => updateNodeSettings(node.id, { sqlKeywordCase: v })}
+                  />
+                  <NumberField
+                    label="Indent size"
+                    value={node.settings?.sqlIndent ?? 2}
+                    min={1}
+                    max={8}
+                    onChange={(v) => updateNodeSettings(node.id, { sqlIndent: v })}
+                  />
+                </>
+              )}
+            </div>
+          )}
+
+          {node.type === "html-format" && (
+            <div className="mb-4 space-y-3">
+              <SelectField<HtmlMode>
+                label="Mode"
+                value={node.settings?.htmlMode ?? "format"}
+                options={["format", "minify"]}
+                onChange={(v) => updateNodeSettings(node.id, { htmlMode: v })}
+              />
+              {(node.settings?.htmlMode ?? "format") === "format" ? (
+                <NumberField
+                  label="Indent size"
+                  value={node.settings?.htmlIndent ?? 2}
+                  min={1}
+                  max={8}
+                  onChange={(v) => updateNodeSettings(node.id, { htmlIndent: v })}
+                />
+              ) : (
+                <>
+                  <CheckField
+                    label="Collapse whitespace"
+                    checked={node.settings?.htmlCollapseWhitespace ?? true}
+                    onChange={(v) => updateNodeSettings(node.id, { htmlCollapseWhitespace: v })}
+                  />
+                  <CheckField
+                    label="Remove comments"
+                    checked={node.settings?.htmlRemoveComments ?? true}
+                    onChange={(v) => updateNodeSettings(node.id, { htmlRemoveComments: v })}
+                  />
+                </>
+              )}
+            </div>
+          )}
+
+          {node.type === "css-format" && (
+            <div className="mb-4 space-y-3">
+              <SelectField<CssMode>
+                label="Mode"
+                value={node.settings?.cssMode ?? "format"}
+                options={["format", "minify"]}
+                onChange={(v) => updateNodeSettings(node.id, { cssMode: v })}
+              />
+              {(node.settings?.cssMode ?? "format") === "format" ? (
+                <NumberField
+                  label="Indent size"
+                  value={node.settings?.cssIndent ?? 2}
+                  min={1}
+                  max={8}
+                  onChange={(v) => updateNodeSettings(node.id, { cssIndent: v })}
+                />
+              ) : (
+                <CheckField
+                  label="Remove comments"
+                  checked={node.settings?.cssRemoveComments ?? true}
+                  onChange={(v) => updateNodeSettings(node.id, { cssRemoveComments: v })}
+                />
+              )}
             </div>
           )}
 

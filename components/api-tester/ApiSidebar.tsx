@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronRight, Folder, FolderOpen, MoreVertical, Plus, Search, Layers, Clock } from "lucide-react";
+import { ChevronDown, ChevronRight, Folder, FolderOpen, MoreVertical, Plus, Search, Layers, Clock, Play, Variable, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useApiTester } from "@/providers/api-tester-provider";
 import { uid } from "@/lib/api-tester/engine";
+import { CollectionRunnerModal, CollectionVariablesModal } from "@/components/api-tester/Modals";
 import type { Collection, CollectionItem } from "@/lib/api-tester/types";
 
 /* ============================= Collection tree item ============================= */
@@ -12,10 +13,18 @@ function CollectionTreeItem({
   item,
   collectionId,
   depth,
+  isCollectionRoot,
+  onRun,
+  onVariables,
+  onExport,
 }: {
   item: CollectionItem;
   collectionId: string;
   depth: number;
+  isCollectionRoot?: boolean;
+  onRun?: () => void;
+  onVariables?: () => void;
+  onExport?: () => void;
 }) {
   const { openRequestFromCollection, deleteCollectionItem, renameCollectionItem } = useApiTester();
   const [open, setOpen] = useState(true);
@@ -46,6 +55,15 @@ function CollectionTreeItem({
           ) : (
             <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[12.5px] font-semibold">{item.name}</span>
           )}
+          {isCollectionRoot && (
+            <button
+              className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded text-[var(--text-faint)] opacity-0 group-hover:opacity-100 hover:bg-[var(--border-soft)] hover:text-[var(--primary)]"
+              onClick={(e) => { e.stopPropagation(); onRun?.(); }}
+              title="Run collection"
+            >
+              <Play size={11} />
+            </button>
+          )}
           <button
             className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:bg-[var(--border-soft)]"
             onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
@@ -53,7 +71,15 @@ function CollectionTreeItem({
             <MoreVertical size={12} />
           </button>
           {menuOpen && (
-            <div className="absolute right-1.5 top-full z-[60] min-w-[130px] rounded-lg border border-[var(--border-soft)] bg-[var(--card)] py-1 shadow-[var(--shadow-soft)]" onMouseLeave={() => setMenuOpen(false)}>
+            <div className="absolute right-1.5 top-full z-[60] min-w-[150px] rounded-lg border border-[var(--border-soft)] bg-[var(--card)] py-1 shadow-[var(--shadow-soft)]" onMouseLeave={() => setMenuOpen(false)}>
+              {isCollectionRoot && (
+                <>
+                  <button className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-xs hover:bg-[var(--card-hover)]" onClick={(e) => { e.stopPropagation(); onRun?.(); setMenuOpen(false); }}><Play size={11} /> Run collection</button>
+                  <button className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-xs hover:bg-[var(--card-hover)]" onClick={(e) => { e.stopPropagation(); onVariables?.(); setMenuOpen(false); }}><Variable size={11} /> Variables</button>
+                  <button className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-xs hover:bg-[var(--card-hover)]" onClick={(e) => { e.stopPropagation(); onExport?.(); setMenuOpen(false); }}><Download size={11} /> Export (Postman)</button>
+                  <div className="my-1 h-px bg-[var(--border-soft)]" />
+                </>
+              )}
               <button className="block w-full px-2.5 py-1.5 text-left text-xs hover:bg-[var(--card-hover)]" onClick={(e) => { e.stopPropagation(); setEditing(true); setMenuOpen(false); }}>Rename</button>
               <button className="block w-full px-2.5 py-1.5 text-left text-xs text-[var(--danger)] hover:bg-[var(--card-hover)]" onClick={(e) => { e.stopPropagation(); deleteCollectionItem(collectionId, item.id); setMenuOpen(false); }}>Delete</button>
             </div>
@@ -103,11 +129,13 @@ function CollectionTreeItem({
 }
 
 function CollectionsPanel() {
-  const { collections, setCollections } = useApiTester();
+  const { collections, setCollections, exportCollectionAsPostman } = useApiTester();
   const [query, setQuery] = useState("");
+  const [runnerFor, setRunnerFor] = useState<string | null>(null);
+  const [varsFor, setVarsFor] = useState<string | null>(null);
 
   const addCollection = () => {
-    const nc: Collection = { id: uid(), name: "New Collection", items: [] };
+    const nc: Collection = { id: uid(), name: "New Collection", items: [], variables: [] };
     setCollections((prev) => [...prev, nc]);
   };
   const deleteCollection = (id: string) => setCollections((prev) => prev.filter((c) => c.id !== id));
@@ -139,10 +167,20 @@ function CollectionsPanel() {
         )}
         {filtered.map((col) => (
           <div key={col.id} className="mb-1">
-            <CollectionTreeItem item={{ id: col.id, type: "folder", name: col.name, children: col.items }} collectionId={col.id} depth={0} />
+            <CollectionTreeItem
+              item={{ id: col.id, type: "folder", name: col.name, children: col.items }}
+              collectionId={col.id}
+              depth={0}
+              isCollectionRoot
+              onRun={() => setRunnerFor(col.id)}
+              onVariables={() => setVarsFor(col.id)}
+              onExport={() => exportCollectionAsPostman(col.id)}
+            />
           </div>
         ))}
       </div>
+      {runnerFor && <CollectionRunnerModal collectionId={runnerFor} onClose={() => setRunnerFor(null)} />}
+      {varsFor && <CollectionVariablesModal collectionId={varsFor} onClose={() => setVarsFor(null)} />}
     </div>
   );
 }
