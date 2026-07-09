@@ -39,6 +39,24 @@ export const NAV_RAIL_ITEMS: {
   { key: "settings", label: "Settings", href: "/workspace/settings", icon: Settings },
 ];
 
+/**
+ * Curated subset of NAV_RAIL_ITEMS for the mobile bottom tab bar.
+ * Native app convention caps this at 5 items — everything else stays
+ * reachable from Settings rather than crowding the bar.
+ */
+export const MOBILE_TAB_ITEMS: {
+  key: NavKey;
+  label: string;
+  href: string;
+  icon: LucideIcon;
+}[] = [
+  NAV_RAIL_ITEMS[0], // workspace
+  NAV_RAIL_ITEMS[2], // all tools
+  NAV_RAIL_ITEMS[5], // api tester
+  NAV_RAIL_ITEMS[3], // collections
+  NAV_RAIL_ITEMS[8], // settings
+];
+
 export const WORKSPACE_TABS = [
   { key: "workflow", label: "Workflow" },
   { key: "collections", label: "Collections" },

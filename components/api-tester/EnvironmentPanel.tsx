@@ -2,13 +2,16 @@
 
 import { Settings } from "lucide-react";
 import { useApiTester } from "@/providers/api-tester-provider";
+import Drawer from "@/components/layout/mobile/Drawer";
 
-export default function EnvironmentPanel({ onOpenManager }: { onOpenManager: () => void }) {
+export const ENVIRONMENT_PANEL_ID = "api-tester-environment";
+
+function EnvironmentPanelContent({ onOpenManager }: { onOpenManager: () => void }) {
   const { environments, activeEnvId, setActiveEnvId, collections, history } = useApiTester();
   const activeEnv = environments.find((e) => e.id === activeEnvId);
 
   return (
-    <aside className="flex w-[292px] flex-shrink-0 flex-col overflow-y-auto border-l border-[var(--border-soft)] bg-[var(--bg-elev)]">
+    <>
       <div className="p-3.5">
         <div className="mb-2.5 text-sm font-bold">Environment</div>
         <select
@@ -61,6 +64,24 @@ export default function EnvironmentPanel({ onOpenManager }: { onOpenManager: () 
           </div>
         </div>
       </div>
-    </aside>
+    </>
+  );
+}
+
+/**
+ * Desktop: fixed 292px aside, always visible (unchanged behavior).
+ * Mobile (<lg): rendered as content inside the shared Drawer primitive
+ * instead, opened via the environment icon in MobileHeader.
+ */
+export default function EnvironmentPanel({ onOpenManager }: { onOpenManager: () => void }) {
+  return (
+    <>
+      <aside className="hidden w-[292px] flex-shrink-0 flex-col overflow-y-auto border-l border-[var(--border-soft)] bg-[var(--bg-elev)] lg:flex">
+        <EnvironmentPanelContent onOpenManager={onOpenManager} />
+      </aside>
+      <Drawer id={ENVIRONMENT_PANEL_ID} title="Environment">
+        <EnvironmentPanelContent onOpenManager={onOpenManager} />
+      </Drawer>
+    </>
   );
 }

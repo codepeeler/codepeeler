@@ -7,6 +7,9 @@ import { useApiTester } from "@/providers/api-tester-provider";
 import { uid } from "@/lib/api-tester/engine";
 import { CollectionRunnerModal, CollectionVariablesModal } from "@/components/api-tester/Modals";
 import type { Collection, CollectionItem } from "@/lib/api-tester/types";
+import Drawer from "@/components/layout/mobile/Drawer";
+
+export const API_SIDEBAR_PANEL_ID = "api-tester-sidebar";
 
 /* ============================= Collection tree item ============================= */
 function CollectionTreeItem({
@@ -233,10 +236,10 @@ const SIDEBAR_TABS = [
   { key: "history" as const, label: "History", icon: Clock },
 ];
 
-export default function ApiSidebar() {
+function ApiSidebarContent() {
   const [tab, setTab] = useState<"collections" | "history">("collections");
   return (
-    <aside className="flex w-[250px] flex-shrink-0 flex-col border-r border-[var(--border-soft)] bg-[var(--bg-elev)]">
+    <>
       <div className="flex px-2.5 pt-2.5">
         {SIDEBAR_TABS.map((t) => (
           <button
@@ -251,6 +254,24 @@ export default function ApiSidebar() {
       </div>
       <div className="h-px bg-[var(--border-soft)]" />
       <div className="min-h-0 flex-1">{tab === "collections" ? <CollectionsPanel /> : <HistoryPanel />}</div>
-    </aside>
+    </>
+  );
+}
+
+/**
+ * Desktop: fixed 250px aside, always visible (unchanged behavior).
+ * Mobile (<lg): rendered inside the shared Drawer primitive instead,
+ * opened via the collections/history icon in MobileHeader.
+ */
+export default function ApiSidebar() {
+  return (
+    <>
+      <aside className="hidden w-[250px] flex-shrink-0 flex-col border-r border-[var(--border-soft)] bg-[var(--bg-elev)] lg:flex">
+        <ApiSidebarContent />
+      </aside>
+      <Drawer id={API_SIDEBAR_PANEL_ID} title="Collections & History">
+        <ApiSidebarContent />
+      </Drawer>
+    </>
   );
 }
