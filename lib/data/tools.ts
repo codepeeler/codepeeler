@@ -65,6 +65,7 @@ export const TOOLS: Tool[] = [
   { id: "sql-format", name: "SQL Formatter / Minify", desc: "Beautify or minify SQL queries", badge: "SQL", cat: "data", page: "/tools/sql-formatter" },
   { id: "html-format", name: "HTML Formatter / Minify", desc: "Beautify or minify HTML markup", badge: "<>", cat: "data", page: "/tools/html-formatter" },
   { id: "css-format", name: "CSS Formatter / Minify", desc: "Beautify or minify CSS rules", badge: "{ }", cat: "data", page: "/tools/css-formatter" },
+  { id: "js-format", name: "JS Formatter / Minify", desc: "Beautify with Prettier or minify with Terser", badge: "JS", cat: "data", page: "/tools/js-formatter" },
 ];
 
 export const CAT_META: Record<CatKey, { label: string; color: string }> = {

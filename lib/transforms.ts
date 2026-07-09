@@ -18,6 +18,7 @@ export type SqlKeywordCase = "upper" | "lower" | "preserve";
 export type SqlMode = "format" | "minify";
 export type HtmlMode = "format" | "minify";
 export type CssMode = "format" | "minify";
+export type JsMode = "format" | "minify";
 
 export interface NodeSettings {
   indent?: number; // json-format
@@ -65,6 +66,11 @@ export interface NodeSettings {
   cssMode?: CssMode; // css-format
   cssIndent?: number; // css-format
   cssRemoveComments?: boolean; // css-format (minify)
+  jsMode?: JsMode; // js-format
+  jsIndent?: number; // js-format
+  jsSemi?: boolean; // js-format
+  jsSingleQuote?: boolean; // js-format
+  jsMangle?: boolean; // js-format (minify)
 }
 
 export const DEFAULT_SETTINGS: Partial<Record<NodeTypeId, NodeSettings>> = {
@@ -91,6 +97,7 @@ export const DEFAULT_SETTINGS: Partial<Record<NodeTypeId, NodeSettings>> = {
   "sql-format": { sqlMode: "format", sqlKeywordCase: "upper", sqlIndent: 2 },
   "html-format": { htmlMode: "format", htmlIndent: 2, htmlCollapseWhitespace: true, htmlRemoveComments: true },
   "css-format": { cssMode: "format", cssIndent: 2, cssRemoveComments: true },
+  "js-format": { jsMode: "format", jsIndent: 2, jsSemi: true, jsSingleQuote: false, jsMangle: true },
 };
 
 function base64UrlDecode(str: string): string {
@@ -1704,6 +1711,57 @@ function minifyCss(input: string, removeComments: boolean): string {
   return restored.replace(/\s+/g, " ").trim();
 }
 
+// ---------------------------------------------------------------------------
+// JS Formatter / Minifier — powered by Prettier (format) and Terser (minify).
+// Both are loaded dynamically so their (fairly large) bundles are only
+// pulled in when this specific tool is actually used.
+// ---------------------------------------------------------------------------
+async function formatJs(
+  input: string,
+  indentSize: number,
+  semi: boolean,
+  singleQuote: boolean
+): Promise<string> {
+  if (!input.trim()) throw new Error("Enter JavaScript to format");
+
+  const [{ default: prettier }, { default: babelPlugin }, { default: estreePlugin }] = await Promise.all([
+    import("prettier/standalone"),
+    import("prettier/plugins/babel"),
+    import("prettier/plugins/estree"),
+  ]);
+
+  try {
+    return await prettier.format(input, {
+      parser: "babel",
+      plugins: [babelPlugin, estreePlugin],
+      tabWidth: indentSize,
+      semi,
+      singleQuote,
+    });
+  } catch (e) {
+    throw new Error(e instanceof Error ? `Syntax error: ${e.message.split("\n")[0]}` : "Failed to format JavaScript");
+  }
+}
+
+async function minifyJs(input: string, mangle: boolean): Promise<string> {
+  if (!input.trim()) throw new Error("Enter JavaScript to minify");
+
+  const { minify } = await import("terser");
+
+  try {
+    const result = await minify(input, {
+      compress: true,
+      mangle,
+      format: { comments: false },
+    });
+    if (!result.code) throw new Error("Minification produced no output");
+    return result.code;
+  } catch (e) {
+    if (e instanceof Error) throw new Error(`Syntax error: ${e.message.split("\n")[0]}`);
+    throw new Error("Failed to minify JavaScript");
+  }
+}
+
 export async function runTransform(
   type: NodeTypeId,
   input: string,
@@ -1834,6 +1892,10 @@ export async function runTransform(
       return (settings.cssMode ?? "format") === "minify"
         ? minifyCss(input, settings.cssRemoveComments ?? true)
         : formatCss(input, settings.cssIndent ?? 2);
+    case "js-format":
+      return (settings.jsMode ?? "format") === "minify"
+        ? minifyJs(input, settings.jsMangle ?? true)
+        : formatJs(input, settings.jsIndent ?? 2, settings.jsSemi ?? true, settings.jsSingleQuote ?? false);
 
     default:
       return input;

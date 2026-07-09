@@ -20,6 +20,7 @@ import type {
   SqlKeywordCase,
   HtmlMode,
   CssMode,
+  JsMode,
 } from "@/lib/transforms";
 
 const HASH_ALGOS: HashAlgo[] = ["SHA-1", "SHA-256", "SHA-384", "SHA-512"];
@@ -497,6 +498,44 @@ export default function Inspector() {
                   label="Remove comments"
                   checked={node.settings?.cssRemoveComments ?? true}
                   onChange={(v) => updateNodeSettings(node.id, { cssRemoveComments: v })}
+                />
+              )}
+            </div>
+          )}
+
+          {node.type === "js-format" && (
+            <div className="mb-4 space-y-3">
+              <SelectField<JsMode>
+                label="Mode"
+                value={node.settings?.jsMode ?? "format"}
+                options={["format", "minify"]}
+                onChange={(v) => updateNodeSettings(node.id, { jsMode: v })}
+              />
+              {(node.settings?.jsMode ?? "format") === "format" ? (
+                <>
+                  <NumberField
+                    label="Indent size"
+                    value={node.settings?.jsIndent ?? 2}
+                    min={1}
+                    max={8}
+                    onChange={(v) => updateNodeSettings(node.id, { jsIndent: v })}
+                  />
+                  <CheckField
+                    label="Semicolons"
+                    checked={node.settings?.jsSemi ?? true}
+                    onChange={(v) => updateNodeSettings(node.id, { jsSemi: v })}
+                  />
+                  <CheckField
+                    label="Single quotes"
+                    checked={node.settings?.jsSingleQuote ?? false}
+                    onChange={(v) => updateNodeSettings(node.id, { jsSingleQuote: v })}
+                  />
+                </>
+              ) : (
+                <CheckField
+                  label="Mangle variable names"
+                  checked={node.settings?.jsMangle ?? true}
+                  onChange={(v) => updateNodeSettings(node.id, { jsMangle: v })}
                 />
               )}
             </div>

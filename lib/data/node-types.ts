@@ -76,7 +76,8 @@ export type NodeTypeId =
   | "base-convert"
   | "sql-format"
   | "html-format"
-  | "css-format";
+  | "css-format"
+  | "js-format";
 
 export const NODE_TYPES: Record<
   NodeTypeId,
@@ -150,6 +151,7 @@ export const NODE_TYPES: Record<
   "sql-format": { label: "SQL Formatter / Minify", desc: "Beautify or minify a SQL query", badge: "SQL", cat: "data" },
   "html-format": { label: "HTML Formatter / Minify", desc: "Beautify or minify HTML markup", badge: "<>", cat: "data" },
   "css-format": { label: "CSS Formatter / Minify", desc: "Beautify or minify CSS rules", badge: "{ }", cat: "data" },
+  "js-format": { label: "JS Formatter / Minify", desc: "Beautify with Prettier or minify with Terser", badge: "JS", cat: "data" },
 };
 
 export const PALETTE_GROUPS: { label: string; items: NodeTypeId[] }[] = [
@@ -173,6 +175,7 @@ export const PALETTE_GROUPS: { label: string; items: NodeTypeId[] }[] = [
       "sql-format",
       "html-format",
       "css-format",
+      "js-format",
     ],
   },
   { label: "Encode / Decode", items: ["base64-encode", "base64-decode", "hex-encode", "hex-decode"] },
