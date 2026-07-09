@@ -2,13 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
-import { Sun, Moon, Trash2, RotateCcw } from "lucide-react";
-import NavRail from "@/components/workspace/NavRail";
+import { Sun, Moon, Trash2, RotateCcw, Menu } from "lucide-react";
+import NavRail, { NAV_RAIL_PANEL_ID } from "@/components/workspace/NavRail";
 import CollectionsStatsBar from "@/components/collections/CollectionsStatsBar";
 import Toggle from "@/components/ui/Toggle";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/providers/toast-provider";
 import { WorkflowProvider } from "@/providers/workflow-provider";
+import MobileHeader from "@/components/layout/mobile/MobileHeader";
+import { useMobileShell } from "@/providers/mobile-shell-provider";
 
 function SettingsSection({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
   return (
@@ -39,6 +41,7 @@ export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+  const { togglePanel } = useMobileShell();
 
   const [emailNotifs, setEmailNotifs] = useState(true);
   const [completionAlerts, setCompletionAlerts] = useState(true);
@@ -50,11 +53,15 @@ export default function SettingsPage() {
 
   return (
     <WorkflowProvider>
+      <MobileHeader
+        title="Settings"
+        actions={[{ key: "menu", icon: Menu, label: "Menu", onClick: () => togglePanel(NAV_RAIL_PANEL_ID) }]}
+      />
       <div className="relative flex min-h-0 flex-1">
         <NavRail />
 
         <main className="flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-[720px] px-6 py-7">
+          <div className="mx-auto max-w-[720px] px-4 py-5 lg:px-6 lg:py-7">
             <div className="mb-7">
               <h1 className="font-[family-name:var(--font-display)] text-[26px] font-bold tracking-[-0.01em]">
                 Settings

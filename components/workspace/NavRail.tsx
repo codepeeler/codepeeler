@@ -8,11 +8,13 @@ import { cn } from "@/lib/utils";
 import { NAV_RAIL_ITEMS } from "@/lib/data/workspace-shell";
 import { useWorkflow } from "@/providers/workflow-provider";
 import { useCommandPalette } from "@/providers/command-palette-provider";
+import Drawer from "@/components/layout/mobile/Drawer";
 
-export default function NavRail() {
+export const NAV_RAIL_PANEL_ID = "nav-rail";
+
+function NavRailContent({ collapsed, onToggleCollapse, showCollapseButton }: { collapsed: boolean; onToggleCollapse?: () => void; showCollapseButton: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [collapsed, setCollapsed] = useState(false);
   const { nodes, conns, workflows, activeWorkflowId, switchWorkflow, createWorkflow } = useWorkflow();
   const { open: openCommandPalette } = useCommandPalette();
 
@@ -25,24 +27,23 @@ export default function NavRail() {
   };
 
   return (
-    <nav
-      style={{ width: collapsed ? "64px" : "var(--w-navrail)" }}
-      className="z-[40] flex flex-shrink-0 flex-col overflow-y-auto border-r border-[var(--border-soft)] bg-[var(--bg-elev)] transition-[width] duration-150"
-    >
-      <div className="flex items-center justify-between px-2.5 pb-1 pt-2.5">
-        {!collapsed && (
-          <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-[var(--text-faint)]">
-            Workspace
-          </span>
-        )}
-        <button
-          onClick={() => setCollapsed((v) => !v)}
-          title="Collapse sidebar"
-          className="ml-auto flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md text-[var(--text-faint)] transition-colors duration-150 hover:bg-[var(--card-hover)] hover:text-[var(--text)]"
-        >
-          <ChevronLeft size={14} className={cn("transition-transform", collapsed && "rotate-180")} />
-        </button>
-      </div>
+    <>
+      {showCollapseButton && (
+        <div className="flex items-center justify-between px-2.5 pb-1 pt-2.5">
+          {!collapsed && (
+            <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-[var(--text-faint)]">
+              Workspace
+            </span>
+          )}
+          <button
+            onClick={onToggleCollapse}
+            title="Collapse sidebar"
+            className="ml-auto flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md text-[var(--text-faint)] transition-colors duration-150 hover:bg-[var(--card-hover)] hover:text-[var(--text)]"
+          >
+            <ChevronLeft size={14} className={cn("transition-transform", collapsed && "rotate-180")} />
+          </button>
+        </div>
+      )}
 
       <div className="px-2 pb-1 pt-2.5">
         {NAV_RAIL_ITEMS.map(({ key, label, href, icon: Icon }) => (
@@ -144,6 +145,30 @@ export default function NavRail() {
           </div>
         </>
       )}
-    </nav>
+    </>
+  );
+}
+
+/**
+ * Desktop: fixed-width collapsible aside (unchanged behavior).
+ * Mobile (<lg): rendered inside the shared Drawer, opened via MobileHeader's
+ * menu action. Used by both /workspace and /workspace/settings (and any
+ * other page that needs the same nav), so fixing it here fixes all of them.
+ */
+export default function NavRail() {
+  const [collapsed, setCollapsed] = useState(false);
+
+  return (
+    <>
+      <nav
+        style={{ width: collapsed ? "64px" : "var(--w-navrail)" }}
+        className="z-[40] hidden flex-shrink-0 flex-col overflow-y-auto border-r border-[var(--border-soft)] bg-[var(--bg-elev)] transition-[width] duration-150 lg:flex"
+      >
+        <NavRailContent collapsed={collapsed} onToggleCollapse={() => setCollapsed((v) => !v)} showCollapseButton />
+      </nav>
+      <Drawer id={NAV_RAIL_PANEL_ID} title="Menu">
+        <NavRailContent collapsed={false} showCollapseButton={false} />
+      </Drawer>
+    </>
   );
 }
