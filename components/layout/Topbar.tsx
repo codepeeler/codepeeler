@@ -14,7 +14,7 @@ export default function Topbar() {
   const { open } = useCommandPalette();
 
   return (
-    <header className="sticky top-0 z-50 flex h-[60px] flex-shrink-0 items-center gap-5 border-b border-[var(--border-soft)] bg-[var(--bg)]/85 px-5 backdrop-blur-md">
+    <header className="sticky top-0 z-50 hidden h-[60px] flex-shrink-0 items-center gap-5 border-b border-[var(--border-soft)] bg-[var(--bg)]/85 px-5 backdrop-blur-md lg:flex">
       <Logo width={125} height={36} />
 
       <nav className="hidden flex-shrink-0 items-center gap-0.5 md:flex">

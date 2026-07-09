@@ -77,51 +77,55 @@ export function UrlBar({ onOpenCode, onOpenSave }: { onOpenCode: () => void; onO
   const req = activeTab.request;
 
   return (
-    <div className="flex items-center gap-2 p-2.5 px-4">
-      <select
-        value={req.method}
-        onChange={(e) => updateRequest({ method: e.target.value as any })}
-        className="w-[108px] rounded-lg border border-[var(--border)] bg-[var(--bg-elev)] px-2 py-[7px] font-[family-name:var(--font-mono)] text-[12.5px] font-extrabold"
-        style={{ color: `var(--${req.method.toLowerCase()})` }}
-      >
-        {HTTP_METHODS.map((m) => <option key={m} value={m} className="text-[var(--text)]">{m}</option>)}
-      </select>
-      <input
-        value={req.url}
-        onChange={(e) => updateRequest({ url: e.target.value })}
-        onKeyDown={(e) => e.key === "Enter" && send()}
-        placeholder="https://api.example.com/endpoint?param={{value}}"
-        className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--bg-elev)] px-2.5 py-[7px] font-[family-name:var(--font-mono)] text-[13px] focus:border-[var(--primary)]"
-      />
-      {activeTab.isSending ? (
-        <button onClick={cancel} className="flex items-center gap-1.5 rounded-lg bg-[var(--danger-dim)] px-3 py-[7px] text-xs font-semibold text-[var(--danger)]">
-          <Loader2 size={13} className="animate-spin" /> Cancel
-        </button>
-      ) : (
-        <button onClick={send} className="flex items-center gap-1.5 rounded-lg bg-[linear-gradient(135deg,var(--primary),#7C4CF0)] px-3 py-[7px] text-xs font-semibold text-white hover:brightness-[1.08] hover:shadow-[var(--shadow-glow)]">
-          <Send size={13} /> Send
-        </button>
-      )}
-      <button onClick={onOpenSave} className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-[7px] text-xs font-semibold text-[var(--text-dim)] hover:border-[var(--text-faint)] hover:text-[var(--text)]">
-        <Save size={13} /> Save
-      </button>
-      <button onClick={onOpenCode} className="flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--text-dim)] hover:border-[var(--text-faint)] hover:text-[var(--text)]">
-        <Code2 size={13} />
-      </button>
-      <div className="relative">
-        <button onClick={() => setMoreOpen(!moreOpen)} className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--text-dim)] hover:bg-[var(--card-hover)] hover:text-[var(--text)]">
-          <MoreVertical size={15} />
-        </button>
-        {moreOpen && (
-          <div className="absolute right-0 top-[110%] z-[60] min-w-[170px] rounded-xl border border-[var(--border-soft)] bg-[var(--card)] py-1 shadow-[var(--shadow-soft)]" onMouseLeave={() => setMoreOpen(false)}>
-            <button
-              className="flex w-full items-center gap-2 px-2.5 py-2 text-left text-[12.5px] hover:bg-[var(--card-hover)]"
-              onClick={() => { duplicateTab(); setMoreOpen(false); }}
-            >
-              <Copy size={13} /> Duplicate tab
-            </button>
-          </div>
+    <div className="flex flex-col gap-2 p-2.5 px-4 lg:flex-row lg:items-center">
+      <div className="flex items-center gap-2">
+        <select
+          value={req.method}
+          onChange={(e) => updateRequest({ method: e.target.value as any })}
+          className="w-[92px] flex-shrink-0 rounded-lg border border-[var(--border)] bg-[var(--bg-elev)] px-2 py-[7px] font-[family-name:var(--font-mono)] text-[12.5px] font-extrabold lg:w-[108px]"
+          style={{ color: `var(--${req.method.toLowerCase()})` }}
+        >
+          {HTTP_METHODS.map((m) => <option key={m} value={m} className="text-[var(--text)]">{m}</option>)}
+        </select>
+        <input
+          value={req.url}
+          onChange={(e) => updateRequest({ url: e.target.value })}
+          onKeyDown={(e) => e.key === "Enter" && send()}
+          placeholder="https://api.example.com/endpoint?param={{value}}"
+          className="min-w-0 flex-1 rounded-lg border border-[var(--border)] bg-[var(--bg-elev)] px-2.5 py-[7px] font-[family-name:var(--font-mono)] text-[13px] focus:border-[var(--primary)]"
+        />
+      </div>
+      <div className="flex items-center gap-2">
+        {activeTab.isSending ? (
+          <button onClick={cancel} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[var(--danger-dim)] px-3 py-[7px] text-xs font-semibold text-[var(--danger)] lg:flex-initial">
+            <Loader2 size={13} className="animate-spin" /> Cancel
+          </button>
+        ) : (
+          <button onClick={send} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[linear-gradient(135deg,var(--primary),#7C4CF0)] px-3 py-[7px] text-xs font-semibold text-white hover:brightness-[1.08] hover:shadow-[var(--shadow-glow)] lg:flex-initial">
+            <Send size={13} /> Send
+          </button>
         )}
+        <button onClick={onOpenSave} className="flex flex-shrink-0 items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-[7px] text-xs font-semibold text-[var(--text-dim)] hover:border-[var(--text-faint)] hover:text-[var(--text)]">
+          <Save size={13} /> <span className="hidden sm:inline lg:inline">Save</span>
+        </button>
+        <button onClick={onOpenCode} className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--text-dim)] hover:border-[var(--text-faint)] hover:text-[var(--text)]">
+          <Code2 size={13} />
+        </button>
+        <div className="relative flex-shrink-0">
+          <button onClick={() => setMoreOpen(!moreOpen)} className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--text-dim)] hover:bg-[var(--card-hover)] hover:text-[var(--text)]">
+            <MoreVertical size={15} />
+          </button>
+          {moreOpen && (
+            <div className="absolute right-0 top-[110%] z-[60] min-w-[170px] rounded-xl border border-[var(--border-soft)] bg-[var(--card)] py-1 shadow-[var(--shadow-soft)]" onMouseLeave={() => setMoreOpen(false)}>
+              <button
+                className="flex w-full items-center gap-2 px-2.5 py-2 text-left text-[12.5px] hover:bg-[var(--card-hover)]"
+                onClick={() => { duplicateTab(); setMoreOpen(false); }}
+              >
+                <Copy size={13} /> Duplicate tab
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
