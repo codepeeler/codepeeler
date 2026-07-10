@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, X, Send, Save, Code2, MoreVertical, Copy, Upload, Loader2, Zap } from "lucide-react";
+import { Plus, X, Send, Save, Code2, MoreVertical, Copy, Upload, Loader2, Zap, Sparkles } from "lucide-react";
 import { useApiTester } from "@/providers/api-tester-provider";
 import { HTTP_METHODS } from "@/lib/api-tester/types";
 import type { HttpMethod, RequestProtocol } from "@/lib/api-tester/types";
@@ -82,7 +82,7 @@ const PROTOCOLS: { key: RequestProtocol; label: string }[] = [
 export const URL_BAR_MORE_PANEL_ID = "url-bar-more";
 
 /* ============================= URL bar ============================= */
-export function UrlBar({ onOpenCode, onOpenSave, onOpenLoadTest }: { onOpenCode: () => void; onOpenSave: () => void; onOpenLoadTest: () => void }) {
+export function UrlBar({ onOpenCode, onOpenSave, onOpenLoadTest, onOpenAi }: { onOpenCode: () => void; onOpenSave: () => void; onOpenLoadTest: () => void; onOpenAi: () => void }) {
   const { activeTab, updateRequest, send, cancel, duplicateTab } = useApiTester();
   const [moreOpen, setMoreOpen] = useState(false);
   const { togglePanel, closePanel } = useMobileShell();
@@ -146,6 +146,16 @@ export function UrlBar({ onOpenCode, onOpenSave, onOpenLoadTest }: { onOpenCode:
     </button>
   );
 
+  const aiButton = (
+    <button
+      onClick={onOpenAi}
+      title="AI Assistant (Ctrl/Cmd+I)"
+      className="flex flex-shrink-0 items-center gap-1.5 rounded-lg border border-[color-mix(in_srgb,var(--primary)_45%,var(--border))] bg-[var(--primary-dim)] px-3 py-[7px] text-xs font-semibold text-[var(--primary)] hover:brightness-[1.08]"
+    >
+      <Sparkles size={13} /> AI
+    </button>
+  );
+
   const codeButton = isHttp && (
     <button onClick={onOpenCode} className="hidden h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--text-dim)] hover:border-[var(--text-faint)] hover:text-[var(--text)] lg:flex">
       <Code2 size={13} />
@@ -160,6 +170,7 @@ export function UrlBar({ onOpenCode, onOpenSave, onOpenLoadTest }: { onOpenCode:
         {methodSelect}
         {urlInput}
         {sendButton}
+        {aiButton}
         {saveButton}
         {codeButton}
         <div className="relative">
@@ -210,6 +221,16 @@ export function UrlBar({ onOpenCode, onOpenSave, onOpenLoadTest }: { onOpenCode:
       {/* Mobile "More actions" — a labeled bottom sheet instead of a cramped floating dropdown. */}
       <Drawer id={URL_BAR_MORE_PANEL_ID} title="More actions" variant="bottom">
         <div className="p-2">
+          <button
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-[13.5px] font-medium text-[var(--text)] hover:bg-[var(--card-hover)]"
+            onClick={() => { closePanel(); onOpenAi(); }}
+          >
+            <Sparkles size={16} className="text-[var(--primary)]" />
+            <span>
+              AI Assistant
+              <span className="block text-[11.5px] font-normal text-[var(--text-faint)]">Build requests, fix failing tests, generate assertions</span>
+            </span>
+          </button>
           {isHttp && (
             <button
               className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-[13.5px] font-medium text-[var(--text)] hover:bg-[var(--card-hover)]"

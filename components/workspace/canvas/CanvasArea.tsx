@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Minus, Plus, X } from "lucide-react";
 import { CANVAS_H, CANVAS_W, useWorkflow } from "@/providers/workflow-provider";
 import WorkflowNode from "@/components/workspace/canvas/WorkflowNode";
 import ConnectionsLayer from "@/components/workspace/canvas/ConnectionsLayer";
@@ -8,6 +9,9 @@ import Minimap from "@/components/workspace/canvas/Minimap";
 import StickyNoteEl from "@/components/workspace/canvas/StickyNoteEl";
 import FrameEl from "@/components/workspace/canvas/FrameEl";
 import VariablesPanel from "@/components/workspace/VariablesPanel";
+import { useIsMobile } from "@/hooks/use-media-query";
+import { useMobileShell } from "@/providers/mobile-shell-provider";
+import { TOOL_PALETTE_PANEL_ID } from "@/components/workspace/ToolPalette";
 import { cn } from "@/lib/utils";
 
 interface TempConn {
@@ -23,6 +27,9 @@ interface LassoRect {
   x2: number;
   y2: number;
 }
+
+const TAP_MOVE_THRESHOLD = 10; // px of pointer travel below which a gesture counts as a "tap"
+const LONG_PRESS_MS = 480;
 
 export default function CanvasArea() {
   const {
@@ -45,11 +52,21 @@ export default function CanvasArea() {
     frames,
     addSticky,
     addFrame,
+    setPendingAddPosition,
+    lastAddedNodeId,
+    clearLastAddedNodeId,
   } = useWorkflow();
+  const isMobile = useIsMobile();
+  const { openPanel } = useMobileShell();
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const [tempConn, setTempConn] = useState<TempConn | null>(null);
   const [lasso, setLasso] = useState<LassoRect | null>(null);
+  const [selectedWireId, setSelectedWireId] = useState<string | null>(null);
+  // Mobile tap-to-connect: id of the node "armed" as a connection source
+  // while the user finds the target node to tap next, as a forgiving
+  // alternative to precision drag-to-connect on a touchscreen.
+  const [pendingFrom, setPendingFrom] = useState<string | null>(null);
   const pendingZoomAnchor = useRef<{ clientX: number; clientY: number; beforeX: number; beforeY: number } | null>(
     null
   );
@@ -86,11 +103,21 @@ export default function CanvasArea() {
         deleteSelected();
       } else if (e.key === "Escape") {
         selectNode(null);
+        setPendingFrom(null);
+        setSelectedWireId(null);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [selectedIds, deleteSelected, selectNode, undo, redo]);
+
+  // ---- smooth-scroll a freshly-added node into view (mobile "+" flow) ----
+  useEffect(() => {
+    if (!lastAddedNodeId) return;
+    const el = canvasRef.current?.querySelector(`[data-node-id="${lastAddedNodeId}"]`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+    clearLastAddedNodeId();
+  }, [lastAddedNodeId, clearLastAddedNodeId]);
 
   // ---- pan (hand mode: click-drag scrolls the wrap) ----
   const onWrapPointerDown = useCallback(
@@ -137,10 +164,60 @@ export default function CanvasArea() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scale]);
 
+  // ---- pinch-to-zoom (two-finger touch) — there's no ctrl/cmd+wheel on a
+  // touchscreen, so this is the only way mobile users can zoom the canvas.
+  // Raw TouchEvent listeners (not React's synthetic touch props) so we can
+  // call preventDefault without the passive-listener warning. ----
+  const scaleRef = useRef(scale);
+  useEffect(() => {
+    scaleRef.current = scale;
+  }, [scale]);
+  useEffect(() => {
+    const wrap = wrapRef.current;
+    if (!wrap) return;
+    let startDist = 0;
+    let startScale = 1;
+    const dist = (touches: TouchList) => Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        startDist = dist(e.touches);
+        startScale = scaleRef.current;
+      }
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2 && startDist > 0) {
+        e.preventDefault();
+        const factor = dist(e.touches) / startDist;
+        setScale(() => startScale * factor);
+      }
+    };
+    const onTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length < 2) startDist = 0;
+    };
+    wrap.addEventListener("touchstart", onTouchStart, { passive: true });
+    wrap.addEventListener("touchmove", onTouchMove, { passive: false });
+    wrap.addEventListener("touchend", onTouchEnd, { passive: true });
+    wrap.addEventListener("touchcancel", onTouchEnd, { passive: true });
+    return () => {
+      wrap.removeEventListener("touchstart", onTouchStart);
+      wrap.removeEventListener("touchmove", onTouchMove);
+      wrap.removeEventListener("touchend", onTouchEnd);
+      wrap.removeEventListener("touchcancel", onTouchEnd);
+    };
+  }, [setScale]);
+
   // ---- start a connection drag from an output port — called directly by
   // WorkflowNode's port (not via event-bubbling detection, which was unreliable) ----
   const handleStartConnection = useCallback(
     (fromId: string, clientX: number, clientY: number) => {
+      // Tapping the already-armed source port again cancels the pending
+      // tap-to-connect gesture instead of starting a fresh drag.
+      if (pendingFrom === fromId) {
+        setPendingFrom(null);
+        return;
+      }
+      setPendingFrom(null);
+
       const outEl = portRefs.current.get(`${fromId}:out`);
       const canvasRect = canvasRef.current!.getBoundingClientRect();
       const rect = outEl ? outEl.getBoundingClientRect() : { left: clientX, top: clientY, width: 0, height: 0 };
@@ -149,6 +226,9 @@ export default function CanvasArea() {
       setTempConn({ from: fromId, x1, y1, x2: x1, y2: y1 });
       const prevBodyUserSelect = document.body.style.userSelect;
       document.body.style.userSelect = "none";
+
+      const startClientX = clientX;
+      const startClientY = clientY;
 
       const onMove = (ev: PointerEvent) => {
         const pt = toCanvasPoint(ev.clientX, ev.clientY);
@@ -162,7 +242,7 @@ export default function CanvasArea() {
       // even when the pointer is visually right on top of the target dot,
       // which was silently swallowing valid drops.
       const findNearestInPort = (clientX: number, clientY: number) => {
-        const HIT_RADIUS = 26; // px, generous enough for a natural drop
+        const HIT_RADIUS = 40; // px — generous for a finger, still tight enough to disambiguate close nodes
         let bestId: string | null = null;
         let bestDist = HIT_RADIUS;
         portRefs.current.forEach((el, key) => {
@@ -170,9 +250,9 @@ export default function CanvasArea() {
           const r = el.getBoundingClientRect();
           const cx = r.left + r.width / 2;
           const cy = r.top + r.height / 2;
-          const dist = Math.hypot(clientX - cx, clientY - cy);
-          if (dist <= bestDist) {
-            bestDist = dist;
+          const d = Math.hypot(clientX - cx, clientY - cy);
+          if (d <= bestDist) {
+            bestDist = d;
             bestId = key.slice(0, -3); // strip trailing ":in"
           }
         });
@@ -188,7 +268,19 @@ export default function CanvasArea() {
           // somewhere the distance check didn't cover
           const dropEl = document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement | null;
           const inPortEl = dropEl?.closest('[data-port="in"]') as HTMLElement | null;
-          if (inPortEl?.dataset.nodeId) addConnection(fromId, inPortEl.dataset.nodeId);
+          if (inPortEl?.dataset.nodeId) {
+            addConnection(fromId, inPortEl.dataset.nodeId);
+          } else {
+            const totalTravel = Math.hypot(ev.clientX - startClientX, ev.clientY - startClientY);
+            if (totalTravel < TAP_MOVE_THRESHOLD) {
+              // Barely moved — read as "tap the source port" rather than a
+              // failed drag. Arm tap-to-connect so the user can now tap
+              // whichever target node's input dot they want, from anywhere
+              // on the canvas (including after panning/scrolling to find
+              // it) — much more forgiving than a single continuous drag.
+              setPendingFrom(fromId);
+            }
+          }
         }
         setTempConn(null);
         document.body.style.userSelect = prevBodyUserSelect;
@@ -204,11 +296,21 @@ export default function CanvasArea() {
       // handling it too, the drag state got stuck and the drop never counted
       window.addEventListener("pointercancel", finish);
     },
-    [scale, toCanvasPoint, addConnection, portRefs]
+    [scale, toCanvasPoint, addConnection, portRefs, pendingFrom]
+  );
+
+  const onCompletePending = useCallback(
+    (targetId: string) => {
+      if (!pendingFrom) return;
+      addConnection(pendingFrom, targetId);
+      setPendingFrom(null);
+    },
+    [pendingFrom, addConnection]
   );
 
   // ---- click empty canvas = deselect or place a pending sticky/frame; drag on
-  // empty canvas = lasso multi-select ----
+  // empty canvas = lasso multi-select; long-press on mobile = quick-add a node
+  // at that exact spot ----
   const onCanvasPointerDown = useCallback(
     (e: React.PointerEvent) => {
       const target = e.target as HTMLElement;
@@ -219,6 +321,15 @@ export default function CanvasArea() {
         target.closest("[data-frame-id]")
       )
         return;
+
+      // A pending tap-to-connect or a selected wire "consumes" the next
+      // empty-canvas tap as a cancel, instead of starting a lasso.
+      if (pendingFrom || selectedWireId) {
+        setPendingFrom(null);
+        setSelectedWireId(null);
+        return;
+      }
+
       if (mode === "hand") return; // panning owns empty-space drags in hand mode
 
       if (mode === "place-sticky" || mode === "place-frame") {
@@ -240,6 +351,8 @@ export default function CanvasArea() {
 
       const shiftKey = e.shiftKey;
       const start = toCanvasPoint(e.clientX, e.clientY);
+      const startClientX = e.clientX;
+      const startClientY = e.clientY;
       let moved = false;
       // plain local variable — NOT React state — so we can read the latest
       // rect synchronously in onUp without nesting another setState call
@@ -248,17 +361,38 @@ export default function CanvasArea() {
       let rect: LassoRect = { x1: start.x, y1: start.y, x2: start.x, y2: start.y };
       setLasso(rect);
 
+      // Long-press-to-add: only armed on mobile in plain select mode. Any
+      // real movement (the lasso actually being dragged) cancels it, same
+      // as a native long-press gesture would.
+      let longPressFired = false;
+      const longPressTimer = isMobile
+        ? window.setTimeout(() => {
+            longPressFired = true;
+            window.removeEventListener("pointermove", onMove);
+            window.removeEventListener("pointerup", onUp);
+            document.body.style.userSelect = prevBodyUserSelect;
+            setLasso(null);
+            setPendingAddPosition(start);
+            openPanel(TOOL_PALETTE_PANEL_ID);
+          }, LONG_PRESS_MS)
+        : 0;
+
       const onMove = (ev: PointerEvent) => {
-        if (Math.abs(ev.clientX - e.clientX) > 3 || Math.abs(ev.clientY - e.clientY) > 3) moved = true;
+        if (Math.abs(ev.clientX - startClientX) > 3 || Math.abs(ev.clientY - startClientY) > 3) {
+          moved = true;
+          if (longPressTimer) window.clearTimeout(longPressTimer);
+        }
         const pt = toCanvasPoint(ev.clientX, ev.clientY);
         rect = { ...rect, x2: pt.x, y2: pt.y };
         setLasso(rect);
       };
       const onUp = () => {
+        if (longPressTimer) window.clearTimeout(longPressTimer);
         window.removeEventListener("pointermove", onMove);
         window.removeEventListener("pointerup", onUp);
         document.body.style.userSelect = prevBodyUserSelect;
         setLasso(null);
+        if (longPressFired) return;
 
         if (!moved) {
           if (!shiftKey) selectNode(null);
@@ -286,17 +420,35 @@ export default function CanvasArea() {
       window.addEventListener("pointermove", onMove);
       window.addEventListener("pointerup", onUp);
     },
-    [mode, toCanvasPoint, nodes, scale, selectMany, selectNode, addSticky, addFrame, setMode]
+    [
+      mode,
+      toCanvasPoint,
+      nodes,
+      scale,
+      selectMany,
+      selectNode,
+      addSticky,
+      addFrame,
+      setMode,
+      isMobile,
+      pendingFrom,
+      selectedWireId,
+      setPendingAddPosition,
+      openPanel,
+    ]
   );
 
-  // ---- double-click empty canvas to drop a node ----
+  // ---- double-click empty canvas to drop a node (desktop only — a
+  // double-tap on mobile is ambiguous with pinch/zoom gestures and users
+  // can't discover it anyway; long-press above is the mobile equivalent) ----
   const onCanvasDoubleClick = useCallback(
     (e: React.MouseEvent) => {
+      if (isMobile) return;
       if (e.target !== canvasRef.current) return;
       const pt = toCanvasPoint(e.clientX, e.clientY);
       addNode("json-format", pt.x, pt.y);
     },
-    [toCanvasPoint, addNode]
+    [toCanvasPoint, addNode, isMobile]
   );
 
   // ---- accept tools dropped from the palette ----
@@ -338,7 +490,13 @@ export default function CanvasArea() {
 
         <div className="absolute inset-0">
           {nodes.map((n) => (
-            <WorkflowNode key={n.id} node={n} onStartConnection={handleStartConnection} />
+            <WorkflowNode
+              key={n.id}
+              node={n}
+              onStartConnection={handleStartConnection}
+              pendingFrom={pendingFrom}
+              onCompletePending={onCompletePending}
+            />
           ))}
         </div>
 
@@ -355,7 +513,12 @@ export default function CanvasArea() {
           uses an explicit z-index, so nodes still paint above this svg
           regardless of DOM order.
         */}
-        <ConnectionsLayer canvasRef={canvasRef} tempLine={tempConn} />
+        <ConnectionsLayer
+          canvasRef={canvasRef}
+          tempLine={tempConn}
+          selectedWireId={selectedWireId}
+          setSelectedWireId={setSelectedWireId}
+        />
 
         {stickies.map((s) => (
           <StickyNoteEl key={s.id} sticky={s} />
@@ -379,8 +542,14 @@ export default function CanvasArea() {
               Your canvas is empty
             </div>
             <div className="text-xs leading-[1.6] text-[var(--text-faint)]">
-              Drag a tool in from the left, double-click the canvas, or press <b>A</b> to add
-              a node.
+              <span className="lg:hidden">
+                Tap the <b>+</b> button to add a tool, or long-press anywhere on the canvas to drop
+                one right here.
+              </span>
+              <span className="hidden lg:inline">
+                Drag a tool in from the left, double-click the canvas, or press <b>A</b> to add a
+                node.
+              </span>
             </div>
           </div>
         )}
@@ -388,6 +557,49 @@ export default function CanvasArea() {
 
       {minimapVisible && <Minimap wrapRef={wrapRef} />}
       <VariablesPanel />
+
+      {pendingFrom && (
+        <div className="pointer-events-none fixed left-1/2 top-[60px] z-[130] -translate-x-1/2 lg:top-[136px]">
+          <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--card)] py-2 pl-4 pr-2 text-[12px] font-medium text-[var(--text)] shadow-[var(--shadow-soft)]">
+            Tap a node&apos;s left dot to connect
+            <button
+              onClick={() => setPendingFrom(null)}
+              aria-label="Cancel connecting"
+              className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--card-hover)] text-[var(--text-faint)] hover:text-[var(--text)]"
+            >
+              <X size={13} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isMobile && (
+        <div className="fixed bottom-[calc(64px+16px)] left-4 z-[110] flex flex-col overflow-hidden rounded-full border border-[var(--border-soft)] bg-[var(--card)] shadow-[var(--shadow-soft)]">
+          <button
+            onClick={() => setScale((s) => s + 0.15)}
+            aria-label="Zoom in"
+            className="flex h-11 w-11 items-center justify-center text-[var(--text)] active:bg-[var(--card-hover)]"
+          >
+            <Plus size={17} />
+          </button>
+          <div className="border-t border-[var(--border-soft)]" />
+          <button
+            onClick={() => setScale(1)}
+            aria-label="Reset zoom"
+            className="flex h-8 w-11 items-center justify-center text-[10px] font-semibold text-[var(--text-faint)] active:bg-[var(--card-hover)]"
+          >
+            {Math.round(scale * 100)}%
+          </button>
+          <div className="border-t border-[var(--border-soft)]" />
+          <button
+            onClick={() => setScale((s) => s - 0.15)}
+            aria-label="Zoom out"
+            className="flex h-11 w-11 items-center justify-center text-[var(--text)] active:bg-[var(--card-hover)]"
+          >
+            <Minus size={17} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

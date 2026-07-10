@@ -1,6 +1,6 @@
 "use client";
 
-import { PanelLeft, PanelRight, Terminal } from "lucide-react";
+import { Plus, PanelRight, Terminal } from "lucide-react";
 import { useMobileShell } from "@/providers/mobile-shell-provider";
 import { TOOL_PALETTE_PANEL_ID } from "@/components/workspace/ToolPalette";
 import { INSPECTOR_PANEL_ID } from "@/components/workspace/Inspector";
@@ -19,11 +19,11 @@ export default function MobileFabs() {
     <div className="fixed bottom-[calc(64px+16px)] right-4 z-[120] flex flex-col gap-2.5 lg:hidden">
       <button
         onClick={() => togglePanel(TOOL_PALETTE_PANEL_ID)}
-        title="Open tool palette"
-        aria-label="Open tool palette"
-        className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--primary)] text-white shadow-[var(--shadow-soft)]"
+        title="Add a node"
+        aria-label="Add a node"
+        className="flex h-14 w-14 items-center justify-center rounded-full bg-[var(--primary)] text-white shadow-[var(--shadow-soft)]"
       >
-        <PanelLeft size={19} />
+        <Plus size={24} strokeWidth={2.5} />
       </button>
       <button
         onClick={() => togglePanel(INSPECTOR_PANEL_ID)}

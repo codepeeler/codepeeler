@@ -3,9 +3,11 @@
 import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { NODE_TYPES, NODE_CAT_COLOR, PALETTE_GROUPS, type NodeTypeId } from "@/lib/data/node-types";
+import { NODE_TYPES, NODE_CAT_COLOR, PALETTE_GROUPS } from "@/lib/data/node-types";
 import { useWorkflow, CANVAS_W } from "@/providers/workflow-provider";
 import Drawer from "@/components/layout/mobile/Drawer";
+import { useIsMobile } from "@/hooks/use-media-query";
+import { useMobileShell } from "@/providers/mobile-shell-provider";
 
 export const TOOL_PALETTE_PANEL_ID = "tool-palette";
 
@@ -22,7 +24,9 @@ const CAT_CHIPS = [
 ] as const;
 
 function ToolPaletteContent() {
-  const { addNode, paletteWidth, setPaletteWidth } = useWorkflow();
+  const { addNode, addNodeSmart, pendingAddPosition } = useWorkflow();
+  const isMobile = useIsMobile();
+  const { closePanel } = useMobileShell();
   const [activeCat, setActiveCat] = useState<string>("all");
   const [query, setQuery] = useState("");
 
@@ -84,11 +88,23 @@ function ToolPaletteContent() {
               return (
                 <div
                   key={id}
-                  draggable
-                  onDragStart={(e) => e.dataTransfer.setData("application/x-node-type", id)}
-                  onDoubleClick={() => addNode(id, CANVAS_W / 4, 120 + Math.random() * 300)}
-                  title="Drag onto the canvas, or double-click to add"
-                  className="relative flex cursor-grab items-center gap-2 rounded-lg border border-transparent px-[7px] py-[7px] transition-colors duration-150 hover:border-[var(--border)] hover:bg-[var(--card-hover)] active:cursor-grabbing"
+                  role={isMobile ? "button" : undefined}
+                  draggable={!isMobile}
+                  onDragStart={!isMobile ? (e) => e.dataTransfer.setData("application/x-node-type", id) : undefined}
+                  onClick={
+                    isMobile
+                      ? () => {
+                          addNodeSmart(id);
+                          closePanel();
+                        }
+                      : undefined
+                  }
+                  onDoubleClick={!isMobile ? () => addNode(id, CANVAS_W / 4, 120 + Math.random() * 300) : undefined}
+                  title={isMobile ? "Tap to add to the canvas" : "Drag onto the canvas, or double-click to add"}
+                  className={cn(
+                    "relative flex items-center gap-2 rounded-lg border border-transparent px-[7px] py-[9px] transition-colors duration-150 hover:border-[var(--border)] hover:bg-[var(--card-hover)] active:bg-[var(--card-hover)]",
+                    isMobile ? "cursor-pointer" : "cursor-grab active:cursor-grabbing"
+                  )}
                 >
                   <span
                     style={{ color: NODE_CAT_COLOR[meta.cat], background: `color-mix(in srgb, ${NODE_CAT_COLOR[meta.cat]} 14%, transparent)`, borderColor: `color-mix(in srgb, ${NODE_CAT_COLOR[meta.cat]} 35%, transparent)` }}
@@ -96,12 +112,15 @@ function ToolPaletteContent() {
                   >
                     {meta.badge}
                   </span>
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <div className="text-xs font-semibold">{meta.label}</div>
-                    <div className="max-w-[130px] overflow-hidden text-ellipsis whitespace-nowrap text-[10px] text-[var(--text-faint)]">
+                    <div className="max-w-[190px] overflow-hidden text-ellipsis whitespace-nowrap text-[10px] text-[var(--text-faint)] lg:max-w-[130px]">
                       {meta.desc}
                     </div>
                   </div>
+                  {isMobile && (
+                    <span className="flex-shrink-0 text-[10px] font-semibold text-[var(--primary)]">Add</span>
+                  )}
                 </div>
               );
             })}
@@ -115,8 +134,21 @@ function ToolPaletteContent() {
       </div>
 
       <div className="mx-3 mb-1 mt-2 rounded-lg border border-dashed border-[var(--border)] bg-[var(--card)] px-[10px] py-[9px] text-[10px] leading-[1.5] text-[var(--text-faint)]">
-        Tip: drag from a node&apos;s right-hand dot to another node&apos;s left-hand dot to
-        connect them.
+        {isMobile ? (
+          pendingAddPosition ? (
+            <>Tip: this tool will drop right where you long-pressed on the canvas.</>
+          ) : (
+            <>
+              Tip: tap a tool to drop it on the canvas — or long-press an empty spot on the canvas
+              first to choose exactly where it lands.
+            </>
+          )
+        ) : (
+          <>
+            Tip: drag from a node&apos;s right-hand dot to another node&apos;s left-hand dot to
+            connect them.
+          </>
+        )}
       </div>
     </>
   );

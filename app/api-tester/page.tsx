@@ -12,10 +12,11 @@ import ResponsePanel from "@/components/api-tester/ResponsePanel";
 import StreamPanel from "@/components/api-tester/StreamPanel";
 import { CodeSnippetModal, EnvironmentManagerModal, ImportModal, SaveRequestModal } from "@/components/api-tester/Modals";
 import { LoadTestModal } from "@/components/api-tester/LoadTestModal";
+import { AiAssistantModal } from "@/components/api-tester/AiAssistantPanel";
 import MobileHeader from "@/components/layout/mobile/MobileHeader";
 import { useMobileShell } from "@/providers/mobile-shell-provider";
 
-type ModalKey = "code" | "save" | "env" | "import" | "loadtest" | null;
+type ModalKey = "code" | "save" | "env" | "import" | "loadtest" | "ai" | null;
 
 function ApiTesterShell() {
   const { activeTab, vars, send, connectWebSocket, disconnectWebSocket, connectSSE, disconnectSSE } = useApiTester();
@@ -35,6 +36,7 @@ function ApiTesterShell() {
         else (isWs ? connectWebSocket : connectSSE)();
       }
       else if (mod && e.key.toLowerCase() === "s") { e.preventDefault(); if (activeTab) setModal("save"); }
+      else if (mod && e.key.toLowerCase() === "i") { e.preventDefault(); if (activeTab) setModal("ai"); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -59,7 +61,7 @@ function ApiTesterShell() {
             <RequestTabsBar />
           </div>
           <div className="mx-4 mt-2.5 overflow-hidden rounded-[14px] border border-[var(--border-soft)] bg-[var(--card)]">
-            <UrlBar onOpenCode={() => setModal("code")} onOpenSave={() => setModal("save")} onOpenLoadTest={() => setModal("loadtest")} />
+            <UrlBar onOpenCode={() => setModal("code")} onOpenSave={() => setModal("save")} onOpenLoadTest={() => setModal("loadtest")} onOpenAi={() => setModal("ai")} />
           </div>
           <div className="m-4 mt-2.5 flex min-h-0 flex-1 flex-col gap-3">
             <div className="flex min-h-[220px] flex-[0_1_46%] flex-col overflow-hidden rounded-[14px] border border-[var(--border-soft)] bg-[var(--card)]">
@@ -78,6 +80,7 @@ function ApiTesterShell() {
       {modal === "env" && <EnvironmentManagerModal onClose={() => setModal(null)} />}
       {modal === "import" && <ImportModal onClose={() => setModal(null)} />}
       {modal === "loadtest" && <LoadTestModal targetType="request" onClose={() => setModal(null)} />}
+      {modal === "ai" && <AiAssistantModal onClose={() => setModal(null)} />}
     </>
   );
 }

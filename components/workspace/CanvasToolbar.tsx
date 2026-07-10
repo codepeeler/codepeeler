@@ -64,7 +64,7 @@ export default function CanvasToolbar() {
 
   return (
     <div className="flex h-12 flex-shrink-0 items-center gap-2 overflow-x-auto border-b border-[var(--border-soft)] bg-[var(--bg)] px-3.5">
-      <div className="flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[7px] border border-dashed border-[var(--border)] bg-[var(--card)] px-2.5 py-1.5 text-[11.5px] font-medium text-[var(--text-faint)]">
+      <div className="hidden flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[7px] border border-dashed border-[var(--border)] bg-[var(--card)] px-2.5 py-1.5 text-[11.5px] font-medium text-[var(--text-faint)] lg:flex">
         + Add Node{" "}
         <span className="rounded-[5px] border border-[var(--border)] bg-[var(--border-soft)] px-[5px] py-0.5 font-[family-name:var(--font-mono)] text-[10px] text-[var(--text-faint)]">
           Double-click

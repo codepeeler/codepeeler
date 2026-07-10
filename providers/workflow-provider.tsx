@@ -132,6 +132,16 @@ interface WorkflowContextValue {
   moveManyBy: (ids: string[], dx: number, dy: number) => void;
   beginDrag: () => void;
   addNode: (type: NodeTypeId, x: number, y: number) => string;
+  /** Mobile-friendly add: drops the node at `pendingAddPosition` if one was
+   *  set (e.g. from a long-press on the canvas), otherwise at a cascading
+   *  default spot — then selects it and flags it via `lastAddedNodeId` so
+   *  the canvas can smooth-scroll it into view. Desktop drag/double-click
+   *  still goes through plain `addNode` above. */
+  addNodeSmart: (type: NodeTypeId) => string;
+  pendingAddPosition: { x: number; y: number } | null;
+  setPendingAddPosition: (p: { x: number; y: number } | null) => void;
+  lastAddedNodeId: string | null;
+  clearLastAddedNodeId: () => void;
   deleteNode: (id: string) => void;
   deleteSelected: () => void;
   addConnection: (from: string, to: string) => void;
@@ -193,6 +203,9 @@ export function WorkflowProvider({ children }: { children: ReactNode }) {
   const [paletteWidth, setPaletteWidthState] = useState(212);
   const [inspectorWidth, setInspectorWidthState] = useState(308);
   const [bottomHeight, setBottomHeightState] = useState(252);
+  const [pendingAddPosition, setPendingAddPosition] = useState<{ x: number; y: number } | null>(null);
+  const [lastAddedNodeId, setLastAddedNodeId] = useState<string | null>(null);
+  const clearLastAddedNodeId = useCallback(() => setLastAddedNodeId(null), []);
 
   const setPaletteWidth = useCallback((w: number) => {
     setPaletteWidthState(Math.min(420, Math.max(160, w)));
@@ -400,6 +413,29 @@ export function WorkflowProvider({ children }: { children: ReactNode }) {
       return id;
     },
     [commitHistory]
+  );
+
+  const addNodeSmart = useCallback(
+    (type: NodeTypeId) => {
+      let x: number;
+      let y: number;
+      if (pendingAddPosition) {
+        x = pendingAddPosition.x;
+        y = pendingAddPosition.y;
+        setPendingAddPosition(null);
+      } else {
+        // Cascade default drop spots across the canvas so repeated taps
+        // don't stack every new node in exactly the same place.
+        const idx = nodes.length % 8;
+        x = CANVAS_W / 2 - 320 + (idx % 4) * 260;
+        y = 160 + Math.floor(idx / 4) * 220;
+      }
+      const id = addNode(type, x, y);
+      setSelectedIds([id]);
+      setLastAddedNodeId(id);
+      return id;
+    },
+    [addNode, nodes.length, pendingAddPosition]
   );
 
   const deleteNode = useCallback(
@@ -903,6 +939,11 @@ export function WorkflowProvider({ children }: { children: ReactNode }) {
       moveManyBy,
       beginDrag,
       addNode,
+      addNodeSmart,
+      pendingAddPosition,
+      setPendingAddPosition,
+      lastAddedNodeId,
+      clearLastAddedNodeId,
       deleteNode,
       deleteSelected,
       addConnection,
@@ -971,6 +1012,10 @@ export function WorkflowProvider({ children }: { children: ReactNode }) {
       moveManyBy,
       beginDrag,
       addNode,
+      addNodeSmart,
+      pendingAddPosition,
+      lastAddedNodeId,
+      clearLastAddedNodeId,
       deleteNode,
       deleteSelected,
       addConnection,

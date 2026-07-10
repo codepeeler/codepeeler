@@ -10,9 +10,17 @@ import type { WFNode } from "@/lib/types/workflow";
 export default function WorkflowNode({
   node,
   onStartConnection,
+  pendingFrom,
+  onCompletePending,
 }: {
   node: WFNode;
   onStartConnection: (nodeId: string, clientX: number, clientY: number) => void;
+  /** id of the node currently "armed" as a connection source in the
+   *  mobile tap-to-connect flow (null when no connection is pending). */
+  pendingFrom?: string | null;
+  /** called when the user taps this node's input port while a connection
+   *  is pending, completing the two-tap connect gesture. */
+  onCompletePending?: (nodeId: string) => void;
 }) {
   const {
     scale,
@@ -74,9 +82,14 @@ export default function WorkflowNode({
         document.body.style.userSelect = prevBodyUserSelect;
         window.removeEventListener("pointermove", onMove);
         window.removeEventListener("pointerup", onUp);
+        window.removeEventListener("pointercancel", onUp);
       };
       window.addEventListener("pointermove", onMove);
       window.addEventListener("pointerup", onUp);
+      // touch drags that the browser reinterprets as a scroll/gesture end in
+      // "pointercancel" rather than "pointerup" — without this the drag
+      // state (and the document-wide userSelect override) got stuck.
+      window.addEventListener("pointercancel", onUp);
     },
     [mode, node.id, scale, selected, selectedIds, selectNode, beginDrag, moveManyBy]
   );
@@ -89,6 +102,9 @@ export default function WorkflowNode({
     [node.id, selectNode]
   );
 
+  const isPendingSource = pendingFrom === node.id;
+  const isPendingTarget = !!pendingFrom && !isPendingSource && !meta.noInput;
+
   return (
     <div
       data-node-id={node.id}
@@ -100,14 +116,33 @@ export default function WorkflowNode({
       )}
     >
       {!meta.noInput && (
+        // Outer element is the touch target (large on mobile, tight on
+        // desktop where a mouse is precise); it's centered exactly on the
+        // node's left edge via translate rather than pixel offsets, so the
+        // wire-anchor point (the bounding-rect center that ConnectionsLayer
+        // reads) stays put no matter how big the hit area gets.
         <div
           ref={registerInPort}
           data-port="in"
           data-node-id={node.id}
-          onPointerDown={(e) => e.stopPropagation()}
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            if (pendingFrom) onCompletePending?.(node.id);
+          }}
           style={{ touchAction: "none" }}
-          className="absolute left-[-7px] top-1/2 z-[6] h-3 w-3 -translate-y-1/2 cursor-crosshair rounded-full border-2 border-[var(--text-faint)] bg-[var(--bg-elev)] transition-colors duration-150 hover:border-[var(--primary)] hover:bg-[var(--primary)]"
-        />
+          title={isPendingTarget ? "Tap to connect here" : undefined}
+          className={cn(
+            "absolute left-0 top-1/2 z-[6] flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center lg:h-4 lg:w-4",
+            isPendingTarget && "cursor-pointer"
+          )}
+        >
+          <span
+            className={cn(
+              "h-3.5 w-3.5 flex-shrink-0 rounded-full border-2 border-[var(--text-faint)] bg-[var(--bg-elev)] transition-colors duration-150 hover:border-[var(--primary)] hover:bg-[var(--primary)] lg:h-3 lg:w-3",
+              isPendingTarget && "animate-pulse border-[var(--primary)] bg-[var(--primary)]"
+            )}
+          />
+        </div>
       )}
       {!meta.noOutput && (
         <div
@@ -119,13 +154,22 @@ export default function WorkflowNode({
             onStartConnection(node.id, e.clientX, e.clientY);
           }}
           style={{ touchAction: "none" }}
-          className="absolute right-[-7px] top-1/2 z-[6] h-3 w-3 -translate-y-1/2 cursor-crosshair rounded-full border-2 border-[var(--text-faint)] bg-[var(--bg-elev)] transition-colors duration-150 hover:border-[var(--primary)] hover:bg-[var(--primary)]"
-        />
+          title="Drag to connect, or tap then tap a target node's left dot"
+          className="absolute right-0 top-1/2 z-[6] flex h-8 w-8 translate-x-1/2 -translate-y-1/2 cursor-crosshair items-center justify-center lg:h-4 lg:w-4"
+        >
+          <span
+            className={cn(
+              "h-3.5 w-3.5 flex-shrink-0 rounded-full border-2 border-[var(--text-faint)] bg-[var(--bg-elev)] transition-colors duration-150 hover:border-[var(--primary)] hover:bg-[var(--primary)] lg:h-3 lg:w-3",
+              isPendingSource && "border-[var(--primary)] bg-[var(--primary)] ring-4 ring-[color-mix(in_srgb,var(--primary)_30%,transparent)]"
+            )}
+          />
+        </div>
       )}
 
       <div
         onPointerDown={onHeaderPointerDown}
-        className="flex cursor-grab items-center gap-2 border-b border-[var(--border-soft)] px-[9px] py-[9px] active:cursor-grabbing"
+        style={{ touchAction: "none" }}
+        className="flex cursor-grab items-center gap-2 border-b border-[var(--border-soft)] px-[9px] py-[11px] active:cursor-grabbing lg:py-[9px]"
       >
         <span
           className={cn(
@@ -141,9 +185,11 @@ export default function WorkflowNode({
         <button
           onPointerDown={(e) => e.stopPropagation()}
           onClick={() => deleteNode(node.id)}
-          className="flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center rounded-[5px] text-[var(--text-faint)] transition-colors duration-150 hover:bg-[var(--card-hover)] hover:text-[var(--danger)]"
+          aria-label="Delete node"
+          className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-[5px] text-[var(--text-faint)] transition-colors duration-150 hover:bg-[var(--card-hover)] hover:text-[var(--danger)] lg:h-[18px] lg:w-[18px]"
         >
-          <X size={12} />
+          <X size={14} className="lg:hidden" />
+          <X size={12} className="hidden lg:block" />
         </button>
       </div>
 
