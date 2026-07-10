@@ -63,7 +63,7 @@ export default function TabsBar() {
   };
 
   return (
-    <div className="flex h-11 flex-shrink-0 flex-wrap items-center gap-2 border-b border-[var(--border-soft)] bg-[var(--bg-elev)] px-3">
+    <div className="flex min-h-11 flex-shrink-0 flex-wrap items-center gap-2 border-b border-[var(--border-soft)] bg-[var(--bg-elev)] px-3 py-1.5 lg:py-0">
       <input
         value={draft}
         spellCheck={false}
@@ -71,10 +71,10 @@ export default function TabsBar() {
         onChange={(e) => setDraft(e.target.value)}
         onBlur={() => renameWorkflow(activeWorkflowId, draft)}
         onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
-        className="min-w-[100px] max-w-[200px] flex-shrink-0 rounded-[7px] border border-transparent bg-transparent px-[9px] py-1.5 font-[family-name:var(--font-display)] text-[13px] font-semibold transition-colors duration-150 hover:border-[var(--border)] hover:bg-[var(--card)] focus:border-[var(--primary)] focus:bg-[var(--card)]"
+        className="min-w-[90px] max-w-[160px] flex-shrink-0 rounded-[7px] border border-transparent bg-transparent px-[9px] py-1.5 font-[family-name:var(--font-display)] text-[13px] font-semibold transition-colors duration-150 hover:border-[var(--border)] hover:bg-[var(--card)] focus:border-[var(--primary)] focus:bg-[var(--card)] lg:max-w-[200px]"
       />
 
-      <span className="flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-[color-mix(in_srgb,var(--success)_14%,transparent)] py-1 pl-[7px] pr-[9px] text-[11px] font-semibold text-[var(--success)]">
+      <span className="hidden flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-[color-mix(in_srgb,var(--success)_14%,transparent)] py-1 pl-[7px] pr-[9px] text-[11px] font-semibold text-[var(--success)] lg:flex">
         <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-current" />
         Saved locally
       </span>
@@ -97,9 +97,9 @@ export default function TabsBar() {
           <Redo2 size={14} />
         </button>
 
-        <div className="mx-1 h-5 w-px flex-shrink-0 bg-[var(--border-soft)]" />
+        <div className="mx-1 hidden h-5 w-px flex-shrink-0 bg-[var(--border-soft)] lg:block" />
 
-        <div className="flex items-center gap-0.5 rounded-lg border border-[var(--border)] bg-[var(--card)] p-0.5">
+        <div className="hidden items-center gap-0.5 rounded-lg border border-[var(--border)] bg-[var(--card)] p-0.5 lg:flex">
           <button
             onClick={() => setScale((s) => s - 0.1)}
             className="flex h-6 w-6 items-center justify-center rounded-md text-sm text-[var(--text-dim)] transition-colors duration-150 hover:bg-[var(--card-hover)] hover:text-[var(--text)]"
@@ -120,16 +120,16 @@ export default function TabsBar() {
         <button
           title="Fit to screen"
           onClick={() => setScale(1)}
-          className="flex h-8 w-8 items-center justify-center rounded-[7px] border border-[var(--border)] bg-[var(--card)] text-[var(--text-dim)] transition-colors duration-150 hover:border-[var(--text-faint)] hover:text-[var(--text)]"
+          className="hidden h-8 w-8 items-center justify-center rounded-[7px] border border-[var(--border)] bg-[var(--card)] text-[var(--text-dim)] transition-colors duration-150 hover:border-[var(--text-faint)] hover:text-[var(--text)] lg:flex"
         >
           <Scan size={14} />
         </button>
 
-        <div className="mx-1 h-5 w-px flex-shrink-0 bg-[var(--border-soft)]" />
+        <div className="mx-1 hidden h-5 w-px flex-shrink-0 bg-[var(--border-soft)] lg:block" />
 
         <button
           onClick={() => toast("Saved locally")}
-          className="rounded-[7px] border border-[var(--border)] bg-[var(--card)] px-3 py-[7px] text-xs font-semibold text-[var(--text-dim)] transition-colors duration-150 hover:border-[var(--text-faint)] hover:text-[var(--text)]"
+          className="hidden rounded-[7px] border border-[var(--border)] bg-[var(--card)] px-3 py-[7px] text-xs font-semibold text-[var(--text-dim)] transition-colors duration-150 hover:border-[var(--text-faint)] hover:text-[var(--text)] lg:inline-block"
         >
           Save
         </button>
@@ -137,20 +137,20 @@ export default function TabsBar() {
         <button
           onClick={handleImportClick}
           title="Import a workflow.json file"
-          className="flex items-center gap-1.5 rounded-[7px] border border-[var(--border)] bg-[var(--card)] px-3 py-[7px] text-xs font-semibold text-[var(--text-dim)] transition-colors duration-150 hover:border-[var(--text-faint)] hover:text-[var(--text)]"
+          className="hidden items-center gap-1.5 rounded-[7px] border border-[var(--border)] bg-[var(--card)] px-3 py-[7px] text-xs font-semibold text-[var(--text-dim)] transition-colors duration-150 hover:border-[var(--text-faint)] hover:text-[var(--text)] lg:flex"
         >
           <Upload size={12} /> Import
         </button>
         <button
           onClick={exportWorkflow}
-          className="rounded-[7px] border border-[var(--border)] bg-[var(--card)] px-3 py-[7px] text-xs font-semibold text-[var(--text-dim)] transition-colors duration-150 hover:border-[var(--text-faint)] hover:text-[var(--text)]"
+          className="hidden rounded-[7px] border border-[var(--border)] bg-[var(--card)] px-3 py-[7px] text-xs font-semibold text-[var(--text-dim)] transition-colors duration-150 hover:border-[var(--text-faint)] hover:text-[var(--text)] lg:inline-block"
         >
           Export
         </button>
         <button
           disabled={isRunning}
           onClick={handleRunAll}
-          className="flex items-center gap-1.5 rounded-[7px] bg-[linear-gradient(135deg,var(--primary),#7C4CF0)] px-3 py-[7px] text-xs font-semibold text-white transition-all duration-150 hover:brightness-[1.08] hover:shadow-[var(--shadow-glow)] disabled:cursor-not-allowed disabled:opacity-60"
+          className="flex items-center gap-1.5 whitespace-nowrap rounded-[7px] bg-[linear-gradient(135deg,var(--primary),#7C4CF0)] px-3 py-[7px] text-xs font-semibold text-white transition-all duration-150 hover:brightness-[1.08] hover:shadow-[var(--shadow-glow)] disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isRunning ? "Running…" : "▶ Run All"}
         </button>

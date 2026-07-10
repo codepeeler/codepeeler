@@ -1,12 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { Braces, AlertTriangle } from "lucide-react";
+import { Braces, AlertTriangle, Link2, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { COMMON_HEADERS } from "@/lib/api-tester/engine";
+import { COMMON_HEADERS, newChainExtraction } from "@/lib/api-tester/engine";
 import KeyValueTable from "@/components/api-tester/KeyValueTable";
 import { useApiTester } from "@/providers/api-tester-provider";
-import type { ApiRequest, AuthType, BodyMode, ReqTabKey } from "@/lib/api-tester/types";
+import type { ApiRequest, AuthType, BodyMode, ChainVarScope, OAuth2GrantType, RawBodyType, ReqTabKey } from "@/lib/api-tester/types";
 
 const REQUEST_TABS: { key: ReqTabKey; label: string }[] = [
   { key: "params", label: "Params" },
@@ -15,6 +14,7 @@ const REQUEST_TABS: { key: ReqTabKey; label: string }[] = [
   { key: "auth", label: "Auth" },
   { key: "prescript", label: "Pre-request Script" },
   { key: "tests", label: "Tests" },
+  { key: "chain", label: "Chain" },
   { key: "settings", label: "Settings" },
   { key: "docs", label: "Docs" },
 ];
@@ -32,6 +32,18 @@ function ParamsPanel({ request, updateRequest }: { request: ApiRequest; updateRe
   const count = request.params.filter((p) => p.enabled && p.key).length;
   return (
     <div className="p-3.5 px-1.5">
+      {request.protocol === "websocket" && (
+        <div className="mx-2 mb-3">
+          <Field label="Subprotocols (comma-separated, optional)">
+            <input
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-elev)] px-2.5 py-[7px] font-[family-name:var(--font-mono)] text-[12.5px]"
+              placeholder="graphql-ws, chat.v2"
+              value={request.wsProtocols}
+              onChange={(e) => updateRequest({ wsProtocols: e.target.value })}
+            />
+          </Field>
+        </div>
+      )}
       <div className="flex items-center justify-between px-2 pb-2.5">
         <span className="text-[12.5px] font-bold">
           Query Params {count > 0 && <span className="font-medium text-[var(--text-faint)]">({count})</span>}
@@ -71,7 +83,7 @@ function BodyPanel({ request, updateRequest }: { request: ApiRequest; updateRequ
   let jsonValid = true;
   let jsonError = "";
   if (body.mode === "raw" && body.rawType === "json" && body.raw.trim()) {
-    try { JSON.parse(body.raw); } catch (e: any) { jsonValid = false; jsonError = e.message; }
+    try { JSON.parse(body.raw); } catch (e) { jsonValid = false; jsonError = e instanceof Error ? e.message : String(e); }
   }
   const beautify = () => { try { setBody({ raw: JSON.stringify(JSON.parse(body.raw), null, 2) }); } catch {} };
 
@@ -92,7 +104,7 @@ function BodyPanel({ request, updateRequest }: { request: ApiRequest; updateRequ
         ))}
         {body.mode === "raw" && (
           <div className="ml-auto flex items-center gap-1.5">
-            <select className="rounded-lg border border-[var(--border)] bg-[var(--bg-elev)] px-2 py-[7px] font-[family-name:var(--font-mono)] text-[12.5px]" value={body.rawType} onChange={(e) => setBody({ rawType: e.target.value as any })}>
+            <select className="rounded-lg border border-[var(--border)] bg-[var(--bg-elev)] px-2 py-[7px] font-[family-name:var(--font-mono)] text-[12.5px]" value={body.rawType} onChange={(e) => setBody({ rawType: e.target.value as RawBodyType })}>
               {RAW_TYPES.map((k) => <option key={k} value={k}>{k.toUpperCase()}</option>)}
             </select>
             {body.rawType === "json" && (
@@ -179,7 +191,7 @@ function AuthPanel({ request, updateRequest }: { request: ApiRequest; updateRequ
             <Field label="Key"><input className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-elev)] px-2.5 py-[7px] font-[family-name:var(--font-mono)] text-[12.5px]" value={auth.apiKeyName} onChange={(e) => setAuth({ apiKeyName: e.target.value })} /></Field>
             <Field label="Value"><input className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-elev)] px-2.5 py-[7px] font-[family-name:var(--font-mono)] text-[12.5px]" value={auth.apiKeyValue} onChange={(e) => setAuth({ apiKeyValue: e.target.value })} /></Field>
             <Field label="Add to">
-              <select className="rounded-lg border border-[var(--border)] bg-[var(--bg-elev)] px-2 py-[7px] text-[12.5px]" value={auth.apiKeyIn} onChange={(e) => setAuth({ apiKeyIn: e.target.value as any })}>
+              <select className="rounded-lg border border-[var(--border)] bg-[var(--bg-elev)] px-2 py-[7px] text-[12.5px]" value={auth.apiKeyIn} onChange={(e) => setAuth({ apiKeyIn: e.target.value as "header" | "query" })}>
                 <option value="header">Header</option>
                 <option value="query">Query Params</option>
               </select>
@@ -192,7 +204,7 @@ function AuthPanel({ request, updateRequest }: { request: ApiRequest; updateRequ
               <select
                 className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-elev)] px-2 py-[7px] text-[12.5px]"
                 value={auth.oauth2.grantType}
-                onChange={(e) => setAuth({ oauth2: { ...auth.oauth2, grantType: e.target.value as any } })}
+                onChange={(e) => setAuth({ oauth2: { ...auth.oauth2, grantType: e.target.value as OAuth2GrantType } })}
               >
                 <option value="client_credentials">Client Credentials</option>
                 <option value="password">Password (Resource Owner)</option>
@@ -278,6 +290,69 @@ function ScriptPanel({ value, onChange, variant }: { value: string; onChange: (v
   );
 }
 
+const CHAIN_SCOPES: { key: ChainVarScope; label: string }[] = [
+  { key: "environment", label: "Environment" },
+  { key: "collection", label: "Collection" },
+  { key: "global", label: "Global" },
+];
+
+function ChainPanel({ request, updateRequest }: { request: ApiRequest; updateRequest: (p: Partial<ApiRequest>) => void }) {
+  const extractions = request.chainExtractions || [];
+  const setExtractions = (next: ApiRequest["chainExtractions"]) => updateRequest({ chainExtractions: next });
+  const addRow = () => setExtractions([...extractions, newChainExtraction()]);
+  const patchRow = (id: string, patch: Partial<ApiRequest["chainExtractions"][number]>) =>
+    setExtractions(extractions.map((e) => (e.id === id ? { ...e, ...patch } : e)));
+  const removeRow = (id: string) => setExtractions(extractions.filter((e) => e.id !== id));
+
+  return (
+    <div className="flex h-full flex-col">
+      <div className="border-b border-[var(--border-soft)] p-3.5 pb-2.5 text-[11px] leading-[1.6] text-[var(--text-faint)]">
+        Save values from this request&apos;s response as variables the next request in a flow can use — this is what powers request chaining. Runs automatically after a successful Send, and inside the Collection Runner. Reference a saved variable anywhere with{" "}
+        <span className="font-[family-name:var(--font-mono)]">{"{{varName}}"}</span>.
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto p-3">
+        {extractions.length === 0 && (
+          <div className="rounded-lg border border-dashed border-[var(--border)] p-4 text-center text-[11.5px] text-[var(--text-faint)]">
+            No extraction rules yet. Add one to pull a value out of the response — e.g. path <span className="font-[family-name:var(--font-mono)]">data.token</span> saved as <span className="font-[family-name:var(--font-mono)]">authToken</span>.
+          </div>
+        )}
+        {extractions.map((ex) => (
+          <div key={ex.id} className="mb-2 flex items-center gap-1.5 rounded-lg border border-[var(--border-soft)] p-2">
+            <input type="checkbox" className="h-3.5 w-3.5 flex-shrink-0 accent-[var(--primary)]" checked={ex.enabled} onChange={(e) => patchRow(ex.id, { enabled: e.target.checked })} />
+            <Link2 size={12} className="flex-shrink-0 text-[var(--text-faint)]" />
+            <input
+              className="min-w-0 flex-1 rounded-md border border-[var(--border)] bg-[var(--bg-elev)] px-2 py-1 font-[family-name:var(--font-mono)] text-[11.5px]"
+              placeholder="response path, e.g. data.items[0].id"
+              value={ex.sourcePath}
+              onChange={(e) => patchRow(ex.id, { sourcePath: e.target.value })}
+            />
+            <span className="flex-shrink-0 text-[11px] text-[var(--text-faint)]">→</span>
+            <input
+              className="w-[130px] flex-shrink-0 rounded-md border border-[var(--border)] bg-[var(--bg-elev)] px-2 py-1 font-[family-name:var(--font-mono)] text-[11.5px]"
+              placeholder="variable name"
+              value={ex.varName}
+              onChange={(e) => patchRow(ex.id, { varName: e.target.value })}
+            />
+            <select
+              className="flex-shrink-0 rounded-md border border-[var(--border)] bg-[var(--bg-elev)] px-1.5 py-1 text-[11px]"
+              value={ex.scope}
+              onChange={(e) => patchRow(ex.id, { scope: e.target.value as ChainVarScope })}
+            >
+              {CHAIN_SCOPES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
+            </select>
+            <button onClick={() => removeRow(ex.id)} className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md text-[var(--text-dim)] hover:text-[var(--danger)]">
+              <Trash2 size={13} />
+            </button>
+          </div>
+        ))}
+        <button onClick={addRow} className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] px-2.5 py-1.5 text-[11.5px] font-semibold text-[var(--text-dim)] hover:border-[var(--text-faint)] hover:text-[var(--text)]">
+          <Plus size={12} /> Add extraction
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function SettingsPanel({ request, updateRequest }: { request: ApiRequest; updateRequest: (p: Partial<ApiRequest>) => void }) {
   const s = request.settings;
   const setS = (patch: Partial<ApiRequest["settings"]>) => updateRequest({ settings: { ...s, ...patch } });
@@ -306,7 +381,7 @@ function SettingsPanel({ request, updateRequest }: { request: ApiRequest; update
         <div>
           <div className="text-[12.5px] font-semibold">Always send through server proxy</div>
           <div className="text-[11px] text-[var(--text-faint)]">
-            Off by default: a direct browser request is tried first, and only falls back to the server proxy if it's blocked by CORS. Turn this on to skip straight to the proxy (e.g. for a site you already know blocks browser calls).
+            Off by default: a direct browser request is tried first, and only falls back to the server proxy if it&apos;s blocked by CORS. Turn this on to skip straight to the proxy (e.g. for a site you already know blocks browser calls).
           </div>
         </div>
       </label>
@@ -345,32 +420,37 @@ export default function RequestPanel() {
   const req = activeTab.request;
   const paramCount = req.params.filter((p) => p.enabled && p.key).length;
   const headerCount = req.headers.filter((h) => h.enabled && h.key).length;
+  const chainCount = (req.chainExtractions || []).filter((c) => c.enabled && c.sourcePath && c.varName).length;
+  const visibleTabs = req.protocol === "http" ? REQUEST_TABS : REQUEST_TABS.filter((t) => ["params", "headers", "docs"].includes(t.key));
+  const activeReqTab = visibleTabs.some((t) => t.key === activeTab.reqTab) ? activeTab.reqTab : "params";
 
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex flex-shrink-0 items-center gap-0.5 overflow-x-auto border-b border-[var(--border-soft)] px-2.5">
-        {REQUEST_TABS.map((t) => (
+        {visibleTabs.map((t) => (
           <button
             key={t.key}
             onClick={() => setReqTab(t.key)}
             className="flex items-center gap-1.5 whitespace-nowrap px-3 py-2.5 text-[12.5px] font-semibold"
-            style={{ color: activeTab.reqTab === t.key ? "var(--text)" : "var(--text-faint)", borderBottom: `2px solid ${activeTab.reqTab === t.key ? "var(--primary)" : "transparent"}` }}
+            style={{ color: activeReqTab === t.key ? "var(--text)" : "var(--text-faint)", borderBottom: `2px solid ${activeReqTab === t.key ? "var(--primary)" : "transparent"}` }}
           >
             {t.label}
             {t.key === "params" && paramCount > 0 && <span className="h-1.5 w-1.5 rounded-full bg-[var(--primary)]" />}
             {t.key === "headers" && headerCount > 0 && <span className="font-[family-name:var(--font-mono)] text-[10px] text-[var(--text-faint)]">({headerCount})</span>}
+            {t.key === "chain" && chainCount > 0 && <span className="font-[family-name:var(--font-mono)] text-[10px] text-[var(--text-faint)]">({chainCount})</span>}
           </button>
         ))}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {activeTab.reqTab === "params" && <ParamsPanel request={req} updateRequest={updateRequest} />}
-        {activeTab.reqTab === "headers" && <HeadersPanel request={req} updateRequest={updateRequest} />}
-        {activeTab.reqTab === "body" && <div className="h-full"><BodyPanel request={req} updateRequest={updateRequest} /></div>}
-        {activeTab.reqTab === "auth" && <div className="h-full"><AuthPanel request={req} updateRequest={updateRequest} /></div>}
-        {activeTab.reqTab === "prescript" && <div className="h-full"><ScriptPanel value={req.preScript} onChange={(v) => updateRequest({ preScript: v })} variant="pre" /></div>}
-        {activeTab.reqTab === "tests" && <div className="h-full"><ScriptPanel value={req.testScript} onChange={(v) => updateRequest({ testScript: v })} variant="test" /></div>}
-        {activeTab.reqTab === "settings" && <SettingsPanel request={req} updateRequest={updateRequest} />}
-        {activeTab.reqTab === "docs" && <DocsPanel request={req} updateRequest={updateRequest} />}
+        {activeReqTab === "params" && <ParamsPanel request={req} updateRequest={updateRequest} />}
+        {activeReqTab === "headers" && <HeadersPanel request={req} updateRequest={updateRequest} />}
+        {activeReqTab === "body" && <div className="h-full"><BodyPanel request={req} updateRequest={updateRequest} /></div>}
+        {activeReqTab === "auth" && <div className="h-full"><AuthPanel request={req} updateRequest={updateRequest} /></div>}
+        {activeReqTab === "prescript" && <div className="h-full"><ScriptPanel value={req.preScript} onChange={(v) => updateRequest({ preScript: v })} variant="pre" /></div>}
+        {activeReqTab === "tests" && <div className="h-full"><ScriptPanel value={req.testScript} onChange={(v) => updateRequest({ testScript: v })} variant="test" /></div>}
+        {activeReqTab === "chain" && <div className="h-full"><ChainPanel request={req} updateRequest={updateRequest} /></div>}
+        {activeReqTab === "settings" && <SettingsPanel request={req} updateRequest={updateRequest} />}
+        {activeReqTab === "docs" && <DocsPanel request={req} updateRequest={updateRequest} />}
       </div>
     </div>
   );

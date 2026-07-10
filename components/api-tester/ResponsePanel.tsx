@@ -1,14 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, Copy, Loader2, Send, AlertTriangle, Check, X, Plus, Trash2, Save } from "lucide-react";
+import { ChevronDown, ChevronRight, Copy, Loader2, Send, AlertTriangle, Check, X, Plus, Trash2, Save, Radio } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatBytes, formatMs, statusClass, statusText, uid } from "@/lib/api-tester/engine";
 import { useApiTester } from "@/providers/api-tester-provider";
 import type { ApiResponse, RespTabKey, TestResult } from "@/lib/api-tester/types";
 
 /* ---------------- JSON tree ---------------- */
-function JsonNode({ k, v, depth, isLast }: { k?: string | number; v: any; depth: number; isLast: boolean }) {
+function JsonNode({ k, v, depth, isLast }: { k?: string | number; v: unknown; depth: number; isLast: boolean }) {
   const [open, setOpen] = useState(depth < 2);
   const indent = depth * 16;
   const comma = isLast ? "" : ",";
@@ -20,13 +20,14 @@ function JsonNode({ k, v, depth, isLast }: { k?: string | number; v: any; depth:
   ) : null;
 
   if (v === null) return <div className="flex" style={{ paddingLeft: indent + 14 }}>{keyEl}<span className="font-[family-name:var(--font-mono)] italic text-[var(--text-faint)]">null{comma}</span></div>;
-  const t = typeof v;
-  if (t === "string") return <div className="flex" style={{ paddingLeft: indent + 14 }}>{keyEl}<span className="font-[family-name:var(--font-mono)] text-[var(--cat-gen)]">&quot;{v}&quot;</span><span className="text-[var(--text-faint)]">{comma}</span></div>;
-  if (t === "number") return <div className="flex" style={{ paddingLeft: indent + 14 }}>{keyEl}<span className="font-[family-name:var(--font-mono)] text-[var(--warning)]">{v}{comma}</span></div>;
-  if (t === "boolean") return <div className="flex" style={{ paddingLeft: indent + 14 }}>{keyEl}<span className="font-[family-name:var(--font-mono)] text-[#A78BFA]">{String(v)}{comma}</span></div>;
+  if (typeof v === "string") return <div className="flex" style={{ paddingLeft: indent + 14 }}>{keyEl}<span className="font-[family-name:var(--font-mono)] text-[var(--cat-gen)]">&quot;{v}&quot;</span><span className="text-[var(--text-faint)]">{comma}</span></div>;
+  if (typeof v === "number") return <div className="flex" style={{ paddingLeft: indent + 14 }}>{keyEl}<span className="font-[family-name:var(--font-mono)] text-[var(--warning)]">{v}{comma}</span></div>;
+  if (typeof v === "boolean") return <div className="flex" style={{ paddingLeft: indent + 14 }}>{keyEl}<span className="font-[family-name:var(--font-mono)] text-[#A78BFA]">{String(v)}{comma}</span></div>;
 
   const isArr = Array.isArray(v);
-  const entries: [string | number, any][] = isArr ? v.map((x: any, i: number) => [i, x]) : Object.entries(v);
+  const entries: [string | number, unknown][] = isArr
+    ? (v as unknown[]).map((x, i): [number, unknown] => [i, x])
+    : Object.entries(v as Record<string, unknown>);
   const openBr = isArr ? "[" : "{";
   const closeBr = isArr ? "]" : "}";
   if (!entries.length) {
@@ -47,10 +48,10 @@ function JsonNode({ k, v, depth, isLast }: { k?: string | number; v: any; depth:
     </div>
   );
 }
-function JsonTree({ data }: { data: any }) {
+function JsonTree({ data }: { data: unknown }) {
   return <div className="px-1 py-2.5 text-[12.5px] leading-[1.7]"><JsonNode v={data} depth={0} isLast /></div>;
 }
-function tryParseJSON(text: string): { ok: boolean; data?: any } {
+function tryParseJSON(text: string): { ok: boolean; data?: unknown } {
   try { return { ok: true, data: JSON.parse(text) }; } catch { return { ok: false }; }
 }
 
@@ -74,6 +75,7 @@ function PreviewView({ response }: { response: ApiResponse }) {
   if (ct.includes("image/")) {
     return (
       <div className="flex justify-center p-5">
+        {/* eslint-disable-next-line @next/next/no-img-element -- dynamic data: URI built from response bytes; next/image can't optimize inline base64 content */}
         <img alt="response" src={`data:${ct};base64,${btoa(unescape(encodeURIComponent(response.bodyText)))}`} className="max-w-full rounded-lg" />
       </div>
     );
@@ -177,13 +179,44 @@ function ExtractVariableBar() {
       <input className="w-[150px] rounded-md border border-[var(--border)] bg-[var(--card)] px-2 py-1 font-[family-name:var(--font-mono)] text-[11.5px]" placeholder="data.token" value={path} onChange={(e) => setPath(e.target.value)} />
       <span className="text-[11px] text-[var(--text-faint)]">as</span>
       <input className="w-[110px] rounded-md border border-[var(--border)] bg-[var(--card)] px-2 py-1 font-[family-name:var(--font-mono)] text-[11.5px]" placeholder="token" value={varName} onChange={(e) => setVarName(e.target.value)} />
-      <select className="rounded-md border border-[var(--border)] bg-[var(--card)] px-1.5 py-1 text-[11.5px]" value={scope} onChange={(e) => setScope(e.target.value as any)}>
+      <select className="rounded-md border border-[var(--border)] bg-[var(--card)] px-1.5 py-1 text-[11.5px]" value={scope} onChange={(e) => setScope(e.target.value as "env" | "global")}>
         <option value="env">Environment</option>
         <option value="global">Global</option>
       </select>
       <button
         onClick={() => { saveResponseValueAsVariable(path, varName, scope); setOpen(false); setPath(""); setVarName(""); }}
         className="rounded-md bg-[var(--primary-dim)] px-2.5 py-1 text-[11.5px] font-semibold text-[var(--primary)]"
+      >
+        Save
+      </button>
+      <button onClick={() => setOpen(false)} className="rounded-md px-2 py-1 text-[11.5px] text-[var(--text-faint)]">Cancel</button>
+    </div>
+  );
+}
+
+function SaveAsMockBar() {
+  const { mockServers, addMockServer, saveResponseAsMock } = useApiTester();
+  const [open, setOpen] = useState(false);
+  const [serverId, setServerId] = useState("");
+
+  if (!open) {
+    return (
+      <button onClick={() => { setOpen(true); setServerId(mockServers[0]?.id || ""); }} className="flex items-center gap-1.5 rounded-lg border border-[var(--border-soft)] px-2.5 py-1.5 text-[11.5px] font-semibold text-[var(--text-dim)] hover:border-[var(--text-faint)] hover:text-[var(--text)]">
+        <Radio size={12} /> Save as mock
+      </button>
+    );
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-elev)] p-2">
+      <select className="rounded-md border border-[var(--border)] bg-[var(--card)] px-1.5 py-1 text-[11.5px]" value={serverId} onChange={(e) => setServerId(e.target.value)}>
+        <option value="" disabled>Choose a mock server…</option>
+        {mockServers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+      </select>
+      <button onClick={() => setServerId(addMockServer())} className="rounded-md border border-[var(--border)] bg-[var(--card)] px-2 py-1 text-[11px] font-semibold text-[var(--text-dim)]">+ New</button>
+      <button
+        disabled={!serverId}
+        onClick={() => { saveResponseAsMock(serverId); setOpen(false); }}
+        className="rounded-md bg-[var(--primary-dim)] px-2.5 py-1 text-[11.5px] font-semibold text-[var(--primary)] disabled:opacity-40"
       >
         Save
       </button>
@@ -297,7 +330,8 @@ export default function ResponsePanel() {
         </div>
       </div>
       {respTab === "pretty" && (
-        <div className="flex justify-end px-2.5 pb-1.5">
+        <div className="flex justify-end gap-1.5 px-2.5 pb-1.5">
+          <SaveAsMockBar />
           <ExtractVariableBar />
         </div>
       )}

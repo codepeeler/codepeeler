@@ -5,6 +5,9 @@ import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NODE_TYPES, NODE_CAT_COLOR, PALETTE_GROUPS, type NodeTypeId } from "@/lib/data/node-types";
 import { useWorkflow, CANVAS_W } from "@/providers/workflow-provider";
+import Drawer from "@/components/layout/mobile/Drawer";
+
+export const TOOL_PALETTE_PANEL_ID = "tool-palette";
 
 const CAT_CHIPS = [
   { key: "all", label: "All" },
@@ -18,7 +21,7 @@ const CAT_CHIPS = [
   { key: "image", label: "Image" },
 ] as const;
 
-export default function ToolPalette() {
+function ToolPaletteContent() {
   const { addNode, paletteWidth, setPaletteWidth } = useWorkflow();
   const [activeCat, setActiveCat] = useState<string>("all");
   const [query, setQuery] = useState("");
@@ -36,24 +39,8 @@ export default function ToolPalette() {
     })).filter((g) => g.items.length > 0);
   }, [activeCat, query]);
 
-  const onResizeStart = (e: React.PointerEvent) => {
-    e.preventDefault();
-    const startX = e.clientX;
-    const startWidth = paletteWidth;
-    const onMove = (ev: PointerEvent) => setPaletteWidth(startWidth + (ev.clientX - startX));
-    const onUp = () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-    };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-  };
-
   return (
-    <aside
-      style={{ width: paletteWidth }}
-      className="relative z-30 flex flex-shrink-0 flex-col border-r border-[var(--border-soft)] bg-[var(--bg-elev)]"
-    >
+    <>
       <div className="px-3 pb-2 pt-3">
         <div className="mb-0.5 font-[family-name:var(--font-display)] text-[11px] font-bold uppercase tracking-[0.06em] text-[var(--text-faint)]">
           Tools
@@ -131,11 +118,48 @@ export default function ToolPalette() {
         Tip: drag from a node&apos;s right-hand dot to another node&apos;s left-hand dot to
         connect them.
       </div>
+    </>
+  );
+}
 
-      <div
-        onPointerDown={onResizeStart}
-        className="absolute right-[-3px] top-0 z-[35] h-full w-1.5 cursor-col-resize hover:bg-[var(--primary)]"
-      />
-    </aside>
+/**
+ * Desktop: fixed-width resizable aside (unchanged behavior).
+ * Mobile (<lg): rendered inside the shared Drawer, opened via the tool
+ * palette icon in the workspace MobileHeader, or the panel FAB.
+ * (Drag-to-canvas from the palette is a desktop-only interaction; on
+ * mobile, double-tap still adds a node to the canvas as before.)
+ */
+export default function ToolPalette() {
+  const { paletteWidth, setPaletteWidth } = useWorkflow();
+
+  const onResizeStart = (e: React.PointerEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = paletteWidth;
+    const onMove = (ev: PointerEvent) => setPaletteWidth(startWidth + (ev.clientX - startX));
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  };
+
+  return (
+    <>
+      <aside
+        style={{ width: paletteWidth }}
+        className="relative z-30 hidden flex-shrink-0 flex-col border-r border-[var(--border-soft)] bg-[var(--bg-elev)] lg:flex"
+      >
+        <ToolPaletteContent />
+        <div
+          onPointerDown={onResizeStart}
+          className="absolute right-[-3px] top-0 z-[35] h-full w-1.5 cursor-col-resize hover:bg-[var(--primary)]"
+        />
+      </aside>
+      <Drawer id={TOOL_PALETTE_PANEL_ID} title="Tools">
+        <ToolPaletteContent />
+      </Drawer>
+    </>
   );
 }

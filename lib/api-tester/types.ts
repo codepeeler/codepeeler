@@ -2,6 +2,20 @@ export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD" | 
 
 export const HTTP_METHODS: HttpMethod[] = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
 
+/** HTTP is the default; websocket/sse switch the request+response panels into a live streaming UI instead of a single send/receive cycle. */
+export type RequestProtocol = "http" | "websocket" | "sse";
+
+export type StreamStatus = "idle" | "connecting" | "open" | "closed" | "error";
+
+export interface StreamMessage {
+  id: string;
+  direction: "sent" | "received" | "system";
+  data: string;
+  /** For SSE: the event name (defaults to "message"). Unused for WebSocket. */
+  event?: string;
+  timestamp: number;
+}
+
 export interface KVRow {
   id: string;
   key: string;
@@ -75,6 +89,10 @@ export interface RequestSettings {
 export interface ApiRequest {
   method: HttpMethod;
   url: string;
+  /** "http" runs a normal request/response cycle; "websocket"/"sse" switch to a live connection UI. */
+  protocol: RequestProtocol;
+  /** WebSocket subprotocols (comma-separated), passed as the second arg to the WebSocket constructor. */
+  wsProtocols: string;
   params: KVRow[];
   headers: KVRow[];
   body: RequestBody;
@@ -86,6 +104,23 @@ export interface ApiRequest {
   localVars: EnvironmentVariable[];
   /** Free-text docs/notes shown alongside the request, like Postman's request description. */
   description: string;
+  /** Declarative "save this response value as a variable" rules, run after test scripts in both
+   *  a normal Send and inside the Collection Runner — formalizes request chaining without requiring
+   *  everyone to hand-write pt.environment.set(...) in a test script. */
+  chainExtractions: ChainExtraction[];
+}
+
+/* ============================= Request chaining ============================= */
+export type ChainVarScope = "environment" | "collection" | "global";
+
+export interface ChainExtraction {
+  id: string;
+  enabled: boolean;
+  /** Dot/bracket path into the parsed JSON response body, e.g. "data.items[0].id". */
+  sourcePath: string;
+  /** Variable name this value is saved as. Reference it elsewhere with {{varName}}. */
+  varName: string;
+  scope: ChainVarScope;
 }
 
 export interface ApiResponse {
@@ -112,7 +147,7 @@ export interface TestResult {
   error?: string;
 }
 
-export type ReqTabKey = "params" | "headers" | "body" | "auth" | "prescript" | "tests" | "settings" | "docs";
+export type ReqTabKey = "params" | "headers" | "body" | "auth" | "prescript" | "tests" | "chain" | "settings" | "docs";
 export type RespTabKey = "pretty" | "raw" | "preview" | "headers" | "cookies" | "tests" | "diff";
 
 export interface RequestTab {
@@ -128,6 +163,9 @@ export interface RequestTab {
   reqTab: ReqTabKey;
   respTab: RespTabKey;
   testResults: TestResult[] | null;
+  /** Live WebSocket/SSE connection state — only relevant when request.protocol !== "http". */
+  streamStatus: StreamStatus;
+  streamMessages: StreamMessage[];
   /** The response before the most recent send, kept so the Response panel can offer a diff. */
   previousResponse: ApiResponse | null;
 }
@@ -168,6 +206,30 @@ export interface HistoryEntry {
   requestSnapshot: ApiRequest;
 }
 
+/* ============================= Mock servers =============================
+ * Serves canned responses from a real server-side route (app/api/mock/[serverId]/[...path]),
+ * so a frontend app under development can point at it like any other API — something a purely
+ * client-side "fake fetch" can't do, since it needs to answer requests from *other* apps/origins.
+ */
+export interface MockEndpoint {
+  id: string;
+  method: HttpMethod;
+  /** Path pattern matched after /api/mock/{serverId} — supports :params (e.g. /users/:id) and a trailing * wildcard. */
+  path: string;
+  statusCode: number;
+  headers: KVRow[];
+  body: string;
+  delayMs: number;
+  enabled: boolean;
+}
+
+export interface MockServer {
+  id: string;
+  name: string;
+  enabled: boolean;
+  endpoints: MockEndpoint[];
+}
+
 export interface GlobalVariable {
   id: string;
   key: string;
@@ -177,6 +239,12 @@ export interface GlobalVariable {
 /* ============================= Collection Runner ============================= */
 export interface RunnerDataRow {
   [key: string]: string;
+}
+
+export interface RunnerExtractedVar {
+  varName: string;
+  value: string;
+  scope: ChainVarScope;
 }
 
 export interface RunnerRequestResult {
@@ -190,6 +258,9 @@ export interface RunnerRequestResult {
   error: string | null;
   testResults: TestResult[] | null;
   iteration: number;
+  /** Chain variables extracted from this request's response, shown in the runner UI so the
+   *  step-to-step dependency chain is visible instead of implicit. */
+  extractedVars: RunnerExtractedVar[];
 }
 
 export interface RunnerSummary {
@@ -201,6 +272,8 @@ export interface RunnerSummary {
   testsPassed: number;
   durationMs: number;
   results: RunnerRequestResult[];
+  /** True if the run stopped early because a request failed and abortOnFailure was set. */
+  aborted: boolean;
 }
 
 /* ============================= Cookie jar ============================= */
@@ -217,4 +290,79 @@ export interface PostmanImportSummary {
   collectionsImported: number;
   requestsImported: number;
   environmentsImported: number;
+}
+
+/* ============================= Load testing =============================
+ * Two configurable modes, similar to k6/Artillery: a fixed-count "burst" of requests
+ * spread across N concurrent workers, or a "duration" run that keeps N workers busy
+ * for a fixed wall-clock time (optionally capped to a target RPS). Can target either
+ * a single request or an entire collection (each virtual user runs the full collection
+ * in sequence, repeatedly — the same "thread group" model k6/JMeter use). */
+export type LoadTestMode = "burst" | "duration";
+export type LoadTestTargetType = "request" | "collection";
+
+export interface LoadTestConfig {
+  mode: LoadTestMode;
+  targetType: LoadTestTargetType;
+  /** Number of concurrent virtual users / workers hammering the target at once. */
+  concurrency: number;
+  /** Burst mode: total number of requests (or collection runs) to execute across all workers. */
+  totalRequests: number;
+  /** Duration mode: how long to keep sending, in seconds. */
+  durationSec: number;
+  /** Optional cap on aggregate requests-per-second; 0 = unlimited (as fast as concurrency allows). */
+  targetRps: number;
+  /** Run pre-request/test scripts and persist variable mutations during the load test.
+   *  Off by default — a load test's job is to measure raw throughput/latency, not to safely
+   *  mutate shared environment state under concurrency, so this defaults to a read-only,
+   *  script-free hammer of the endpoint(s). */
+  runScripts: boolean;
+}
+
+export interface LoadTestSample {
+  /** Milliseconds since the load test started. */
+  t: number;
+  status: number | null;
+  ok: boolean;
+  durationMs: number;
+  error: string | null;
+  /** Which request in the collection this sample belongs to (single-request mode: always the same id). */
+  itemId: string;
+  itemName: string;
+}
+
+export interface LoadTestPerRequestStats {
+  itemId: string;
+  name: string;
+  method: HttpMethod;
+  count: number;
+  successCount: number;
+  failCount: number;
+  avgMs: number;
+  p50: number;
+  p90: number;
+  p99: number;
+  minMs: number;
+  maxMs: number;
+}
+
+export interface LoadTestSummary {
+  config: LoadTestConfig;
+  startedAt: number;
+  durationMs: number;
+  totalRequests: number;
+  successCount: number;
+  failCount: number;
+  achievedRps: number;
+  avgMs: number;
+  p50: number;
+  p90: number;
+  p99: number;
+  minMs: number;
+  maxMs: number;
+  statusCounts: Record<string, number>;
+  perRequest: LoadTestPerRequestStats[];
+  /** Capped, time-ordered sample set for a latency-over-time visualization (not every single request). */
+  timeline: LoadTestSample[];
+  aborted: boolean;
 }

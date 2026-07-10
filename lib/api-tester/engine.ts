@@ -2,20 +2,29 @@ import type {
   ApiRequest,
   ApiResponse,
   AuthConfig,
+  ChainExtraction,
   Collection,
   CollectionItem,
   Environment,
   EnvironmentVariable,
   GlobalVariable,
-  HistoryEntry,
+  HttpMethod,
   KVRow,
+  LoadTestConfig,
+  LoadTestPerRequestStats,
+  LoadTestSample,
+  LoadTestSummary,
+  MockEndpoint,
+  MockServer,
   RequestBody,
   RequestError,
   RequestTab,
   RunnerDataRow,
+  RunnerExtractedVar,
   RunnerRequestResult,
   RunnerSummary,
   StoredCookie,
+  StreamMessage,
   TestResult,
 } from "./types";
 import { deepDiff } from "@/lib/json-diff";
@@ -55,6 +64,8 @@ export function emptyRequest(overrides: Partial<ApiRequest> = {}): ApiRequest {
   return {
     method: "GET",
     url: "",
+    protocol: "http",
+    wsProtocols: "",
     params: [newRow()],
     headers: [newRow()],
     body,
@@ -66,8 +77,13 @@ export function emptyRequest(overrides: Partial<ApiRequest> = {}): ApiRequest {
     settings: { timeout: 30000, followRedirects: true, sslVerify: true, maxRetries: 0, retryDelayMs: 500, forceProxy: false },
     localVars: [],
     description: "",
+    chainExtractions: [],
     ...overrides,
   };
+}
+
+export function newChainExtraction(overrides: Partial<ChainExtraction> = {}): ChainExtraction {
+  return { id: uid(), enabled: true, sourcePath: "", varName: "", scope: "environment", ...overrides };
 }
 
 export function newTab(overrides: Partial<RequestTab> = {}): RequestTab {
@@ -85,8 +101,32 @@ export function newTab(overrides: Partial<RequestTab> = {}): RequestTab {
     respTab: "pretty",
     testResults: null,
     previousResponse: null,
+    streamStatus: "idle",
+    streamMessages: [],
     ...overrides,
   };
+}
+
+export function newMockEndpoint(overrides: Partial<MockEndpoint> = {}): MockEndpoint {
+  return {
+    id: uid(),
+    method: "GET",
+    path: "/",
+    statusCode: 200,
+    headers: [newRow()],
+    body: '{\n  "message": "Hello from your mock server"\n}',
+    delayMs: 0,
+    enabled: true,
+    ...overrides,
+  };
+}
+
+export function newMockServer(name = "New Mock Server"): MockServer {
+  return { id: uid(), name, enabled: true, endpoints: [newMockEndpoint()] };
+}
+
+export function newStreamMessage(direction: "sent" | "received" | "system", data: string, event?: string): StreamMessage {
+  return { id: uid(), direction, data, event, timestamp: Date.now() };
 }
 
 /* ============================= variable interpolation =============================
@@ -463,9 +503,14 @@ export interface ExecuteContext {
   setEnvironments: (envs: Environment[]) => void;
   setGlobalVars: (vars: GlobalVariable[]) => void;
   collectionVars?: EnvironmentVariable[];
+  /** Called with the updated collection variables after chain extractions run, if any target scope "collection". */
+  setCollectionVars?: (vars: EnvironmentVariable[]) => void;
   cookies?: StoredCookie[];
   /** Override for iteration data in the Collection Runner: merged on top of everything else. */
   extraVars?: Record<string, string>;
+  /** Skip pre-request/test scripts and chain extraction entirely — used by the Load Tester, which
+   *  cares about raw throughput/latency and shouldn't mutate shared variable state under concurrency. */
+  skipScripts?: boolean;
 }
 export interface ExecuteResult {
   response: ApiResponse | null;
@@ -474,18 +519,24 @@ export interface ExecuteResult {
   preScriptError: string | null;
   finalUrl: string;
   attempts: number;
+  extractedVars: RunnerExtractedVar[];
+  chainErrors: string[];
 }
 
 export async function executeRequest(tab: RequestTab, ctxArgs: ExecuteContext): Promise<ExecuteResult> {
-  const { environments, activeEnvId, globalVars, setEnvironments, setGlobalVars, collectionVars = [], cookies = [], extraVars = {} } = ctxArgs;
+  const { environments, activeEnvId, globalVars, setEnvironments, setGlobalVars, collectionVars = [], setCollectionVars, cookies = [], extraVars = {}, skipScripts = false } = ctxArgs;
   const request = tab.request;
   const localEnvironments = environments.map((e) => ({ ...e, variables: e.variables.map((v) => ({ ...v })) }));
   const localGlobalVars = globalVars.map((v) => ({ ...v }));
+  const localCollectionVars = collectionVars.map((v) => ({ ...v }));
 
-  const { ctx: preCtx } = makeScriptContext({ localEnvironments, activeEnvId, localGlobalVars, request });
-  const preResult = runScript(request.preScript, preCtx);
+  let preResult: { ok: boolean; error: string | null } = { ok: true, error: null };
+  if (!skipScripts) {
+    const { ctx: preCtx } = makeScriptContext({ localEnvironments, activeEnvId, localGlobalVars, request });
+    preResult = runScript(request.preScript, preCtx);
+  }
 
-  const finalVars = { ...collectVars(localEnvironments, activeEnvId, localGlobalVars, collectionVars, request.localVars), ...extraVars };
+  const finalVars = { ...collectVars(localEnvironments, activeEnvId, localGlobalVars, localCollectionVars, request.localVars), ...extraVars };
   const url = buildFinalUrl(request, finalVars);
 
   const controller = new AbortController();
@@ -556,16 +607,34 @@ export async function executeRequest(tab: RequestTab, ctxArgs: ExecuteContext): 
   if (response) response = { ...response, duration: attempts > 1 ? totalDuration : response.duration };
 
   let testResults: TestResult[] | null = null;
-  if (response) {
+  if (response && !skipScripts) {
     const { ctx: testCtx, results } = makeScriptContext({ localEnvironments, activeEnvId, localGlobalVars, request, response });
     const testRun = runScript(request.testScript, testCtx);
     testResults = testRun.ok ? results : [{ name: "Test script error", pass: false, error: testRun.error ?? undefined }];
   }
 
-  setEnvironments(localEnvironments);
-  setGlobalVars(localGlobalVars);
+  let extractedVars: RunnerExtractedVar[] = [];
+  let chainErrors: string[] = [];
+  if (response && !skipScripts && request.chainExtractions?.length) {
+    const applied = applyChainExtractions({
+      extractions: request.chainExtractions,
+      responseBodyText: response.bodyText,
+      localEnvironments,
+      activeEnvId,
+      localGlobalVars,
+      localCollectionVars,
+    });
+    extractedVars = applied.extracted;
+    chainErrors = applied.errors;
+  }
 
-  return { response, error, testResults, preScriptError: preResult.error, finalUrl: url, attempts };
+  if (!skipScripts) {
+    setEnvironments(localEnvironments);
+    setGlobalVars(localGlobalVars);
+    setCollectionVars?.(localCollectionVars);
+  }
+
+  return { response, error, testResults, preScriptError: preResult.error, finalUrl: url, attempts, extractedVars, chainErrors };
 }
 
 /* ============================= code generation ============================= */
@@ -696,22 +765,27 @@ export interface RunCollectionArgs {
   cookies?: StoredCookie[];
   dataRows?: RunnerDataRow[];
   delayMs?: number;
+  /** Stop the run as soon as a request fails (non-2xx/network error, or a failing test assertion) —
+   *  the standard behavior for a request-chaining flow where later steps depend on earlier ones. */
+  abortOnFailure?: boolean;
   onProgress?: (result: RunnerRequestResult, index: number, total: number) => void;
-  onDone?: (finalEnvironments: Environment[], finalGlobalVars: GlobalVariable[]) => void;
+  onDone?: (finalEnvironments: Environment[], finalGlobalVars: GlobalVariable[], finalCollectionVars: EnvironmentVariable[]) => void;
 }
 
 export async function runCollection(args: RunCollectionArgs): Promise<RunnerSummary> {
-  const { collection, environments, activeEnvId, globalVars, cookies = [], dataRows, delayMs = 0, onProgress } = args;
+  const { collection, environments, activeEnvId, globalVars, cookies = [], dataRows, delayMs = 0, abortOnFailure = false, onProgress } = args;
   const requests = flattenCollectionItems(collection.items);
   const rows: RunnerDataRow[] = dataRows && dataRows.length ? dataRows : [{}];
   const results: RunnerRequestResult[] = [];
   const start = performance.now();
   let localEnvironments = environments.map((e) => ({ ...e, variables: e.variables.map((v) => ({ ...v })) }));
   let localGlobalVars = globalVars.map((v) => ({ ...v }));
+  let localCollectionVars = collection.variables.map((v) => ({ ...v }));
 
   let index = 0;
+  let aborted = false;
   const total = requests.length * rows.length;
-  for (let iteration = 0; iteration < rows.length; iteration++) {
+  outer: for (let iteration = 0; iteration < rows.length; iteration++) {
     const extraVars = rows[iteration];
     for (const item of requests) {
       index++;
@@ -722,24 +796,29 @@ export async function runCollection(args: RunCollectionArgs): Promise<RunnerSumm
         globalVars: localGlobalVars,
         setEnvironments: (e) => { localEnvironments = e; },
         setGlobalVars: (g) => { localGlobalVars = g; },
-        collectionVars: collection.variables,
+        collectionVars: localCollectionVars,
+        setCollectionVars: (v) => { localCollectionVars = v; },
         cookies,
         extraVars,
       });
+      const ok = result.response?.ok ?? false;
+      const testsFailed = result.testResults?.some((t) => !t.pass) ?? false;
       const entry: RunnerRequestResult = {
         itemId: item.id,
         name: item.name,
         method: item.request.method,
         url: result.finalUrl,
         status: result.response?.status ?? null,
-        ok: result.response?.ok ?? false,
+        ok,
         duration: result.response?.duration ?? null,
         error: result.error?.message ?? null,
         testResults: result.testResults,
         iteration,
+        extractedVars: result.extractedVars,
       };
       results.push(entry);
       onProgress?.(entry, index, total);
+      if (abortOnFailure && (!ok || testsFailed)) { aborted = true; break outer; }
       if (delayMs > 0 && index < total) await new Promise((r) => setTimeout(r, delayMs));
     }
   }
@@ -748,18 +827,199 @@ export async function runCollection(args: RunCollectionArgs): Promise<RunnerSumm
   const testsPassed = results.reduce((s, r) => s + (r.testResults?.filter((t) => t.pass).length || 0), 0);
   const failed = results.filter((r) => !r.ok || (r.testResults?.some((t) => !t.pass) ?? false)).length;
 
-  args.onDone?.(localEnvironments, localGlobalVars);
+  args.onDone?.(localEnvironments, localGlobalVars, localCollectionVars);
 
   return {
     total,
-    passed: total - failed,
+    passed: results.length - failed,
     failed,
     requestsRun: results.length,
     totalTests,
     testsPassed,
     durationMs: performance.now() - start,
     results,
+    aborted,
   };
+}
+
+/* ============================= Load Testing =============================
+ * A concurrency-pool based load generator, modeled on how k6/Artillery run "virtual users":
+ * a fixed number of workers loop, each firing requests back-to-back (optionally rate-limited
+ * to a target aggregate RPS), until either a total request count (burst mode) or a wall-clock
+ * duration (duration mode) is reached. Deliberately skips pre-request/test scripts and doesn't
+ * mutate environment/collection/global variable state — a load test measures the endpoint's
+ * raw throughput and latency distribution, not correctness, and running scripts with mutable
+ * shared state across dozens of concurrent workers would be a race condition by construction. */
+export interface RunLoadTestArgs {
+  config: LoadTestConfig;
+  environments: Environment[];
+  activeEnvId: string | null;
+  globalVars: GlobalVariable[];
+  cookies?: StoredCookie[];
+  collectionVars?: EnvironmentVariable[];
+  /** Single-request mode target. */
+  request?: ApiRequest;
+  requestName?: string;
+  /** Collection mode target — each virtual user runs the full flattened request list once per "iteration". */
+  collection?: Collection;
+  onProgress?: (sentSoFar: number, completedSoFar: number, elapsedMs: number) => void;
+  /** Polled to support cancellation mid-run. */
+  isCancelled?: () => boolean;
+}
+
+function percentile(sorted: number[], p: number): number {
+  if (!sorted.length) return 0;
+  const idx = Math.min(sorted.length - 1, Math.max(0, Math.ceil((p / 100) * sorted.length) - 1));
+  return sorted[idx];
+}
+
+export async function runLoadTest(args: RunLoadTestArgs): Promise<LoadTestSummary> {
+  const { config, environments, activeEnvId, globalVars, cookies = [], collectionVars = [], request, requestName, collection, onProgress, isCancelled } = args;
+  const targets: { itemId: string; name: string; request: ApiRequest }[] =
+    config.targetType === "collection" && collection
+      ? flattenCollectionItems(collection.items).map((it) => ({ itemId: it.id, name: it.name, request: it.request }))
+      : [{ itemId: "single", name: requestName || request?.method + " " + (request?.url || ""), request: request as ApiRequest }];
+
+  if (!targets.length || !targets[0].request) {
+    return {
+      config, startedAt: Date.now(), durationMs: 0, totalRequests: 0, successCount: 0, failCount: 0,
+      achievedRps: 0, avgMs: 0, p50: 0, p90: 0, p99: 0, minMs: 0, maxMs: 0, statusCounts: {}, perRequest: [], timeline: [], aborted: false,
+    };
+  }
+
+  const startedAt = Date.now();
+  const start = performance.now();
+  const deadline = config.mode === "duration" ? start + Math.max(1, config.durationSec) * 1000 : Infinity;
+  const totalPlanned = config.mode === "burst" ? Math.max(1, config.totalRequests) : Infinity;
+  const concurrency = Math.max(1, Math.min(200, config.concurrency));
+  const minGapMs = config.targetRps > 0 ? 1000 / config.targetRps : 0;
+
+  const samples: { itemId: string; itemName: string; t: number; status: number | null; ok: boolean; durationMs: number; error: string | null }[] = [];
+  let sent = 0;
+  let completed = 0;
+  let aborted = false;
+  let lastDispatch = 0;
+  const dispatchLock = { busy: false };
+
+  const nextDispatchSlot = async () => {
+    if (minGapMs <= 0) return;
+    while (dispatchLock.busy) await new Promise((r) => setTimeout(r, 1));
+    dispatchLock.busy = true;
+    const now = performance.now();
+    const wait = Math.max(0, lastDispatch + minGapMs - now);
+    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+    lastDispatch = performance.now();
+    dispatchLock.busy = false;
+  };
+
+  const worker = async () => {
+    let targetIdx = 0;
+    while (true) {
+      if (isCancelled?.()) { aborted = true; return; }
+      if (config.mode === "duration" && performance.now() >= deadline) return;
+      if (config.mode === "burst" && sent >= totalPlanned) return;
+      await nextDispatchSlot();
+      if (config.mode === "burst" && sent >= totalPlanned) return;
+      sent++;
+      const target = targets[targetIdx % targets.length];
+      targetIdx++;
+
+      const tab = newTab({ request: target.request });
+      const reqStart = performance.now();
+      try {
+        const result = await executeRequest(tab, {
+          environments, activeEnvId, globalVars,
+          setEnvironments: () => {}, setGlobalVars: () => {},
+          collectionVars,
+          cookies,
+          skipScripts: !config.runScripts,
+        });
+        const durationMs = result.response?.duration ?? performance.now() - reqStart;
+        samples.push({
+          itemId: target.itemId, itemName: target.name,
+          t: performance.now() - start,
+          status: result.response?.status ?? null,
+          ok: result.response?.ok ?? false,
+          durationMs,
+          error: result.error?.message ?? null,
+        });
+      } catch (e: any) {
+        samples.push({
+          itemId: target.itemId, itemName: target.name,
+          t: performance.now() - start,
+          status: null, ok: false, durationMs: performance.now() - reqStart,
+          error: e?.message || "Request failed",
+        });
+      }
+      completed++;
+      onProgress?.(sent, completed, performance.now() - start);
+    }
+  };
+
+  await Promise.all(Array.from({ length: concurrency }, () => worker()));
+
+  const durationMs = performance.now() - start;
+  const durations = samples.map((s) => s.durationMs).sort((a, b) => a - b);
+  const successCount = samples.filter((s) => s.ok).length;
+  const failCount = samples.length - successCount;
+  const statusCounts: Record<string, number> = {};
+  samples.forEach((s) => {
+    const key = s.status ? String(s.status) : s.error ? "error" : "unknown";
+    statusCounts[key] = (statusCounts[key] || 0) + 1;
+  });
+
+  const perRequestMap = new Map<string, { name: string; method: HttpMethod; durations: number[]; success: number; fail: number }>();
+  for (const t of targets) perRequestMap.set(t.itemId, { name: t.name, method: t.request.method, durations: [], success: 0, fail: 0 });
+  samples.forEach((s) => {
+    const entry = perRequestMap.get(s.itemId);
+    if (!entry) return;
+    entry.durations.push(s.durationMs);
+    if (s.ok) entry.success++; else entry.fail++;
+  });
+  const perRequest: LoadTestPerRequestStats[] = Array.from(perRequestMap.entries()).map(([itemId, e]) => {
+    const sorted = e.durations.slice().sort((a, b) => a - b);
+    return {
+      itemId, name: e.name, method: e.method,
+      count: e.durations.length, successCount: e.success, failCount: e.fail,
+      avgMs: sorted.length ? sorted.reduce((a, b) => a + b, 0) / sorted.length : 0,
+      p50: percentile(sorted, 50), p90: percentile(sorted, 90), p99: percentile(sorted, 99),
+      minMs: sorted[0] ?? 0, maxMs: sorted[sorted.length - 1] ?? 0,
+    };
+  });
+
+  // Cap the timeline to a reasonable number of points for charting — evenly sampled across the run.
+  const MAX_TIMELINE = 300;
+  const timeline: LoadTestSample[] =
+    samples.length <= MAX_TIMELINE
+      ? samples.map((s) => ({ t: s.t, status: s.status, ok: s.ok, durationMs: s.durationMs, error: s.error, itemId: s.itemId, itemName: s.itemName }))
+      : Array.from({ length: MAX_TIMELINE }, (_, i) => {
+          const s = samples[Math.floor((i / MAX_TIMELINE) * samples.length)];
+          return { t: s.t, status: s.status, ok: s.ok, durationMs: s.durationMs, error: s.error, itemId: s.itemId, itemName: s.itemName };
+        });
+
+  return {
+    config,
+    startedAt,
+    durationMs,
+    totalRequests: samples.length,
+    successCount,
+    failCount,
+    achievedRps: durationMs > 0 ? samples.length / (durationMs / 1000) : 0,
+    avgMs: durations.length ? durations.reduce((a, b) => a + b, 0) / durations.length : 0,
+    p50: percentile(durations, 50),
+    p90: percentile(durations, 90),
+    p99: percentile(durations, 99),
+    minMs: durations[0] ?? 0,
+    maxMs: durations[durations.length - 1] ?? 0,
+    statusCounts,
+    perRequest,
+    timeline,
+    aborted,
+  };
+}
+
+export function defaultLoadTestConfig(targetType: LoadTestConfig["targetType"] = "request"): LoadTestConfig {
+  return { mode: "burst", targetType, concurrency: 10, totalRequests: 100, durationSec: 30, targetRps: 0, runScripts: false };
 }
 
 /* ============================= Postman v2.1 collection import/export =============================
@@ -926,4 +1186,63 @@ export function getByPath(data: any, path: string): unknown {
     cur = cur[p];
   }
   return cur;
+}
+
+/* ============================= request chaining =============================
+ * Applies a request's declarative chainExtractions against a response body, mutating the
+ * appropriate variable store (env/collection/global) in place. This is the "formalized"
+ * version of what a hand-written pt.environment.set(...) test-script line already does —
+ * used by both a normal Send and the Collection Runner so chained variables show up the
+ * same way regardless of how the request was executed. */
+export interface ApplyChainArgs {
+  extractions: ChainExtraction[];
+  responseBodyText: string;
+  localEnvironments: Environment[];
+  activeEnvId: string | null;
+  localGlobalVars: GlobalVariable[];
+  localCollectionVars: EnvironmentVariable[];
+}
+export interface ApplyChainResult {
+  extracted: RunnerExtractedVar[];
+  errors: string[];
+}
+export function applyChainExtractions(args: ApplyChainArgs): ApplyChainResult {
+  const { extractions, responseBodyText, localEnvironments, activeEnvId, localGlobalVars, localCollectionVars } = args;
+  const enabled = extractions.filter((e) => e.enabled && e.sourcePath.trim() && e.varName.trim());
+  const extracted: RunnerExtractedVar[] = [];
+  const errors: string[] = [];
+  if (!enabled.length) return { extracted, errors };
+
+  let data: any;
+  try { data = JSON.parse(responseBodyText); } catch { errors.push("Response isn't valid JSON — chain extraction skipped"); return { extracted, errors }; }
+
+  for (const ex of enabled) {
+    const value = getByPath(data, ex.sourcePath.trim());
+    if (value === undefined) { errors.push(`No value found at "${ex.sourcePath}"`); continue; }
+    const strValue = typeof value === "string" ? value : JSON.stringify(value);
+    const varName = ex.varName.trim();
+
+    if (ex.scope === "global") {
+      const idx = localGlobalVars.findIndex((v) => v.key === varName);
+      if (idx >= 0) localGlobalVars[idx] = { ...localGlobalVars[idx], value: strValue };
+      else localGlobalVars.push({ id: uid(), key: varName, value: strValue });
+    } else if (ex.scope === "collection") {
+      const idx = localCollectionVars.findIndex((v) => v.key === varName);
+      if (idx >= 0) localCollectionVars[idx] = { ...localCollectionVars[idx], value: strValue };
+      else localCollectionVars.push({ id: uid(), key: varName, value: strValue, enabled: true });
+    } else {
+      const envIdx = localEnvironments.findIndex((e) => e.id === activeEnvId);
+      if (envIdx >= 0) {
+        const env = localEnvironments[envIdx];
+        const idx = env.variables.findIndex((v) => v.key === varName);
+        if (idx >= 0) env.variables[idx] = { ...env.variables[idx], value: strValue };
+        else env.variables.push({ id: uid(), key: varName, value: strValue, enabled: true });
+      } else {
+        errors.push(`No active environment — couldn't save "${varName}"`);
+        continue;
+      }
+    }
+    extracted.push({ varName, value: strValue, scope: ex.scope });
+  }
+  return { extracted, errors };
 }

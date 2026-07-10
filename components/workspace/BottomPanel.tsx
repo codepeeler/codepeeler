@@ -7,6 +7,9 @@ import { BOTTOM_PANEL_TABS } from "@/lib/data/workspace-shell";
 import { useWorkflow } from "@/providers/workflow-provider";
 import { NODE_TYPES, NODE_CAT_COLOR } from "@/lib/data/node-types";
 import type { LogLevel } from "@/lib/types/workflow";
+import Drawer from "@/components/layout/mobile/Drawer";
+
+export const BOTTOM_PANEL_ID = "bottom-panel";
 
 function formatTime(ts: number) {
   return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -23,7 +26,7 @@ function EmptyState({ children }: { children: React.ReactNode }) {
   return <div className="px-1 py-6 text-center text-[11px] leading-[1.6] text-[var(--text-faint)]">{children}</div>;
 }
 
-export default function BottomPanel() {
+function BottomPanelContent() {
   const [activeTab, setActiveTab] = useState<string>("console");
   const [logFilter, setLogFilter] = useState<LogLevel | "all">("all");
   const {
@@ -46,19 +49,6 @@ export default function BottomPanel() {
     if (activeTab === "console" || activeTab === "logs")
       scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [logs, activeTab]);
-
-  const onResizeStart = (e: React.PointerEvent) => {
-    e.preventDefault();
-    const startY = e.clientY;
-    const startHeight = bottomHeight;
-    const onMove = (ev: PointerEvent) => setBottomHeight(startHeight - (ev.clientY - startY));
-    const onUp = () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-    };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-  };
 
   const lastRun = runHistory[runHistory.length - 1];
   const errorLogs = useMemo(() => logs.filter((l) => l.level === "error"), [logs]);
@@ -91,15 +81,7 @@ export default function BottomPanel() {
   }, [nodes, runHistory]);
 
   return (
-    <div
-      style={{ height: bottomHeight }}
-      className="relative flex-shrink-0 border-t border-[var(--border-soft)] bg-[var(--bg-elev)]"
-    >
-      <div
-        onPointerDown={onResizeStart}
-        className="absolute left-0 top-[-3px] z-[35] h-1.5 w-full cursor-row-resize hover:bg-[var(--primary)]"
-      />
-
+    <>
       <div className="flex items-center gap-0.5 overflow-x-auto border-b border-[var(--border-soft)] px-2 py-1.5">
         {BOTTOM_PANEL_TABS.map((tab) => {
           const badgeCount =
@@ -449,6 +431,47 @@ export default function BottomPanel() {
 
         <div className="hidden w-[240px] flex-shrink-0 border-l border-[var(--border-soft)] lg:block" />
       </div>
-    </div>
+    </>
+  );
+}
+
+/**
+ * Desktop: fixed-height resizable strip along the bottom of the canvas
+ * (unchanged behavior). Mobile (<lg): rendered as a bottom-sheet Drawer,
+ * opened via the console icon in the workspace MobileHeader or the
+ * panel FAB, so it doesn't permanently eat vertical space on small screens.
+ */
+export default function BottomPanel() {
+  const { bottomHeight, setBottomHeight } = useWorkflow();
+
+  const onResizeStart = (e: React.PointerEvent) => {
+    e.preventDefault();
+    const startY = e.clientY;
+    const startHeight = bottomHeight;
+    const onMove = (ev: PointerEvent) => setBottomHeight(startHeight - (ev.clientY - startY));
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  };
+
+  return (
+    <>
+      <div
+        style={{ height: bottomHeight }}
+        className="relative hidden flex-shrink-0 border-t border-[var(--border-soft)] bg-[var(--bg-elev)] lg:block"
+      >
+        <div
+          onPointerDown={onResizeStart}
+          className="absolute left-0 top-[-3px] z-[35] h-1.5 w-full cursor-row-resize hover:bg-[var(--primary)]"
+        />
+        <BottomPanelContent />
+      </div>
+      <Drawer id={BOTTOM_PANEL_ID} title="Console" variant="bottom">
+        <BottomPanelContent />
+      </Drawer>
+    </>
   );
 }

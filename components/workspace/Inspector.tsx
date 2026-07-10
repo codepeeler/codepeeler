@@ -3,6 +3,7 @@
 import { Trash2 } from "lucide-react";
 import { useWorkflow } from "@/providers/workflow-provider";
 import { NODE_TYPES, NODE_CAT_COLOR } from "@/lib/data/node-types";
+import Drawer from "@/components/layout/mobile/Drawer";
 import type {
   HashAlgo,
   SortMode,
@@ -22,6 +23,8 @@ import type {
   CssMode,
   JsMode,
 } from "@/lib/transforms";
+
+export const INSPECTOR_PANEL_ID = "inspector";
 
 const HASH_ALGOS: HashAlgo[] = ["SHA-1", "SHA-256", "SHA-384", "SHA-512"];
 
@@ -93,7 +96,7 @@ function CheckField({ label, checked, onChange }: { label: string; checked: bool
   );
 }
 
-export default function Inspector() {
+function InspectorContent() {
   const { nodes, selectedIds, deleteSelected, conns, updateNodeSettings, inspectorWidth, setInspectorWidth } =
     useWorkflow();
   const node = selectedIds.length === 1 ? nodes.find((n) => n.id === selectedIds[0]) : undefined;
@@ -112,13 +115,10 @@ export default function Inspector() {
   };
 
   return (
-    <aside
-      style={{ width: inspectorWidth }}
-      className="relative z-30 flex flex-shrink-0 flex-col border-l border-[var(--border-soft)] bg-[var(--bg-elev)]"
-    >
+    <>
       <div
         onPointerDown={onResizeStart}
-        className="absolute left-[-3px] top-0 z-[35] h-full w-1.5 cursor-col-resize hover:bg-[var(--primary)]"
+        className="absolute left-[-3px] top-0 z-[35] hidden h-full w-1.5 cursor-col-resize hover:bg-[var(--primary)] lg:block"
       />
 
       {selectedIds.length === 0 ? (
@@ -566,6 +566,31 @@ export default function Inspector() {
           </button>
         </div>
       ) : null}
-    </aside>
+    </>
+  );
+}
+
+/**
+ * Desktop: fixed-width resizable aside (unchanged behavior).
+ * Mobile (<lg): rendered inside the shared Drawer, opened via the
+ * inspector icon in the workspace MobileHeader, or the panel FAB.
+ */
+export default function Inspector() {
+  const { inspectorWidth } = useWorkflow();
+
+  return (
+    <>
+      <aside
+        style={{ width: inspectorWidth }}
+        className="relative z-30 hidden flex-shrink-0 flex-col border-l border-[var(--border-soft)] bg-[var(--bg-elev)] lg:flex"
+      >
+        <InspectorContent />
+      </aside>
+      <Drawer id={INSPECTOR_PANEL_ID} title="Inspector">
+        <div className="relative flex-1">
+          <InspectorContent />
+        </div>
+      </Drawer>
+    </>
   );
 }

@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronRight, Folder, FolderOpen, MoreVertical, Plus, Search, Layers, Clock, Play, Variable, Download } from "lucide-react";
+import { ChevronDown, ChevronRight, Folder, FolderOpen, MoreVertical, Plus, Search, Layers, Clock, Play, Variable, Download, Radio, Copy, Power, Trash2, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useApiTester } from "@/providers/api-tester-provider";
 import { uid } from "@/lib/api-tester/engine";
-import { CollectionRunnerModal, CollectionVariablesModal } from "@/components/api-tester/Modals";
+import { CollectionRunnerModal, CollectionVariablesModal, MockServerModal } from "@/components/api-tester/Modals";
+import { LoadTestModal } from "@/components/api-tester/LoadTestModal";
 import type { Collection, CollectionItem } from "@/lib/api-tester/types";
 import Drawer from "@/components/layout/mobile/Drawer";
 
@@ -20,6 +21,7 @@ function CollectionTreeItem({
   onRun,
   onVariables,
   onExport,
+  onLoadTest,
 }: {
   item: CollectionItem;
   collectionId: string;
@@ -28,6 +30,7 @@ function CollectionTreeItem({
   onRun?: () => void;
   onVariables?: () => void;
   onExport?: () => void;
+  onLoadTest?: () => void;
 }) {
   const { openRequestFromCollection, deleteCollectionItem, renameCollectionItem } = useApiTester();
   const [open, setOpen] = useState(true);
@@ -78,6 +81,7 @@ function CollectionTreeItem({
               {isCollectionRoot && (
                 <>
                   <button className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-xs hover:bg-[var(--card-hover)]" onClick={(e) => { e.stopPropagation(); onRun?.(); setMenuOpen(false); }}><Play size={11} /> Run collection</button>
+                  <button className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-xs hover:bg-[var(--card-hover)]" onClick={(e) => { e.stopPropagation(); onLoadTest?.(); setMenuOpen(false); }}><Zap size={11} /> Load test collection</button>
                   <button className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-xs hover:bg-[var(--card-hover)]" onClick={(e) => { e.stopPropagation(); onVariables?.(); setMenuOpen(false); }}><Variable size={11} /> Variables</button>
                   <button className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-xs hover:bg-[var(--card-hover)]" onClick={(e) => { e.stopPropagation(); onExport?.(); setMenuOpen(false); }}><Download size={11} /> Export (Postman)</button>
                   <div className="my-1 h-px bg-[var(--border-soft)]" />
@@ -136,13 +140,12 @@ function CollectionsPanel() {
   const [query, setQuery] = useState("");
   const [runnerFor, setRunnerFor] = useState<string | null>(null);
   const [varsFor, setVarsFor] = useState<string | null>(null);
+  const [loadTestFor, setLoadTestFor] = useState<string | null>(null);
 
   const addCollection = () => {
     const nc: Collection = { id: uid(), name: "New Collection", items: [], variables: [] };
     setCollections((prev) => [...prev, nc]);
   };
-  const deleteCollection = (id: string) => setCollections((prev) => prev.filter((c) => c.id !== id));
-  const renameCollection = (id: string, name: string) => setCollections((prev) => prev.map((c) => (c.id === id ? { ...c, name } : c)));
 
   const filtered = query
     ? collections.filter((c) => c.name.toLowerCase().includes(query.toLowerCase()))
@@ -178,12 +181,14 @@ function CollectionsPanel() {
               onRun={() => setRunnerFor(col.id)}
               onVariables={() => setVarsFor(col.id)}
               onExport={() => exportCollectionAsPostman(col.id)}
+              onLoadTest={() => setLoadTestFor(col.id)}
             />
           </div>
         ))}
       </div>
       {runnerFor && <CollectionRunnerModal collectionId={runnerFor} onClose={() => setRunnerFor(null)} />}
       {varsFor && <CollectionVariablesModal collectionId={varsFor} onClose={() => setVarsFor(null)} />}
+      {loadTestFor && <LoadTestModal targetType="collection" collectionId={loadTestFor} onClose={() => setLoadTestFor(null)} />}
     </div>
   );
 }
@@ -231,13 +236,71 @@ function HistoryPanel() {
   );
 }
 
+function MocksPanel() {
+  const { mockServers, addMockServer, deleteMockServer, updateMockServer, toast } = useApiTester();
+  const [openId, setOpenId] = useState<string | null>(null);
+
+  const copyBaseUrl = (e: React.MouseEvent, serverId: string) => {
+    e.stopPropagation();
+    if (typeof window === "undefined") return;
+    navigator.clipboard?.writeText(`${window.location.origin}/api/mock/${serverId}`);
+    toast("Base URL copied");
+  };
+
+  return (
+    <div className="flex h-full flex-col">
+      <div className="flex items-center justify-between p-2.5 pb-2">
+        <span className="text-[11px] font-bold uppercase tracking-[0.05em] text-[var(--text-faint)]">Mock Servers</span>
+        <button className="flex h-6 w-6 items-center justify-center rounded-lg text-[var(--text-dim)] hover:bg-[var(--card-hover)] hover:text-[var(--text)]" onClick={() => setOpenId(addMockServer())} title="New mock server">
+          <Plus size={14} />
+        </button>
+      </div>
+      <div className="flex-1 overflow-y-auto px-1.5 pb-2.5">
+        {mockServers.length === 0 && (
+          <div className="p-4 text-[11.5px] leading-[1.6] text-[var(--text-faint)]">
+            No mock servers yet. Add one to serve canned responses to any app — point it at <span className="font-[family-name:var(--font-mono)]">/api/mock/&lt;id&gt;/...</span>.
+          </div>
+        )}
+        {mockServers.map((s) => (
+          <div key={s.id} onClick={() => setOpenId(s.id)} className="group mb-1 flex cursor-pointer items-center gap-2 rounded-lg px-2 py-2 hover:bg-[var(--card-hover)]">
+            <Radio size={13} className="flex-shrink-0" style={{ color: s.enabled ? "var(--success)" : "var(--text-faint)" }} />
+            <div className="min-w-0 flex-1">
+              <div className="overflow-hidden text-ellipsis whitespace-nowrap text-[12.5px] font-semibold">{s.name}</div>
+              <div className="text-[10.5px] text-[var(--text-faint)]">{s.endpoints.filter((e) => e.enabled).length} endpoint{s.endpoints.length === 1 ? "" : "s"}</div>
+            </div>
+            <button className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:bg-[var(--border-soft)]" onClick={(e) => copyBaseUrl(e, s.id)} title="Copy base URL">
+              <Copy size={12} />
+            </button>
+            <button
+              className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:bg-[var(--border-soft)]"
+              onClick={(e) => { e.stopPropagation(); updateMockServer(s.id, { enabled: !s.enabled }); }}
+              title={s.enabled ? "Disable" : "Enable"}
+            >
+              <Power size={12} style={{ color: s.enabled ? "var(--success)" : "var(--text-faint)" }} />
+            </button>
+            <button
+              className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:bg-[var(--border-soft)] hover:text-[var(--danger)]"
+              onClick={(e) => { e.stopPropagation(); deleteMockServer(s.id); }}
+              title="Delete"
+            >
+              <Trash2 size={12} />
+            </button>
+          </div>
+        ))}
+      </div>
+      {openId && <MockServerModal serverId={openId} onClose={() => setOpenId(null)} />}
+    </div>
+  );
+}
+
 const SIDEBAR_TABS = [
   { key: "collections" as const, label: "Collections", icon: Layers },
   { key: "history" as const, label: "History", icon: Clock },
+  { key: "mocks" as const, label: "Mocks", icon: Radio },
 ];
 
 function ApiSidebarContent() {
-  const [tab, setTab] = useState<"collections" | "history">("collections");
+  const [tab, setTab] = useState<"collections" | "history" | "mocks">("collections");
   return (
     <>
       <div className="flex px-2.5 pt-2.5">
@@ -253,7 +316,7 @@ function ApiSidebarContent() {
         ))}
       </div>
       <div className="h-px bg-[var(--border-soft)]" />
-      <div className="min-h-0 flex-1">{tab === "collections" ? <CollectionsPanel /> : <HistoryPanel />}</div>
+      <div className="min-h-0 flex-1">{tab === "collections" ? <CollectionsPanel /> : tab === "history" ? <HistoryPanel /> : <MocksPanel />}</div>
     </>
   );
 }
