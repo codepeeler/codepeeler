@@ -21,6 +21,13 @@
   --warning-dim: #F59E0B1A;
   --danger: #EF4444;
   --danger-dim: #EF44441A;
+  --get: #22C55E;
+  --post: #F59E0B;
+  --put: #4F9DFF;
+  --patch: #A78BFA;
+  --delete: #EF4444;
+  --head: #2DD4BF;
+  --options: #9A9CA6;
   --cat-data: #6D5DF6;
   --cat-encode: #4F9DFF;
   --cat-gen: #2DD4BF;

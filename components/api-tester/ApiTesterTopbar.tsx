@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, X, Send, Save, Code2, MoreVertical, Copy, Upload, Loader2, Zap, Sparkles } from "lucide-react";
+import { Plus, X, Send, Save, Code2, MoreVertical, Copy, Upload, Loader2, Zap, Sparkles, ShieldCheck } from "lucide-react";
 import { useApiTester } from "@/providers/api-tester-provider";
 import { HTTP_METHODS } from "@/lib/api-tester/types";
 import type { HttpMethod, RequestProtocol } from "@/lib/api-tester/types";
+import { buildFinalUrl } from "@/lib/api-tester/engine";
+import { SecurityCheckModal } from "@/components/api-tester/SecurityCheckModal";
 import { cn } from "@/lib/utils";
 import Drawer from "@/components/layout/mobile/Drawer";
 import { useMobileShell } from "@/providers/mobile-shell-provider";
@@ -83,7 +85,8 @@ export const URL_BAR_MORE_PANEL_ID = "url-bar-more";
 
 /* ============================= URL bar ============================= */
 export function UrlBar({ onOpenCode, onOpenSave, onOpenLoadTest, onOpenAi }: { onOpenCode: () => void; onOpenSave: () => void; onOpenLoadTest: () => void; onOpenAi: () => void }) {
-  const { activeTab, updateRequest, send, cancel, duplicateTab } = useApiTester();
+  const { activeTab, updateRequest, send, cancel, duplicateTab, vars } = useApiTester();
+  const [securityOpen, setSecurityOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const { togglePanel, closePanel } = useMobileShell();
   if (!activeTab) return null;
@@ -156,6 +159,16 @@ export function UrlBar({ onOpenCode, onOpenSave, onOpenLoadTest, onOpenAi }: { o
     </button>
   );
 
+  const securityButton = isHttp && (
+    <button
+      onClick={() => setSecurityOpen(true)}
+      title="Security Health Check"
+      className="flex flex-shrink-0 items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-[7px] text-xs font-semibold text-[var(--text-dim)] hover:border-[var(--text-faint)] hover:text-[var(--text)]"
+    >
+      <ShieldCheck size={13} />
+    </button>
+  );
+
   const codeButton = isHttp && (
     <button onClick={onOpenCode} className="hidden h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--text-dim)] hover:border-[var(--text-faint)] hover:text-[var(--text)] lg:flex">
       <Code2 size={13} />
@@ -171,6 +184,7 @@ export function UrlBar({ onOpenCode, onOpenSave, onOpenLoadTest, onOpenAi }: { o
         {urlInput}
         {sendButton}
         {aiButton}
+        {securityButton}
         {saveButton}
         {codeButton}
         <div className="relative">
@@ -234,6 +248,18 @@ export function UrlBar({ onOpenCode, onOpenSave, onOpenLoadTest, onOpenAi }: { o
           {isHttp && (
             <button
               className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-[13.5px] font-medium text-[var(--text)] hover:bg-[var(--card-hover)]"
+              onClick={() => { closePanel(); setSecurityOpen(true); }}
+            >
+              <ShieldCheck size={16} className="text-[var(--text-faint)]" />
+              <span>
+                Security health check
+                <span className="block text-[11.5px] font-normal text-[var(--text-faint)]">TLS certificate + security header audit</span>
+              </span>
+            </button>
+          )}
+          {isHttp && (
+            <button
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-[13.5px] font-medium text-[var(--text)] hover:bg-[var(--card-hover)]"
               onClick={() => { closePanel(); onOpenCode(); }}
             >
               <Code2 size={16} className="text-[var(--text-faint)]" />
@@ -267,6 +293,7 @@ export function UrlBar({ onOpenCode, onOpenSave, onOpenLoadTest, onOpenAi }: { o
           )}
         </div>
       </Drawer>
+      {securityOpen && <SecurityCheckModal url={buildFinalUrl(req, vars)} onClose={() => setSecurityOpen(false)} />}
     </>
   );
 }

@@ -1,7 +1,8 @@
 "use client";
 
-import { Plus, PanelRight, Terminal } from "lucide-react";
+import { Plus, PanelRight, Terminal, Braces } from "lucide-react";
 import { useMobileShell } from "@/providers/mobile-shell-provider";
+import { useWorkflow } from "@/providers/workflow-provider";
 import { TOOL_PALETTE_PANEL_ID } from "@/components/workspace/ToolPalette";
 import { INSPECTOR_PANEL_ID } from "@/components/workspace/Inspector";
 import { BOTTOM_PANEL_ID } from "@/components/workspace/BottomPanel";
@@ -14,6 +15,7 @@ import { BOTTOM_PANEL_ID } from "@/components/workspace/BottomPanel";
  */
 export default function MobileFabs() {
   const { togglePanel } = useMobileShell();
+  const { variablesPanelOpen, setVariablesPanelOpen } = useWorkflow();
 
   return (
     <div className="fixed bottom-[calc(64px+16px)] right-4 z-[120] flex flex-col gap-2.5 lg:hidden">
@@ -32,6 +34,17 @@ export default function MobileFabs() {
         className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--primary)] text-white shadow-[var(--shadow-soft)]"
       >
         <PanelRight size={19} />
+      </button>
+      <button
+        onClick={() => setVariablesPanelOpen((v) => !v)}
+        title="Workflow variables"
+        aria-label="Workflow variables"
+        className={
+          "flex h-12 w-12 items-center justify-center rounded-full shadow-[var(--shadow-soft)] ring-1 ring-[var(--border-soft)] " +
+          (variablesPanelOpen ? "bg-[var(--primary-dim)] text-[var(--primary)]" : "bg-[var(--card)] text-[var(--text)]")
+        }
+      >
+        <Braces size={18} />
       </button>
       <button
         onClick={() => togglePanel(BOTTOM_PANEL_ID)}

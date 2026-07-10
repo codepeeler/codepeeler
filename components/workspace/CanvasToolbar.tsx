@@ -63,7 +63,12 @@ export default function CanvasToolbar() {
   ];
 
   return (
-    <div className="flex h-12 flex-shrink-0 items-center gap-2 overflow-x-auto border-b border-[var(--border-soft)] bg-[var(--bg)] px-3.5">
+    // Hidden on mobile: the select/hand mode switch, lasso, sticky/frame
+    // placement, and minimap toggle here are all desktop-canvas concepts
+    // that don't apply to MobileCanvasArea (no mode switching, no
+    // minimap — see its file comment). Mobile-equivalent actions (add
+    // node, zoom, variables) live in MobileFabs / the zoom stack instead.
+    <div className="hidden h-12 flex-shrink-0 items-center gap-2 overflow-x-auto border-b border-[var(--border-soft)] bg-[var(--bg)] px-3.5 lg:flex">
       <div className="hidden flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[7px] border border-dashed border-[var(--border)] bg-[var(--card)] px-2.5 py-1.5 text-[11.5px] font-medium text-[var(--text-faint)] lg:flex">
         + Add Node{" "}
         <span className="rounded-[5px] border border-[var(--border)] bg-[var(--border-soft)] px-[5px] py-0.5 font-[family-name:var(--font-mono)] text-[10px] text-[var(--text-faint)]">

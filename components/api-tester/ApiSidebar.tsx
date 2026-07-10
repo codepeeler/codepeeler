@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronRight, Folder, FolderOpen, MoreVertical, Plus, Search, Layers, Clock, Play, Variable, Download, Radio, Copy, Power, Trash2, Zap } from "lucide-react";
+import { ChevronDown, ChevronRight, Folder, FolderOpen, MoreVertical, Plus, Search, Layers, Clock, Play, Variable, Download, Radio, Copy, Power, Trash2, Zap, GitBranch } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useApiTester } from "@/providers/api-tester-provider";
 import { uid } from "@/lib/api-tester/engine";
 import { CollectionRunnerModal, CollectionVariablesModal, MockServerModal } from "@/components/api-tester/Modals";
 import { LoadTestModal } from "@/components/api-tester/LoadTestModal";
+import { GitHubSyncModal } from "@/components/api-tester/GitHubSyncModal";
 import type { Collection, CollectionItem } from "@/lib/api-tester/types";
 import Drawer from "@/components/layout/mobile/Drawer";
 
@@ -22,6 +23,7 @@ function CollectionTreeItem({
   onVariables,
   onExport,
   onLoadTest,
+  onGitHubSync,
 }: {
   item: CollectionItem;
   collectionId: string;
@@ -31,6 +33,7 @@ function CollectionTreeItem({
   onVariables?: () => void;
   onExport?: () => void;
   onLoadTest?: () => void;
+  onGitHubSync?: () => void;
 }) {
   const { openRequestFromCollection, deleteCollectionItem, renameCollectionItem } = useApiTester();
   const [open, setOpen] = useState(true);
@@ -84,6 +87,7 @@ function CollectionTreeItem({
                   <button className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-xs hover:bg-[var(--card-hover)]" onClick={(e) => { e.stopPropagation(); onLoadTest?.(); setMenuOpen(false); }}><Zap size={11} /> Load test collection</button>
                   <button className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-xs hover:bg-[var(--card-hover)]" onClick={(e) => { e.stopPropagation(); onVariables?.(); setMenuOpen(false); }}><Variable size={11} /> Variables</button>
                   <button className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-xs hover:bg-[var(--card-hover)]" onClick={(e) => { e.stopPropagation(); onExport?.(); setMenuOpen(false); }}><Download size={11} /> Export (Postman)</button>
+                  <button className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-xs hover:bg-[var(--card-hover)]" onClick={(e) => { e.stopPropagation(); onGitHubSync?.(); setMenuOpen(false); }}><GitBranch size={11} /> GitHub sync</button>
                   <div className="my-1 h-px bg-[var(--border-soft)]" />
                 </>
               )}
@@ -141,6 +145,8 @@ function CollectionsPanel() {
   const [runnerFor, setRunnerFor] = useState<string | null>(null);
   const [varsFor, setVarsFor] = useState<string | null>(null);
   const [loadTestFor, setLoadTestFor] = useState<string | null>(null);
+  const [githubSyncFor, setGithubSyncFor] = useState<string | null>(null);
+  const [importingFromGist, setImportingFromGist] = useState(false);
 
   const addCollection = () => {
     const nc: Collection = { id: uid(), name: "New Collection", items: [], variables: [] };
@@ -166,6 +172,9 @@ function CollectionsPanel() {
         <button className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-lg text-[var(--text-dim)] hover:bg-[var(--card-hover)] hover:text-[var(--text)]" onClick={addCollection} title="New collection">
           <Plus size={15} />
         </button>
+        <button className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-lg text-[var(--text-dim)] hover:bg-[var(--card-hover)] hover:text-[var(--text)]" onClick={() => setImportingFromGist(true)} title="Import from GitHub Gist">
+          <GitBranch size={14} />
+        </button>
       </div>
       <div className="flex-1 overflow-y-auto px-1.5 pb-2.5">
         {filtered.length === 0 && (
@@ -182,6 +191,7 @@ function CollectionsPanel() {
               onVariables={() => setVarsFor(col.id)}
               onExport={() => exportCollectionAsPostman(col.id)}
               onLoadTest={() => setLoadTestFor(col.id)}
+              onGitHubSync={() => setGithubSyncFor(col.id)}
             />
           </div>
         ))}
@@ -189,6 +199,8 @@ function CollectionsPanel() {
       {runnerFor && <CollectionRunnerModal collectionId={runnerFor} onClose={() => setRunnerFor(null)} />}
       {varsFor && <CollectionVariablesModal collectionId={varsFor} onClose={() => setVarsFor(null)} />}
       {loadTestFor && <LoadTestModal targetType="collection" collectionId={loadTestFor} onClose={() => setLoadTestFor(null)} />}
+      {githubSyncFor && <GitHubSyncModal collectionId={githubSyncFor} onClose={() => setGithubSyncFor(null)} />}
+      {importingFromGist && <GitHubSyncModal onClose={() => setImportingFromGist(false)} />}
     </div>
   );
 }

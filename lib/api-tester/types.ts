@@ -194,6 +194,12 @@ export interface Collection {
   items: CollectionItem[];
   /** Collection-scoped variables — shared by every request saved under this collection. */
   variables: EnvironmentVariable[];
+  /** Present once this collection has been pushed to or pulled from a GitHub Gist. */
+  github?: {
+    gistId: string;
+    filename: string;
+    lastSyncedAt: string;
+  };
 }
 
 export interface HistoryEntry {

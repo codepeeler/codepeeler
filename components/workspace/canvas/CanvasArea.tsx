@@ -13,6 +13,7 @@ import { useIsMobile } from "@/hooks/use-media-query";
 import { useMobileShell } from "@/providers/mobile-shell-provider";
 import { TOOL_PALETTE_PANEL_ID } from "@/components/workspace/ToolPalette";
 import { cn } from "@/lib/utils";
+import MobileCanvasArea from "@/components/workspace/canvas/MobileCanvasArea";
 
 interface TempConn {
   from: string;
@@ -31,7 +32,20 @@ interface LassoRect {
 const TAP_MOVE_THRESHOLD = 10; // px of pointer travel below which a gesture counts as a "tap"
 const LONG_PRESS_MS = 480;
 
+// Mobile gets its own canvas implementation entirely (vertical
+// scroll-driven layout, top/bottom ports, no select/hand mode, no
+// minimap) rather than conditional branches sprinkled through this
+// component — see MobileCanvasArea's file comment for why. `CanvasArea`
+// below is just a switch between the two; it's the only part of this
+// file that changed. `DesktopCanvasArea`'s body (renamed from the
+// original default export, otherwise byte-for-byte identical) is the
+// pre-existing desktop implementation, unmodified.
 export default function CanvasArea() {
+  const isMobile = useIsMobile();
+  return isMobile ? <MobileCanvasArea /> : <DesktopCanvasArea />;
+}
+
+function DesktopCanvasArea() {
   const {
     nodes,
     scale,

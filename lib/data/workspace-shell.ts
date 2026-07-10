@@ -5,6 +5,7 @@ import {
   Layers,
   Code2,
   Webhook,
+  Inbox,
   History,
   Star,
   Settings,
@@ -18,6 +19,7 @@ export type NavKey =
   | "collections"
   | "snippets"
   | "api"
+  | "webhooks"
   | "history"
   | "favorites"
   | "settings";
@@ -34,6 +36,7 @@ export const NAV_RAIL_ITEMS: {
   { key: "collections", label: "Collections", href: "/collections", icon: Layers },
   { key: "snippets", label: "Snippets", href: "/snippets", icon: Code2 },
   { key: "api", label: "API Tester", href: "/api-tester", icon: Webhook },
+  { key: "webhooks", label: "Webhook Inbox", href: "/webhooks", icon: Inbox },
   { key: "history", label: "History", href: "/workspace/history", icon: History },
   { key: "favorites", label: "Favorites", href: "/workspace/favorites", icon: Star },
   { key: "settings", label: "Settings", href: "/workspace/settings", icon: Settings },
@@ -49,13 +52,9 @@ export const MOBILE_TAB_ITEMS: {
   label: string;
   href: string;
   icon: LucideIcon;
-}[] = [
-  NAV_RAIL_ITEMS[0], // workspace
-  NAV_RAIL_ITEMS[2], // all tools
-  NAV_RAIL_ITEMS[5], // api tester
-  NAV_RAIL_ITEMS[3], // collections
-  NAV_RAIL_ITEMS[8], // settings
-];
+}[] = (["workspace", "alltools", "api", "collections", "settings"] as NavKey[]).map(
+  (key) => NAV_RAIL_ITEMS.find((item) => item.key === key)!
+);
 
 export const WORKSPACE_TABS = [
   { key: "workflow", label: "Workflow" },
