@@ -2,7 +2,7 @@ import { BarChart3, Wrench, Database, Clock, HardDrive, CloudOff, HelpCircle } f
 
 export default function CollectionsStatsBar() {
   return (
-    <div className="flex h-9 flex-shrink-0 items-center gap-5 border-t border-[var(--border-soft)] bg-[var(--bg-elev)] px-4 text-[11px] text-[var(--text-faint)]">
+    <div className="hidden h-9 flex-shrink-0 items-center gap-5 border-t border-[var(--border-soft)] bg-[var(--bg-elev)] px-4 text-[11px] text-[var(--text-faint)] lg:flex">
       <span className="flex items-center gap-1.5">
         <BarChart3 size={12} /> Workspace Stats
       </span>

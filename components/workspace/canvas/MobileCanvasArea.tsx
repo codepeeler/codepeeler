@@ -151,6 +151,34 @@ export default function MobileCanvasArea() {
   // auto-layout below. Session-local and mobile-only — never written back
   // to node.x/node.y, so desktop's layout is never touched from here.
   const [dragOverrides, setDragOverrides] = useState<Record<string, { x: number; y: number }>>({});
+  // Sticky base-layout cache: keyed by node id, holds the last computed
+  // base position for that node. `computeVerticalLayout` is a pure
+  // function of (nodes, conns) — recomputing it from scratch is fine, but
+  // *adopting* every node's freshly computed position on every conns
+  // change is not: one new/removed wire can shift BFS layering for nodes
+  // that had nothing to do with that edge, which read as "all the nodes
+  // jump around" whenever the user connected or disconnected something.
+  // We still run the full layout algorithm (the graph-aware layering is
+  // worth it for placing brand-new nodes sensibly), but we only accept a
+  // node's newly computed position when that node has no cached position
+  // yet — i.e. only truly new nodes get freshly placed. Existing nodes
+  // keep whatever base position they already had.
+  const baseLayoutCacheRef = useRef<Map<string, { x: number; y: number }>>(new Map());
+  const rawLayout = useMemo(() => computeVerticalLayout(nodes, conns), [nodes, conns]);
+  const baseLayout = useMemo(() => {
+    const cache = baseLayoutCacheRef.current;
+    const liveIds = new Set(nodes.map((n) => n.id));
+    Array.from(cache.keys()).forEach((id) => {
+      if (!liveIds.has(id)) cache.delete(id);
+    });
+    nodes.forEach((n) => {
+      if (!cache.has(n.id)) {
+        const fresh = rawLayout.get(n.id);
+        if (fresh) cache.set(n.id, fresh);
+      }
+    });
+    return cache;
+  }, [nodes, rawLayout]);
   // Bumped on every node-drag tick purely to force MobileConnectionsLayer
   // to recompute wire paths from live port positions while dragging —
   // dragOverrides changes don't touch `nodes`/`conns` so the layer's own
@@ -158,7 +186,6 @@ export default function MobileCanvasArea() {
   // look "torn" (stuck at the pre-drag port position) while moving a node.
   const [layoutVersion, setLayoutVersion] = useState(0);
 
-  const baseLayout = useMemo(() => computeVerticalLayout(nodes, conns), [nodes, conns]);
   const displayPositions = useMemo(() => {
     const out = new Map<string, { x: number; y: number }>();
     nodes.forEach((n) => {

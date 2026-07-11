@@ -1,14 +1,17 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Plus, Search, LayoutGrid, List, ChevronDown, SlidersHorizontal, X, Check } from "lucide-react";
-import Sidebar from "@/components/layout/Sidebar";
+import { Plus, Search, LayoutGrid, List, ChevronDown, SlidersHorizontal, X, Check, Menu } from "lucide-react";
+import Sidebar, { SIDEBAR_PANEL_ID } from "@/components/layout/Sidebar";
+import MobileHeader from "@/components/layout/mobile/MobileHeader";
+import MobileFooter from "@/components/layout/mobile/MobileFooter";
 import CollectionCard from "@/components/collections/CollectionCard";
 import CollectionDetailsPanel from "@/components/collections/CollectionDetailsPanel";
 import CollectionsStatsBar from "@/components/collections/CollectionsStatsBar";
 import Dropdown from "@/components/ui/Dropdown";
 import { COLLECTIONS, FILTER_TABS, COLLECTION_TEMPLATES, type Collection } from "@/lib/data/collections";
 import { useToast } from "@/providers/toast-provider";
+import { useMobileShell } from "@/providers/mobile-shell-provider";
 import { WorkflowProvider } from "@/providers/workflow-provider";
 import { cn, parseAgoToMinutes } from "@/lib/utils";
 
@@ -33,6 +36,7 @@ function nextId(prefix: string) {
 
 export default function CollectionsPage() {
   const { toast } = useToast();
+  const { togglePanel } = useMobileShell();
   const [activeTab, setActiveTab] = useState<(typeof FILTER_TABS)[number]["key"]>("all");
   const [query, setQuery] = useState("");
   const [view, setView] = useState<"grid" | "list">("grid");
@@ -204,30 +208,42 @@ export default function CollectionsPage() {
 
   return (
     <WorkflowProvider>
-      <div className="relative flex min-h-0 flex-1">
+      <MobileHeader
+        title="Collections"
+        actions={[
+          {
+            key: "menu",
+            icon: Menu,
+            label: "Menu",
+            onClick: () => togglePanel(SIDEBAR_PANEL_ID),
+          },
+        ]}
+      />
+      <div className="relative flex min-h-0 flex-1 flex-col lg:flex-row">
         <Sidebar />
 
-        <main className="flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-[1400px] px-6 py-7">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <main className="min-h-0 flex-1 overflow-y-auto">
+            <div className="mx-auto max-w-[1400px] px-4 py-5 lg:px-6 lg:py-7">
             <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
               <div>
-                <h1 className="font-[family-name:var(--font-display)] text-[26px] font-bold tracking-[-0.01em]">
+                <h1 className="font-[family-name:var(--font-display)] text-[20px] font-bold tracking-[-0.01em] lg:text-[26px]">
                   Collections
                 </h1>
-                <p className="mt-1 text-[13.5px] text-[var(--text-dim)]">
+                <p className="mt-1 text-[12.5px] text-[var(--text-dim)] lg:text-[13.5px]">
                   Organize and manage your workflows with powerful collections
                 </p>
               </div>
             </div>
 
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-1 rounded-[10px] border border-[var(--border)] bg-[var(--card)] p-1">
+            <div className="mb-4 flex flex-wrap items-center gap-2 overflow-x-auto lg:justify-between lg:gap-3">
+              <div className="flex flex-shrink-0 items-center gap-1 rounded-[10px] border border-[var(--border)] bg-[var(--card)] p-1">
                 {FILTER_TABS.map((t) => (
                   <button
                     key={t.key}
                     onClick={() => setActiveTab(t.key)}
                     className={cn(
-                      "flex items-center gap-1.5 rounded-[7px] px-3 py-[7px] text-[12.5px] font-semibold transition-colors duration-150",
+                      "flex items-center gap-1.5 whitespace-nowrap rounded-[7px] px-2.5 py-[7px] text-[12px] font-semibold transition-colors duration-150 lg:px-3 lg:text-[12.5px]",
                       activeTab === t.key
                         ? "bg-[var(--primary)] text-white"
                         : "text-[var(--text-dim)] hover:text-[var(--text)]"
@@ -246,7 +262,7 @@ export default function CollectionsPage() {
                 ))}
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-shrink-0 items-center gap-2">
                 <div className="flex items-center overflow-hidden rounded-[9px] border border-[var(--border)] bg-[var(--card)]">
                   <button
                     onClick={() => setView("grid")}
@@ -275,11 +291,12 @@ export default function CollectionsPage() {
                     <button
                       onClick={toggle}
                       className={cn(
-                        "flex h-8 items-center gap-1.5 rounded-[9px] border border-[var(--border)] bg-[var(--card)] px-3 text-[12px] font-medium text-[var(--text-dim)] transition-colors duration-150 hover:text-[var(--text)]",
+                        "flex h-8 items-center gap-1.5 whitespace-nowrap rounded-[9px] border border-[var(--border)] bg-[var(--card)] px-3 text-[12px] font-medium text-[var(--text-dim)] transition-colors duration-150 hover:text-[var(--text)]",
                         open && "text-[var(--text)]"
                       )}
                     >
-                      Sort: {SORT_OPTIONS.find((o) => o.key === sortBy)?.label}
+                      <span className="hidden lg:inline">Sort: </span>
+                      {SORT_OPTIONS.find((o) => o.key === sortBy)?.label}
                       <ChevronDown size={13} />
                     </button>
                   )}
@@ -315,7 +332,7 @@ export default function CollectionsPage() {
                         open && "text-[var(--text)]"
                       )}
                     >
-                      <SlidersHorizontal size={13} /> Filter
+                      <SlidersHorizontal size={13} /> <span className="hidden lg:inline">Filter</span>
                       {activeFilterCount > 0 && (
                         <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[var(--primary)] text-[9.5px] font-bold text-white">
                           {activeFilterCount}
@@ -388,21 +405,21 @@ export default function CollectionsPage() {
                     addCollection();
                     toast("New collection created");
                   }}
-                  className="flex h-8 items-center gap-1.5 rounded-[9px] bg-[var(--primary)] px-3.5 text-[12px] font-semibold text-white transition-[filter] duration-150 hover:brightness-[1.08]"
+                  className="flex h-8 flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[9px] bg-[var(--primary)] px-3 text-[12px] font-semibold text-white transition-[filter] duration-150 hover:brightness-[1.08] lg:px-3.5"
                 >
-                  <Plus size={14} /> New Collection
+                  <Plus size={14} /> <span className="hidden sm:inline">New Collection</span>
                 </button>
               </div>
             </div>
 
             <div className="mb-6 flex flex-wrap items-center gap-2.5">
-              <div className="flex h-9 min-w-[220px] flex-1 max-w-[360px] items-center gap-2 rounded-[9px] border border-[var(--border)] bg-[var(--card)] px-3">
+              <div className="flex h-9 w-full min-w-0 flex-1 items-center gap-2 rounded-[9px] border border-[var(--border)] bg-[var(--card)] px-3 sm:min-w-[220px] sm:max-w-[360px] sm:flex-none">
                 <Search size={14} className="flex-shrink-0 text-[var(--text-faint)]" />
                 <input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search collections…"
-                  className="w-full bg-transparent text-[12.5px] placeholder:text-[var(--text-faint)]"
+                  className="w-full min-w-0 bg-transparent text-[12.5px] placeholder:text-[var(--text-faint)]"
                 />
               </div>
 
@@ -601,8 +618,11 @@ export default function CollectionsPage() {
                 ))}
               </div>
             </div>
+
+            <MobileFooter variant="full" />
           </div>
-        </main>
+          </main>
+        </div>
 
         {selected && (
           <CollectionDetailsPanel

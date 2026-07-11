@@ -4,7 +4,7 @@ import { FOOTER_COLUMNS } from "@/lib/constants";
 
 export default function Footer() {
   return (
-    <footer className="mx-auto mt-[60px] w-full max-w-[1400px] flex-shrink-0 border-t border-[var(--border-soft)] px-8 pb-6 pt-10">
+    <footer className="mx-auto mt-[60px] hidden w-full max-w-[1400px] flex-shrink-0 border-t border-[var(--border-soft)] px-8 pb-6 pt-10 lg:block">
       <div className="flex flex-wrap items-start justify-between gap-x-10 gap-y-8">
         <div>
           <Image

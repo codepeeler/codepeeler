@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { useWorkflow } from "@/providers/workflow-provider";
 
@@ -34,9 +34,9 @@ export default function MobileConnectionsLayer({
   const pathElRefs = useRef(new Map<string, SVGPathElement>());
   const [badgePos, setBadgePos] = useState<{ x: number; y: number } | null>(null);
 
-  useLayoutEffect(() => {
+  const computePaths = useCallback(() => {
     const canvasEl = canvasRef.current;
-    if (!canvasEl) return;
+    if (!canvasEl) return null;
     const canvasRect = canvasEl.getBoundingClientRect();
     const next: { id: string; d: string }[] = [];
     conns.forEach((c) => {
@@ -51,8 +51,36 @@ export default function MobileConnectionsLayer({
       const y2 = (inR.top + inR.height / 2 - canvasRect.top) / scale;
       next.push({ id: c.id, d: verticalBezierPath(x1, y1, x2, y2) });
     });
-    setPaths(next);
-  }, [conns, nodes, scale, canvasRef, portRefs, layoutVersion]);
+    return next;
+  }, [conns, canvasRef, portRefs, scale]);
+
+  useLayoutEffect(() => {
+    const next = computePaths();
+    if (next) setPaths(next);
+  }, [computePaths, layoutVersion]);
+
+  // `portRefs` is a plain mutable ref map — registering a port (on node
+  // mount) does NOT trigger a re-render, so on first paint (or right after
+  // the node list changes) the effect above can run before every port ref
+  // has actually been attached to the DOM, leaving wires missing until some
+  // unrelated re-render (e.g. tapping a node) reruns it. A couple of rAF
+  // passes after mount/nodes-change re-run the same computation once refs
+  // have definitely settled, with no visible cost since it's just re-reading
+  // already-committed DOM.
+  useLayoutEffect(() => {
+    let raf1 = 0;
+    let raf2 = 0;
+    raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        const next = computePaths();
+        if (next) setPaths(next);
+      });
+    });
+    return () => {
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+    };
+  }, [conns, nodes, scale, canvasRef, portRefs]);
 
   useLayoutEffect(() => {
     if (!selectedWireId) {

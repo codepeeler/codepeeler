@@ -67,56 +67,61 @@ export default function CollectionDetailsPanel({
 
   return (
     <aside
-      style={{ width: "var(--w-inspector)" }}
-      className="relative z-30 flex flex-shrink-0 flex-col overflow-y-auto border-l border-[var(--border-soft)] bg-[var(--bg-elev)]"
+      className="fixed inset-x-0 z-[45] flex flex-shrink-0 flex-col overflow-y-auto border-l border-[var(--border-soft)] bg-[var(--bg-elev)] lg:static lg:inset-auto lg:z-30 lg:w-[var(--w-inspector)]"
+      style={{
+        top: "calc(52px + env(safe-area-inset-top))",
+        bottom: "calc(56px + env(safe-area-inset-bottom))",
+      }}
     >
-      <div className="flex items-center justify-between border-b border-[var(--border-soft)] px-4 py-3.5">
-        <span className="font-[family-name:var(--font-display)] text-[11px] font-bold uppercase tracking-[0.06em] text-[var(--text-faint)]">
-          Collection Details
-        </span>
-        <button
-          onClick={onClose}
-          title="Close"
-          className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--text-faint)] transition-colors duration-150 hover:bg-[var(--card-hover)] hover:text-[var(--text)]"
-        >
-          <X size={14} />
-        </button>
-      </div>
-
-      <div className="px-4 py-4">
-        <div className="mb-3 flex items-start gap-3">
-          <CollectionIcon icon={collection.icon} color={collection.color} size="lg" />
-          <div className="min-w-0 pt-0.5">
-            <div className="flex items-center gap-2">
-              <span className="truncate font-[family-name:var(--font-display)] text-[15px] font-semibold">
-                {collection.name}
-              </span>
-              <span className="flex-shrink-0 rounded-full bg-[var(--primary-dim)] px-2 py-[3px] text-[9.5px] font-semibold text-[var(--primary)]">
-                {OWNER_BADGE[collection.owner]}
-              </span>
-            </div>
-            <div className="mt-0.5 text-[10.5px] text-[var(--text-faint)]">
-              Created {collection.createdAgo} · Updated {collection.updatedAgo}
-            </div>
-          </div>
+      <div className="sticky top-0 z-10 flex-shrink-0 bg-[var(--bg-elev)]">
+        <div className="flex items-center justify-between border-b border-[var(--border-soft)] px-4 py-3.5">
+          <span className="font-[family-name:var(--font-display)] text-[11px] font-bold uppercase tracking-[0.06em] text-[var(--text-faint)]">
+            Collection Details
+          </span>
+          <button
+            onClick={onClose}
+            title="Close"
+            className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--text-faint)] transition-colors duration-150 hover:bg-[var(--card-hover)] hover:text-[var(--text)]"
+          >
+            <X size={14} />
+          </button>
         </div>
 
-        <div className="flex gap-1 border-b border-[var(--border-soft)]">
-          {TABS.map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={cn(
-                "relative px-2.5 pb-2.5 text-[12px] font-semibold transition-colors duration-150",
-                tab === t ? "text-[var(--text)]" : "text-[var(--text-faint)] hover:text-[var(--text-dim)]"
-              )}
-            >
-              {t}
-              {tab === t && (
-                <span className="absolute -bottom-px left-0 right-0 h-[2px] rounded-full bg-[var(--primary)]" />
-              )}
-            </button>
-          ))}
+        <div className="px-4 py-4">
+          <div className="mb-3 flex items-start gap-3">
+            <CollectionIcon icon={collection.icon} color={collection.color} size="lg" />
+            <div className="min-w-0 pt-0.5">
+              <div className="flex items-center gap-2">
+                <span className="truncate font-[family-name:var(--font-display)] text-[15px] font-semibold">
+                  {collection.name}
+                </span>
+                <span className="flex-shrink-0 rounded-full bg-[var(--primary-dim)] px-2 py-[3px] text-[9.5px] font-semibold text-[var(--primary)]">
+                  {OWNER_BADGE[collection.owner]}
+                </span>
+              </div>
+              <div className="mt-0.5 text-[10.5px] text-[var(--text-faint)]">
+                Created {collection.createdAgo} · Updated {collection.updatedAgo}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-1 border-b border-[var(--border-soft)]">
+            {TABS.map((t) => (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                className={cn(
+                  "relative px-2.5 pb-2.5 text-[12px] font-semibold transition-colors duration-150",
+                  tab === t ? "text-[var(--text)]" : "text-[var(--text-faint)] hover:text-[var(--text-dim)]"
+                )}
+              >
+                {t}
+                {tab === t && (
+                  <span className="absolute -bottom-px left-0 right-0 h-[2px] rounded-full bg-[var(--primary)]" />
+                )}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

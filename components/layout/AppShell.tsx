@@ -3,6 +3,7 @@
 import { Menu } from "lucide-react";
 import { usePathname } from "next/navigation";
 import Footer from "@/components/layout/Footer";
+import MobileFooter from "@/components/layout/mobile/MobileFooter";
 import Sidebar, { SIDEBAR_PANEL_ID } from "@/components/layout/Sidebar";
 import MobileHeader from "@/components/layout/mobile/MobileHeader";
 import { useMobileShell } from "@/providers/mobile-shell-provider";
@@ -42,6 +43,7 @@ export default function AppShell({ children }: AppShellProps) {
       <div className="flex min-w-0 flex-1 flex-col">
         <main className="flex-1">{children}</main>
         <Footer />
+        <MobileFooter variant={activeTool ? "compact" : "full"} />
       </div>
     </div>
   );

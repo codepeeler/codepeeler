@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronLeft } from "lucide-react";
+import ThemeToggle from "@/components/core/ThemeToggle";
 
 export type MobileHeaderAction = {
   key: string;
@@ -20,7 +21,10 @@ type MobileHeaderProps = {
 /**
  * Fixed header format used by every page in the mobile shell: optional back
  * button on the left, title in the center-left, and up to a few icon actions
- * on the right (each action typically opens a Drawer via useMobileShell).
+ * on the right (each action typically opens a Drawer via useMobileShell),
+ * followed by the dark/light theme toggle as the last, rightmost item —
+ * added here once so every page gets it for free instead of each page
+ * having to pass it in as one more action.
  */
 export default function MobileHeader({ title, onBack, actions = [] }: MobileHeaderProps) {
   return (
@@ -39,6 +43,7 @@ export default function MobileHeader({ title, onBack, actions = [] }: MobileHead
       )}
       <span className="flex-1 truncate text-[15px] font-semibold text-[var(--text)]">{title}</span>
       <div className="flex flex-shrink-0 items-center gap-1">
+        <ThemeToggle />
         {actions.map((a) => (
           <button
             key={a.key}

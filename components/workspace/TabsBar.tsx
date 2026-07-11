@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Undo2, Redo2, Scan, Upload } from "lucide-react";
+import { Undo2, Redo2, Scan, Upload, Download } from "lucide-react";
 import { useWorkflow } from "@/providers/workflow-provider";
 import { useToast } from "@/providers/toast-provider";
 import type { WorkflowSnapshot } from "@/lib/types/workflow";
@@ -134,6 +134,30 @@ export default function TabsBar() {
           Save
         </button>
         <input ref={fileInputRef} type="file" accept="application/json" onChange={handleFileChange} className="hidden" />
+
+        {/* Mobile-only compact icon buttons — desktop already has labeled
+            Import/Export buttons further down (shown at lg:). These were
+            previously only available at lg: and up, so on mobile there was
+            no way to import/export at all. Icon-only + tight padding here
+            keeps this pair from crowding the Undo/Redo/Run All row that's
+            otherwise the only thing visible on a phone-width toolbar. */}
+        <button
+          onClick={handleImportClick}
+          title="Import a workflow.json file"
+          aria-label="Import workflow"
+          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[7px] border border-[var(--border)] bg-[var(--card)] text-[var(--text-dim)] transition-colors duration-150 hover:border-[var(--text-faint)] hover:text-[var(--text)] lg:hidden"
+        >
+          <Upload size={14} />
+        </button>
+        <button
+          onClick={exportWorkflow}
+          title="Export workflow.json"
+          aria-label="Export workflow"
+          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[7px] border border-[var(--border)] bg-[var(--card)] text-[var(--text-dim)] transition-colors duration-150 hover:border-[var(--text-faint)] hover:text-[var(--text)] lg:hidden"
+        >
+          <Download size={14} />
+        </button>
+
         <button
           onClick={handleImportClick}
           title="Import a workflow.json file"

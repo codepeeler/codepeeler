@@ -1,4 +1,5 @@
 import {
+  Home,
   LayoutGrid,
   BarChart3,
   Grid2x2,
@@ -13,6 +14,7 @@ import {
 } from "lucide-react";
 
 export type NavKey =
+  | "home"
   | "workspace"
   | "dashboard"
   | "alltools"
@@ -30,6 +32,7 @@ export const NAV_RAIL_ITEMS: {
   href: string;
   icon: LucideIcon;
 }[] = [
+  { key: "home", label: "Home", href: "/", icon: Home },
   { key: "workspace", label: "Workspace", href: "/workspace", icon: LayoutGrid },
   { key: "dashboard", label: "Dashboard", href: "/workspace/dashboard", icon: BarChart3 },
   { key: "alltools", label: "All Tools", href: "/tools", icon: Grid2x2 },
@@ -44,15 +47,18 @@ export const NAV_RAIL_ITEMS: {
 
 /**
  * Curated subset of NAV_RAIL_ITEMS for the mobile bottom tab bar.
- * Native app convention caps this at 5 items — everything else stays
- * reachable from Settings rather than crowding the bar.
+ * "home" leads (leftmost) so the mobile shell has an explicit way back to
+ * the marketing/landing page — previously there was no bottom-tab route to
+ * it at all. Native app convention usually caps this bar at 5 items, but
+ * home is common and expected enough here to make it 6 rather than bump
+ * one of the existing five out to Settings.
  */
 export const MOBILE_TAB_ITEMS: {
   key: NavKey;
   label: string;
   href: string;
   icon: LucideIcon;
-}[] = (["workspace", "alltools", "api", "collections", "settings"] as NavKey[]).map(
+}[] = (["home", "workspace", "alltools", "api", "collections", "settings"] as NavKey[]).map(
   (key) => NAV_RAIL_ITEMS.find((item) => item.key === key)!
 );
 
