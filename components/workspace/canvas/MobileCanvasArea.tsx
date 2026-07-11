@@ -151,6 +151,12 @@ export default function MobileCanvasArea() {
   // auto-layout below. Session-local and mobile-only — never written back
   // to node.x/node.y, so desktop's layout is never touched from here.
   const [dragOverrides, setDragOverrides] = useState<Record<string, { x: number; y: number }>>({});
+  // Bumped on every node-drag tick purely to force MobileConnectionsLayer
+  // to recompute wire paths from live port positions while dragging —
+  // dragOverrides changes don't touch `nodes`/`conns` so the layer's own
+  // effect wouldn't otherwise re-run mid-drag, which is what made wires
+  // look "torn" (stuck at the pre-drag port position) while moving a node.
+  const [layoutVersion, setLayoutVersion] = useState(0);
 
   const baseLayout = useMemo(() => computeVerticalLayout(nodes, conns), [nodes, conns]);
   const displayPositions = useMemo(() => {
@@ -168,6 +174,7 @@ export default function MobileCanvasArea() {
       const cur = prev[nodeId] ?? { x: 0, y: 0 };
       return { ...prev, [nodeId]: { x: cur.x + dx, y: cur.y + dy } };
     });
+    setLayoutVersion((v) => v + 1);
   }, []);
 
   // Stale overrides for deleted nodes are simply skipped when computing
@@ -380,7 +387,11 @@ export default function MobileCanvasArea() {
       }, LONG_PRESS_MS);
 
       const onMove = (ev: PointerEvent) => {
-        if (Math.abs(ev.clientX - startClientX) > TAP_MOVE_THRESHOLD || Math.abs(ev.clientY - startClientY) > TAP_MOVE_THRESHOLD) {
+        // Any real movement — even a couple px, well before the 10px tap
+        // threshold — means this is the start of a scroll/pan gesture, not
+        // a long-press-in-place. Cancel early so a slow scroll-start can't
+        // sneak past the 480ms window and pop the tool palette open.
+        if (Math.abs(ev.clientX - startClientX) > 3 || Math.abs(ev.clientY - startClientY) > 3) {
           cancelled = true;
           window.clearTimeout(longPressTimer);
         }
@@ -402,7 +413,7 @@ export default function MobileCanvasArea() {
   return (
     <div
       ref={wrapRef}
-      className="relative min-w-0 flex-1 overflow-auto bg-[var(--bg)] bg-[radial-gradient(circle,var(--border-soft)_1px,transparent_1px)] bg-[length:24px_24px]"
+      className="relative min-w-0 flex-1 overflow-y-auto overflow-x-hidden bg-[var(--bg)] bg-[radial-gradient(circle,var(--border-soft)_1px,transparent_1px)] bg-[length:24px_24px]"
       style={{ overscrollBehavior: "contain", touchAction: nodeDragging ? "none" : "pan-y" }}
     >
       <div
@@ -440,6 +451,7 @@ export default function MobileCanvasArea() {
           tempLine={tempConn}
           selectedWireId={selectedWireId}
           setSelectedWireId={setSelectedWireId}
+          layoutVersion={layoutVersion}
         />
 
         {nodes.length === 0 && (

@@ -18,11 +18,16 @@ export default function MobileConnectionsLayer({
   tempLine,
   selectedWireId,
   setSelectedWireId,
+  layoutVersion,
 }: {
   canvasRef: React.RefObject<HTMLDivElement | null>;
   tempLine: { x1: number; y1: number; x2: number; y2: number } | null;
   selectedWireId: string | null;
   setSelectedWireId: (id: string | null) => void;
+  /** bumped on every node-drag tick so wires stay glued to ports while a
+   *  node is being dragged — drag offsets live in MobileCanvasArea's local
+   *  `dragOverrides` state, which this layer never subscribes to directly. */
+  layoutVersion?: number;
 }) {
   const { conns, nodes, scale, portRefs, removeConnection } = useWorkflow();
   const [paths, setPaths] = useState<{ id: string; d: string }[]>([]);
@@ -47,7 +52,7 @@ export default function MobileConnectionsLayer({
       next.push({ id: c.id, d: verticalBezierPath(x1, y1, x2, y2) });
     });
     setPaths(next);
-  }, [conns, nodes, scale, canvasRef, portRefs]);
+  }, [conns, nodes, scale, canvasRef, portRefs, layoutVersion]);
 
   useLayoutEffect(() => {
     if (!selectedWireId) {
