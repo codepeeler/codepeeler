@@ -2,6 +2,7 @@
 
 import { ChevronLeft } from "lucide-react";
 import ThemeToggle from "@/components/core/ThemeToggle";
+import UserMenu from "@/components/auth/UserMenu";
 
 export type MobileHeaderAction = {
   key: string;
@@ -58,6 +59,7 @@ export default function MobileHeader({ title, onBack, actions = [] }: MobileHead
             )}
           </button>
         ))}
+        <UserMenu size="mobile" />
       </div>
     </header>
   );

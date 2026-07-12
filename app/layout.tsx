@@ -4,8 +4,7 @@ import { ThemeProvider } from "@/providers/theme-provider";
 import { ToastProvider } from "@/providers/toast-provider";
 import { CommandPaletteProvider } from "@/providers/command-palette-provider";
 import CommandPalette from "@/components/core/CommandPalette";
-import Topbar from "@/components/layout/Topbar";
-import MobileShell from "@/components/layout/mobile/MobileShell";
+import RootShell from "@/components/layout/RootShell";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -38,8 +37,7 @@ export default function RootLayout({
           <ToastProvider>
             <CommandPaletteProvider>
               <div className="flex min-h-screen flex-col bg-[var(--bg)] text-[var(--text)]">
-                <Topbar />
-                <MobileShell>{children}</MobileShell>
+                <RootShell>{children}</RootShell>
               </div>
               <CommandPalette />
             </CommandPaletteProvider>

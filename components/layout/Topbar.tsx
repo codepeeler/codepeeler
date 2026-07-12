@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Search, Bell } from "lucide-react";
 import Logo from "@/components/core/Logo";
 import ThemeToggle from "@/components/core/ThemeToggle";
+import UserMenu from "@/components/auth/UserMenu";
 import { TOPNAV_LINKS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { useCommandPalette } from "@/providers/command-palette-provider";
@@ -53,9 +54,7 @@ export default function Topbar() {
         >
           <Bell size={17} />
         </button>
-        <div className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-full bg-[linear-gradient(140deg,var(--secondary),var(--primary))] font-[family-name:var(--font-mono)] text-[11px] font-bold text-white">
-          JD
-        </div>
+        <UserMenu size="desktop" />
       </div>
     </header>
   );
