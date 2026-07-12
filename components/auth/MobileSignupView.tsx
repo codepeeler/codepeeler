@@ -21,7 +21,7 @@ export default function MobileSignupView() {
       <SignupFormCard {...form} />
 
       <p className="mt-8 flex items-center gap-1.5 text-[10.5px] text-[var(--text-faint)]">
-        <ShieldCheck size={12} className="text-[var(--success)]" />© 2024 CodePeeler
+        <ShieldCheck size={12} className="text-[var(--success)]" />© 2026 CodePeeler
       </p>
     </div>
   );

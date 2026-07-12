@@ -88,7 +88,7 @@ export default function DesktopSignupView() {
         </div>
         <SignupFormCard {...form} />
         <p className="mt-8 text-center text-[11px] text-[var(--text-faint)]">
-          © 2024 CodePeeler ·{" "}
+          © 2026 CodePeeler ·{" "}
           <Link href="/" className="hover:text-[var(--text-dim)]">
             Privacy Policy
           </Link>{" "}
