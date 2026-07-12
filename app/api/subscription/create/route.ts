@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { eq, and, inArray } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { razorpay, PLAN_MAP, type BillingCycle } from "@/lib/razorpay";
 import { db } from "@/lib/db";
 import { subscription } from "@/lib/db/schema";
+
+// Statuses that mean "this user already has a subscription in flight or
+// live" — don't let them start a second one on top of it.
+const BLOCKING_STATUSES = ["created", "authenticated", "active", "pending", "paused", "halted"];
 
 export async function POST(req: NextRequest) {
   const session = await auth.api.getSession({ headers: req.headers });
@@ -19,6 +24,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       { error: `Missing Razorpay plan id for "${billingCycle}" — check RAZORPAY_PLAN_${billingCycle.toUpperCase()} in .env.local` },
       { status: 500 }
+    );
+  }
+
+  // Guard against duplicate clicks / double-submits creating two subscriptions.
+  const [existing] = await db
+    .select()
+    .from(subscription)
+    .where(and(eq(subscription.userId, session.user.id), inArray(subscription.status, BLOCKING_STATUSES)));
+
+  if (existing) {
+    return NextResponse.json(
+      { error: "You already have a subscription in progress or active. Refresh the page to see its status." },
+      { status: 409 }
     );
   }
 
