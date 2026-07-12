@@ -6,6 +6,7 @@ import CollectionIcon from "@/components/collections/CollectionIcon";
 import Button from "@/components/ui/Button";
 import ToolCard from "@/components/ui/ToolCard";
 import StatCard from "@/components/workspace/dashboard/StatCard";
+import VerifyEmailBanner from "@/components/auth/VerifyEmailBanner";
 import { useDashboardData, QUICK_ACTIONS, STATUS_META } from "@/hooks/use-dashboard-data";
 
 /**
@@ -32,6 +33,8 @@ export default function DesktopDashboardView() {
 
         <main className="flex-1 overflow-y-auto">
           <div className="mx-auto max-w-[1400px] px-6 py-7">
+            <VerifyEmailBanner />
+
             <div className="mb-7 flex flex-wrap items-center justify-between gap-4">
               <div>
                 <h1 className="font-[family-name:var(--font-display)] text-[26px] font-bold tracking-[-0.01em]">

@@ -10,6 +10,8 @@ import {
   History,
   Star,
   Settings,
+  BookOpen,
+  Tag,
   type LucideIcon,
 } from "lucide-react";
 
@@ -24,7 +26,9 @@ export type NavKey =
   | "webhooks"
   | "history"
   | "favorites"
-  | "settings";
+  | "settings"
+  | "blog"
+  | "pricing";
 
 export const NAV_RAIL_ITEMS: {
   key: NavKey;
@@ -42,23 +46,25 @@ export const NAV_RAIL_ITEMS: {
   { key: "webhooks", label: "Webhook Inbox", href: "/webhooks", icon: Inbox },
   { key: "history", label: "History", href: "/workspace/history", icon: History },
   { key: "favorites", label: "Favorites", href: "/workspace/favorites", icon: Star },
+  { key: "blog", label: "Blog", href: "/blog", icon: BookOpen },
+  { key: "pricing", label: "Pricing", href: "/pricing", icon: Tag },
   { key: "settings", label: "Settings", href: "/workspace/settings", icon: Settings },
 ];
 
 /**
  * Curated subset of NAV_RAIL_ITEMS for the mobile bottom tab bar.
  * "home" leads (leftmost) so the mobile shell has an explicit way back to
- * the marketing/landing page — previously there was no bottom-tab route to
- * it at all. Native app convention usually caps this bar at 5 items, but
- * home is common and expected enough here to make it 6 rather than bump
- * one of the existing five out to Settings.
+ * the marketing/landing page. "Settings" was dropped from here since it's
+ * already reachable from the sidebar drawer — no need to duplicate it in
+ * the fixed bottom bar. "api" (API Tester) sits in the middle of the
+ * remaining 5 items.
  */
 export const MOBILE_TAB_ITEMS: {
   key: NavKey;
   label: string;
   href: string;
   icon: LucideIcon;
-}[] = (["home", "workspace", "alltools", "api", "collections", "settings"] as NavKey[]).map(
+}[] = (["home", "workspace", "alltools", "api", "collections"] as NavKey[]).map(
   (key) => NAV_RAIL_ITEMS.find((item) => item.key === key)!
 );
 

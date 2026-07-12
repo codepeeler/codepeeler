@@ -4,6 +4,7 @@ export const TOPNAV_LINKS = [
   { label: "Collections", href: "/collections" },
   { label: "Snippets", href: "/snippets" },
   { label: "API Tester", href: "/api-tester" },
+  { label: "Blog", href: "/blog" },
 ];
 
 export const FOOTER_COLUMNS = [

@@ -7,6 +7,7 @@ import CollectionIcon from "@/components/collections/CollectionIcon";
 import Button from "@/components/ui/Button";
 import ToolCard from "@/components/ui/ToolCard";
 import StatCard from "@/components/workspace/dashboard/StatCard";
+import VerifyEmailBanner from "@/components/auth/VerifyEmailBanner";
 import { useDashboardData, QUICK_ACTIONS, STATUS_META } from "@/hooks/use-dashboard-data";
 import { useMobileShell } from "@/providers/mobile-shell-provider";
 
@@ -41,6 +42,8 @@ export default function MobileDashboardView() {
 
         <main className="min-h-0 flex-1 overflow-y-auto">
           <div className="px-4 py-5">
+            <VerifyEmailBanner />
+
             <div className="mb-5">
               <h1 className="font-[family-name:var(--font-display)] text-[20px] font-bold tracking-[-0.01em]">
                 Dashboard

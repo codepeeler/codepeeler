@@ -6,7 +6,7 @@ import MobileShell from "@/components/layout/mobile/MobileShell";
 
 // Routes that render their own full-screen layout (no topbar, sidebar
 // drawer, or bottom tab bar) — currently just the auth pages.
-const NO_CHROME_ROUTES = ["/login", "/signup", "/forgot-password"];
+const NO_CHROME_ROUTES = ["/login", "/signup", "/forgot-password", "/reset-password"];
 
 export default function RootShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
