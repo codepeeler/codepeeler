@@ -16,6 +16,7 @@ export function useProfile() {
 
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   // Redirect signed-out users — profile is an authenticated-only page.
   useEffect(() => {
@@ -46,6 +47,33 @@ export function useProfile() {
     refetch();
   };
 
+  const handleAvatarUpload = async (file: File) => {
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/profile/avatar", { method: "POST", body: formData });
+      const data = await res.json();
+
+      if (!res.ok) {
+        toast(data.error || "Upload failed");
+        return;
+      }
+
+      const { error } = await updateUser({ image: data.url });
+      if (error) {
+        toast(error.message || "Couldn't save your photo");
+        return;
+      }
+      toast("Photo updated");
+      refetch();
+    } catch {
+      toast("Upload failed — check your connection and try again");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleSignOut = async () => {
     await signOut();
     toast("Signed out");
@@ -60,6 +88,8 @@ export function useProfile() {
     setName,
     saving,
     handleSaveName,
+    uploading,
+    handleAvatarUpload,
     handleSignOut,
   };
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { LogOut, ImageIcon } from "lucide-react";
@@ -34,7 +35,18 @@ function getInitials(name?: string | null, email?: string | null) {
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { session, isPending, name, setName, saving, handleSaveName, handleSignOut } = useProfile();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const {
+    session,
+    isPending,
+    name,
+    setName,
+    saving,
+    handleSaveName,
+    uploading,
+    handleAvatarUpload,
+    handleSignOut,
+  } = useProfile();
 
   // useProfile() redirects to /login when there's no session — this just
   // avoids a flash of the page's content while that redirect is in flight.
@@ -73,17 +85,26 @@ export default function ProfilePage() {
               )}
             </div>
             <div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleAvatarUpload(file);
+                  e.target.value = "";
+                }}
+              />
               <button
-                disabled
-                title="Coming soon — will be enabled once file storage (Cloudflare R2) is set up"
-                className="flex items-center gap-1.5 rounded-[8px] border border-[var(--border)] px-3 py-[7px] text-[12px] font-medium text-[var(--text-faint)] opacity-60"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="flex items-center gap-1.5 rounded-[8px] border border-[var(--border)] px-3 py-[7px] text-[12px] font-medium text-[var(--text-dim)] transition-colors duration-150 hover:bg-[var(--card-hover)] disabled:opacity-60"
               >
-                <ImageIcon size={13} /> Upload photo
+                <ImageIcon size={13} /> {uploading ? "Uploading…" : "Upload photo"}
               </button>
               <p className="mt-1.5 text-[11px] text-[var(--text-faint)]">
-                {user.image
-                  ? "Synced from your Google account"
-                  : "Custom photo upload is coming soon"}
+                JPG, PNG or WEBP — up to 4MB
               </p>
             </div>
           </div>

@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1085.0",
     "@neondatabase/serverless": "^1.1.0",
     "@supabase/supabase-js": "^2.110.2",
     "@types/diff": "^7.0.2",
@@ -53,5 +54,10 @@
     "eslint-config-next": "16.2.10",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "allowScripts": {
+    "esbuild@0.28.1": true,
+    "sharp@0.34.5": true,
+    "unrs-resolver@1.12.2": true
   }
 }
