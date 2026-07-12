@@ -15,26 +15,40 @@ export async function POST(req: NextRequest) {
   if (!plan) {
     return NextResponse.json({ error: "Invalid billing cycle" }, { status: 400 });
   }
+  if (!plan.planId) {
+    return NextResponse.json(
+      { error: `Missing Razorpay plan id for "${billingCycle}" — check RAZORPAY_PLAN_${billingCycle.toUpperCase()} in .env.local` },
+      { status: 500 }
+    );
+  }
 
-  const razorpaySub = await razorpay.subscriptions.create({
-    plan_id: plan.planId,
-    customer_notify: 1,
-    total_count: plan.totalCount,
-    notes: { userId: session.user.id },
-  });
+  try {
+    const razorpaySub = await razorpay.subscriptions.create({
+      plan_id: plan.planId,
+      customer_notify: 1,
+      total_count: plan.totalCount,
+      notes: { userId: session.user.id },
+    });
 
-  // Row starts as "created" — the webhook flips it to "active" once the
-  // customer actually completes payment in the checkout widget.
-  await db.insert(subscription).values({
-    id: razorpaySub.id,
-    userId: session.user.id,
-    planId: plan.planId,
-    billingCycle,
-    status: razorpaySub.status,
-  });
+    // Row starts as "created" — the webhook flips it to "active" once the
+    // customer actually completes payment in the checkout widget.
+    await db.insert(subscription).values({
+      id: razorpaySub.id,
+      userId: session.user.id,
+      planId: plan.planId,
+      billingCycle,
+      status: razorpaySub.status,
+    });
 
-  return NextResponse.json({
-    subscriptionId: razorpaySub.id,
-    keyId: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-  });
+    return NextResponse.json({
+      subscriptionId: razorpaySub.id,
+      keyId: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+    });
+  } catch (err: any) {
+    // Razorpay SDK errors usually carry a .error.description with the real reason
+    // (bad key, invalid plan_id, etc.) — surface that instead of a blank crash.
+    const message = err?.error?.description || err?.message || "Couldn't create subscription";
+    console.error("Razorpay subscription create failed:", err);
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }

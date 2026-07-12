@@ -49,3 +49,17 @@ export const verification = pgTable("verification", {
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
+
+export const subscription = pgTable("subscription", {
+  id: text("id").primaryKey(), // Razorpay subscription id, e.g. sub_xxxxxxxxxxxx
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  planId: text("plan_id").notNull(), // Razorpay plan id, e.g. plan_xxxxxxxxxxxx
+  billingCycle: text("billing_cycle").notNull(), // "monthly" | "yearly"
+  // created -> authenticated -> active -> (cancelled | completed | halted | paused)
+  status: text("status").notNull().default("created"),
+  currentPeriodEnd: timestamp("current_period_end"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
