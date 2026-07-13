@@ -22,7 +22,7 @@ export const auth = betterAuth({
 
   emailAndPassword: {
     enabled: true,
-    requireEmailVerification: false, // chaho to true kar sakte ho baad mein
+    requireEmailVerification: true, // chaho to true kar sakte ho baad mein
     sendResetPassword: async ({ user, url }) => {
       await resend.emails.send({
         from: "onboarding@resend.dev", // apna verified domain aane ke baad ye badlega
@@ -61,7 +61,7 @@ export const auth = betterAuth({
     emailOTP({
       otpLength: 6,
       expiresIn: 300, // 5 minutes
-      sendVerificationOnSignUp: false,
+      sendVerificationOnSignUp: ture,
       async sendVerificationOTP({ email, otp, type }) {
         if (type !== "email-verification") return;
         await resend.emails.send({
