@@ -45,6 +45,15 @@ export function useLoginForm() {
     setSubmitting(false);
 
     if (error) {
+      const isUnverified =
+        error.code === "EMAIL_NOT_VERIFIED" || /not verified/i.test(error.message || "");
+
+      if (isUnverified) {
+        toast("Please verify your email first — sending you a code");
+        router.push(`/signup?email=${encodeURIComponent(email.trim())}&autosend=1`);
+        return;
+      }
+
       toast(error.message || "Login failed. Please check your credentials.");
       return;
     }

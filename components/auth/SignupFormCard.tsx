@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { User, Mail, Lock, Eye, EyeOff, ShieldCheck, ArrowRight } from "lucide-react";
+import { User, Mail, Lock, Eye, EyeOff, ShieldCheck, ArrowRight, MailCheck } from "lucide-react";
 import { GithubIcon, GoogleIcon } from "@/components/auth/OAuthIcons";
 import type { useSignupForm } from "@/hooks/use-signup-form";
 
 export default function SignupFormCard(props: ReturnType<typeof useSignupForm>) {
   const {
+    step,
     name,
     setName,
     email,
@@ -20,7 +21,69 @@ export default function SignupFormCard(props: ReturnType<typeof useSignupForm>) 
     submitting,
     handleSubmit,
     handleOAuth,
+    otp,
+    setOtp,
+    verifying,
+    sending,
+    resendCooldown,
+    handleResendOtp,
+    handleVerifyOtp,
   } = props;
+
+  if (step === "otp") {
+    return (
+      <div className="w-full max-w-[420px]">
+        <div className="rounded-[16px] border border-[var(--border)] bg-[var(--card)] p-8 text-center shadow-sm">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--primary)_12%,transparent)]">
+            <MailCheck size={22} className="text-[var(--primary)]" />
+          </div>
+
+          <h1 className="font-[family-name:var(--font-display)] text-[22px] font-bold">Verify your email</h1>
+          <p className="mt-2 text-[13.5px] leading-[1.6] text-[var(--text-dim)]">
+            Enter the 6-digit code we sent to{" "}
+            <span className="font-semibold text-[var(--text)]">{email}</span>
+          </p>
+
+          <form onSubmit={handleVerifyOtp} className="mt-6 flex flex-col items-center gap-4">
+            <input
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              value={otp}
+              onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              placeholder="000000"
+              className="h-12 w-full rounded-[10px] border border-[var(--border)] bg-[var(--bg)] px-3 text-center text-[20px] font-semibold tracking-[0.4em] outline-none placeholder:text-[var(--text-faint)] focus:border-[var(--primary)]"
+            />
+
+            <button
+              type="submit"
+              disabled={verifying}
+              className="h-11 w-full rounded-[10px] bg-[var(--primary)] text-[14px] font-semibold text-[var(--bg)] transition-opacity duration-150 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {verifying ? "Verifying…" : "Verify & continue"}
+            </button>
+          </form>
+
+          <button
+            type="button"
+            onClick={handleResendOtp}
+            disabled={sending || resendCooldown > 0}
+            className="mt-4 text-[12.5px] font-medium text-[var(--text-dim)] hover:text-[var(--text)] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {resendCooldown > 0 ? `Resend code (${resendCooldown}s)` : sending ? "Sending…" : "Resend code"}
+          </button>
+        </div>
+
+        <p className="mt-6 text-center text-[13px] text-[var(--text-dim)]">
+          Wrong email?{" "}
+          <Link href="/signup" className="font-semibold text-[var(--primary)] hover:underline">
+            Sign up again
+          </Link>
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-[420px]">
