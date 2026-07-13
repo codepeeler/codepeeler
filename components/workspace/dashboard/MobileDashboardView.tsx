@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Layers, Workflow, Wrench, Zap, ChevronRight, Clock, Star, Plus, Sparkles, Check, Flame, Menu } from "lucide-react";
+import { Layers, Workflow, Wrench, Zap, ChevronRight, Clock, Plus, Sparkles, Check, Flame, Menu } from "lucide-react";
 import MobileHeader from "@/components/layout/mobile/MobileHeader";
 import MobileFooter from "@/components/layout/mobile/MobileFooter";
 import Sidebar, { SIDEBAR_PANEL_ID } from "@/components/layout/Sidebar";
@@ -89,9 +89,6 @@ export default function MobileDashboardView() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">
                         <span className="truncate text-[13px] font-semibold">{c.name}</span>
-                        {c.starred && (
-                          <Star size={11} className="flex-shrink-0 fill-[var(--warning)] text-[var(--warning)]" />
-                        )}
                       </div>
                       <div className="truncate text-[11px] text-[var(--text-faint)]">Updated {c.updatedAgo}</div>
                     </div>
@@ -237,12 +234,8 @@ export default function MobileDashboardView() {
                 </p>
                 <div className="mb-3 flex items-center gap-4 text-[11px] text-[var(--text-dim)]">
                   <span className="flex items-center gap-1">
-                    <Zap size={12} className="text-[var(--text-faint)]" />
-                    {spotlightCollection.executions.toLocaleString()} runs
-                  </span>
-                  <span className="flex items-center gap-1">
                     <Workflow size={12} className="text-[var(--text-faint)]" />
-                    {spotlightCollection.workflows} workflows
+                    {spotlightCollection.workflowCount} workflows
                   </span>
                 </div>
                 <Link

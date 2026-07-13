@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Layers, Workflow, Wrench, Zap, ChevronRight, Clock, Star, Plus, Sparkles, Check, Flame } from "lucide-react";
+import { Layers, Workflow, Wrench, Zap, ChevronRight, Clock, Plus, Sparkles, Check, Flame } from "lucide-react";
 import Sidebar from "@/components/layout/Sidebar";
 import CollectionsStatsBar from "@/components/collections/CollectionsStatsBar";
 import CollectionIcon from "@/components/collections/CollectionIcon";
@@ -81,9 +81,6 @@ export default function DesktopDashboardView() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">
                         <span className="truncate text-[13.5px] font-semibold">{c.name}</span>
-                        {c.starred && (
-                          <Star size={12} className="flex-shrink-0 fill-[var(--warning)] text-[var(--warning)]" />
-                        )}
                       </div>
                       <div className="truncate text-[11.5px] text-[var(--text-faint)]">Updated {c.updatedAgo}</div>
                     </div>
@@ -259,12 +256,8 @@ export default function DesktopDashboardView() {
                 </p>
                 <div className="mb-3 flex items-center gap-4 text-[11px] text-[var(--text-dim)]">
                   <span className="flex items-center gap-1">
-                    <Zap size={12} className="text-[var(--text-faint)]" />
-                    {spotlightCollection.executions.toLocaleString()} runs
-                  </span>
-                  <span className="flex items-center gap-1">
                     <Workflow size={12} className="text-[var(--text-faint)]" />
-                    {spotlightCollection.workflows} workflows
+                    {spotlightCollection.workflowCount} workflows
                   </span>
                 </div>
                 <Link

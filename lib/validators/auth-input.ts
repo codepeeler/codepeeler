@@ -125,7 +125,7 @@ export function validateName(name: string): { valid: true } | { valid: false; re
   if (!trimmed) {
     return { valid: false, reason: "Enter your name" };
   }
-  if (trimmed.length < 2) {
+  if (trimmed.length < 3) {
     return { valid: false, reason: "Name looks too short" };
   }
   if (trimmed.length > 60) {
