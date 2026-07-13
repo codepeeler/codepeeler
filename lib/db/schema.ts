@@ -80,18 +80,28 @@ export const usage = pgTable("usage", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
-// Real, per-user collections. Note: the Collections *page* today still reads
-// from lib/data/collections.ts (static demo data with icons/colors/activity
-// feed) -- this table is the backend source of truth for COUNTS/LIMITS
-// (dashboard totals, the "2 collections" free-plan cap). Wiring the
-// Collections page's rich UI to read from here instead of the demo data is
-// a separate, bigger frontend task -- see chat for the file list.
+// Real, per-user collections. The Collections *page* now reads/writes this
+// table directly (see hooks/use-collections.ts) instead of the old
+// lib/data/collections.ts demo array. `visibility` is a label the owner sets
+// on their own collection, not a working cross-account ACL yet -- there's no
+// sharing/membership table, so "Shared"/"Public" don't grant other users
+// access. `tags` and `toolIds` are simple jsonb arrays (no join table) since
+// they're small, owner-only lists with no need for relational queries.
 export const collection = pgTable("collection", {
   id: text("id").primaryKey(),
   userId: text("user_id")
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
+  desc: text("desc").notNull().default(""),
+  icon: text("icon").notNull().default("folder"), // key into COLLECTION_ICON_MAP, lib/data/collections.ts
+  color: text("color").notNull().default("var(--primary)"), // CSS color/var string, used as-is
+  tags: jsonb("tags").$type<string[]>().notNull().default([]),
+  toolIds: jsonb("tool_ids").$type<string[]>().notNull().default([]),
+  visibility: text("visibility").notNull().default("Private"), // "Private" | "Shared" | "Public" (label only)
+  starred: boolean("starred").notNull().default(false),
+  autoUpdate: boolean("auto_update").notNull().default(false),
+  allowDuplicate: boolean("allow_duplicate").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

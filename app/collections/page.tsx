@@ -9,7 +9,8 @@ import CollectionCard from "@/components/collections/CollectionCard";
 import CollectionDetailsPanel from "@/components/collections/CollectionDetailsPanel";
 import CollectionsStatsBar from "@/components/collections/CollectionsStatsBar";
 import Dropdown from "@/components/ui/Dropdown";
-import { COLLECTIONS, FILTER_TABS, COLLECTION_TEMPLATES, type Collection } from "@/lib/data/collections";
+import { COLLECTION_TEMPLATES, DEFAULT_COLLECTION_ICON_KEY, type Collection } from "@/lib/data/collections";
+import { useCollections } from "@/hooks/use-collections";
 import { useToast } from "@/providers/toast-provider";
 import { useMobileShell } from "@/providers/mobile-shell-provider";
 import { WorkflowProvider } from "@/providers/workflow-provider";
@@ -28,20 +29,17 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
 
 const VISIBILITY_OPTIONS: Collection["visibility"][] = ["Private", "Shared", "Public"];
 
-let idCounter = 0;
-function nextId(prefix: string) {
-  idCounter += 1;
-  return `${prefix}-${idCounter}`;
-}
+type OwnerFilter = "all" | Collection["owner"];
 
 export default function CollectionsPage() {
   const { toast } = useToast();
   const { togglePanel } = useMobileShell();
-  const [activeTab, setActiveTab] = useState<(typeof FILTER_TABS)[number]["key"]>("all");
+  const { collections: collectionsList, createCollection, patchCollection, deleteCollection, duplicateCollection } =
+    useCollections();
+  const [activeTab, setActiveTab] = useState<OwnerFilter>("all");
   const [query, setQuery] = useState("");
   const [view, setView] = useState<"grid" | "list">("grid");
-  const [selectedId, setSelectedId] = useState<string | null>("json-tools");
-  const [collectionsList, setCollectionsList] = useState<Collection[]>(COLLECTIONS);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortKey>("updated");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [autoUpdateFilter, setAutoUpdateFilter] = useState<"all" | "on" | "off">("all");
@@ -49,6 +47,16 @@ export default function CollectionsPage() {
 
   const allTags = useMemo(
     () => Array.from(new Set(collectionsList.flatMap((c) => c.tags))).sort(),
+    [collectionsList]
+  );
+
+  const filterTabs = useMemo(
+    () => [
+      { key: "all" as const, label: "All Collections", count: collectionsList.length },
+      { key: "me" as const, label: "My Collections", count: collectionsList.filter((c) => c.owner === "me").length },
+      { key: "shared" as const, label: "Shared with me", count: collectionsList.filter((c) => c.owner === "shared").length },
+      { key: "public" as const, label: "Public", count: collectionsList.filter((c) => c.owner === "public").length },
+    ],
     [collectionsList]
   );
 
@@ -105,30 +113,23 @@ export default function CollectionsPage() {
     query.length > 0 || selectedTags.length > 0 || autoUpdateFilter !== "all" || visibilityFilter.length > 0;
   const activeFilterCount = selectedTags.length + (autoUpdateFilter !== "all" ? 1 : 0) + visibilityFilter.length;
 
-  const updateCollection = (id: string, updater: (c: Collection) => Collection) => {
-    setCollectionsList((list) => list.map((c) => (c.id === id ? updater(c) : c)));
-  };
-
   const handleToggleStar = (id: string) => {
-    updateCollection(id, (c) => ({ ...c, starred: !c.starred }));
+    const current = collectionsList.find((c) => c.id === id);
+    if (current) patchCollection(id, { starred: !current.starred });
   };
 
   const handleToggleAutoUpdate = (id: string) => {
-    let next = false;
-    updateCollection(id, (c) => {
-      next = !c.autoUpdate;
-      return { ...c, autoUpdate: next };
-    });
-    toast(`Auto update turned ${next ? "on" : "off"}`);
+    const current = collectionsList.find((c) => c.id === id);
+    if (!current) return;
+    patchCollection(id, { autoUpdate: !current.autoUpdate });
+    toast(`Auto update turned ${!current.autoUpdate ? "on" : "off"}`);
   };
 
   const handleToggleAllowDuplicate = (id: string) => {
-    let next = false;
-    updateCollection(id, (c) => {
-      next = !c.allowDuplicate;
-      return { ...c, allowDuplicate: next };
-    });
-    toast(`Duplicate access ${next ? "allowed" : "disallowed"}`);
+    const current = collectionsList.find((c) => c.id === id);
+    if (!current) return;
+    patchCollection(id, { allowDuplicate: !current.allowDuplicate });
+    toast(`Duplicate access ${!current.allowDuplicate ? "allowed" : "disallowed"}`);
   };
 
   const handleRename = (id: string) => {
@@ -136,35 +137,26 @@ export default function CollectionsPage() {
     if (!current) return;
     const name = window.prompt("Rename collection", current.name);
     if (name && name.trim() && name.trim() !== current.name) {
-      updateCollection(id, (c) => ({ ...c, name: name.trim() }));
+      patchCollection(id, { name: name.trim() });
       toast(`Renamed to "${name.trim()}"`);
     }
   };
 
-  const handleDuplicate = (id: string) => {
+  const handleDuplicate = async (id: string) => {
     const original = collectionsList.find((c) => c.id === id);
     if (!original) return;
-    const copy: Collection = {
-      ...original,
-      id: `${original.id}-copy-${nextId("dup")}`,
-      name: `${original.name} (Copy)`,
-      starred: false,
-      createdAgo: "just now",
-      updatedAgo: "just now",
-    };
-    setCollectionsList((list) => {
-      const idx = list.findIndex((c) => c.id === id);
-      const next = [...list];
-      next.splice(idx + 1, 0, copy);
-      return next;
-    });
-    toast(`"${original.name}" duplicated`);
+    const result = await duplicateCollection(id);
+    if (result.ok) {
+      toast(`"${original.name}" duplicated (workflows aren't copied yet — only the collection itself)`);
+    } else {
+      toast(result.error ?? "Couldn't duplicate collection");
+    }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     const target = collectionsList.find((c) => c.id === id);
-    setCollectionsList((list) => list.filter((c) => c.id !== id));
     if (selectedId === id) setSelectedId(null);
+    await deleteCollection(id);
     toast(`"${target?.name ?? "Collection"}" deleted`);
   };
 
@@ -178,32 +170,21 @@ export default function CollectionsPage() {
     toast(`Exporting "${target?.name ?? "collection"}"…`);
   };
 
-  const addCollection = (overrides?: Partial<Collection>) => {
-    const id = nextId("custom");
-    const fresh: Collection = {
-      id,
+  const addCollection = async (overrides?: { name?: string; desc?: string; icon?: string; color?: string }) => {
+    const result = await createCollection({
       name: overrides?.name ?? "Untitled Collection",
       desc: overrides?.desc ?? "A new collection — add workflows and tools to get started.",
-      icon: overrides?.icon ?? Plus,
+      icon: overrides?.icon ?? DEFAULT_COLLECTION_ICON_KEY,
       color: overrides?.color ?? "var(--primary)",
-      tags: overrides?.tags ?? [],
-      workflows: 0,
-      tools: 0,
-      dataSize: "0 KB",
-      executions: 0,
-      owner: "me",
-      visibility: "Private",
-      starred: false,
-      createdAgo: "just now",
-      updatedAgo: "just now",
-      autoUpdate: false,
-      allowDuplicate: true,
-      toolIds: [],
-      workflowsList: [],
-      activity: [{ id: nextId("a"), text: "Collection created", time: "just now" }],
-    };
-    setCollectionsList((list) => [fresh, ...list]);
-    setSelectedId(id);
+    });
+    if (result.ok) {
+      setSelectedId(result.collection.id);
+      toast("New collection created");
+    } else if (result.upgradeUrl) {
+      toast(result.error ?? "Free plan limit reached");
+    } else {
+      toast(result.error ?? "Couldn't create collection");
+    }
   };
 
   return (
@@ -238,7 +219,7 @@ export default function CollectionsPage() {
 
             <div className="mb-4 flex flex-wrap items-center gap-2 overflow-x-auto lg:justify-between lg:gap-3">
               <div className="flex flex-shrink-0 items-center gap-1 rounded-[10px] border border-[var(--border)] bg-[var(--card)] p-1">
-                {FILTER_TABS.map((t) => (
+                {filterTabs.map((t) => (
                   <button
                     key={t.key}
                     onClick={() => setActiveTab(t.key)}
@@ -401,10 +382,7 @@ export default function CollectionsPage() {
                 </Dropdown>
 
                 <button
-                  onClick={() => {
-                    addCollection();
-                    toast("New collection created");
-                  }}
+                  onClick={() => addCollection()}
                   className="flex h-8 flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[9px] bg-[var(--primary)] px-3 text-[12px] font-semibold text-white transition-[filter] duration-150 hover:brightness-[1.08] lg:px-3.5"
                 >
                   <Plus size={14} /> <span className="hidden sm:inline">New Collection</span>
@@ -593,10 +571,9 @@ export default function CollectionsPage() {
                       addCollection({
                         name: t.label,
                         desc: `Quick start collection based on the "${t.label}" template.`,
-                        icon: t.icon,
+                        icon: t.id,
                         color: t.color,
                       });
-                      toast(`Creating collection from "${t.label}"`);
                     }}
                     className="flex flex-col items-start gap-2.5 rounded-[12px] border border-[var(--border)] bg-[var(--card)] p-3.5 text-left transition-all duration-150 hover:-translate-y-0.5 hover:border-[color-mix(in_srgb,var(--primary)_45%,var(--border))] hover:shadow-[var(--shadow-soft)]"
                   >

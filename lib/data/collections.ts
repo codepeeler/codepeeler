@@ -8,8 +8,29 @@ import {
   Package,
   Rocket,
   Plus,
+  FolderOpen,
   type LucideIcon,
 } from "lucide-react";
+
+// The real `collection` table (lib/db/schema.ts) stores `icon` as a plain
+// string key, not a component. This map is the single place that resolves
+// a stored key back to a LucideIcon for rendering -- used by
+// hooks/use-collections.ts. Keys "web-dev" / "security" / "data-processing"
+// / "api-testing" intentionally match COLLECTION_TEMPLATES ids below, so
+// creating a collection from a template can reuse the template's own id as
+// the icon key with no extra mapping.
+export const COLLECTION_ICON_MAP: Record<string, LucideIcon> = {
+  folder: FolderOpen,
+  "web-dev": Globe2,
+  security: ShieldCheck,
+  "data-processing": Package,
+  "api-testing": Rocket,
+  json: Braces,
+  code: Code2,
+  text: Type,
+  image: ImageIcon,
+};
+export const DEFAULT_COLLECTION_ICON_KEY = "folder";
 
 export type CollectionOwner = "me" | "shared" | "public";
 

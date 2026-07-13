@@ -10,7 +10,6 @@ import {
   Download,
   Copy,
   Trash2,
-  Workflow,
   Clock,
   ExternalLink,
   Play,
@@ -172,7 +171,7 @@ export default function CollectionDetailsPanel({
             </div>
           </div>
 
-          <div className="mb-4 grid grid-cols-3 gap-2">
+          <div className="mb-4 grid grid-cols-2 gap-2">
             <div className="rounded-lg border border-[var(--border-soft)] p-2.5 text-center">
               <div className="text-[15px] font-bold">{collection.workflows}</div>
               <div className="text-[10px] text-[var(--text-faint)]">Workflows</div>
@@ -181,18 +180,6 @@ export default function CollectionDetailsPanel({
               <div className="text-[15px] font-bold">{collection.tools}</div>
               <div className="text-[10px] text-[var(--text-faint)]">Tools</div>
             </div>
-            <div className="rounded-lg border border-[var(--border-soft)] p-2.5 text-center">
-              <div className="text-[15px] font-bold">{collection.dataSize}</div>
-              <div className="text-[10px] text-[var(--text-faint)]">Data Size</div>
-            </div>
-          </div>
-
-          <div className="mb-4 flex items-center justify-between rounded-lg border border-[var(--border-soft)] px-3 py-2.5">
-            <span className="flex items-center gap-1.5 text-[11.5px] text-[var(--text-dim)]">
-              <Workflow size={13} className="text-[var(--success)]" />
-              Executions
-            </span>
-            <b className="text-[12.5px]">{collection.executions}</b>
           </div>
 
           <div className="mb-4">

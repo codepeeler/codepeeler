@@ -17,8 +17,16 @@ export async function POST(req: NextRequest) {
   const session = await auth.api.getSession({ headers: req.headers });
   if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-  const { name } = (await req.json().catch(() => ({}))) as { name?: string };
-  if (!name?.trim()) return NextResponse.json({ error: "Missing name" }, { status: 400 });
+  const body = (await req.json().catch(() => ({}))) as {
+    name?: string;
+    desc?: string;
+    icon?: string;
+    color?: string;
+    tags?: string[];
+    toolIds?: string[];
+    visibility?: string;
+  };
+  if (!body.name?.trim()) return NextResponse.json({ error: "Missing name" }, { status: 400 });
 
   const entitlements = await getUserEntitlements(session.user.id);
   const existing = await db.select().from(collection).where(eq(collection.userId, session.user.id));
@@ -35,7 +43,17 @@ export async function POST(req: NextRequest) {
 
   const [row] = await db
     .insert(collection)
-    .values({ id: crypto.randomUUID(), userId: session.user.id, name: name.trim() })
+    .values({
+      id: crypto.randomUUID(),
+      userId: session.user.id,
+      name: body.name.trim(),
+      desc: body.desc?.trim() ?? "",
+      icon: body.icon ?? "folder",
+      color: body.color ?? "var(--primary)",
+      tags: body.tags ?? [],
+      toolIds: body.toolIds ?? [],
+      visibility: body.visibility ?? "Private",
+    })
     .returning();
 
   return NextResponse.json({ collection: row }, { status: 201 });
