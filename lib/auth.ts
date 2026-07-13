@@ -34,6 +34,7 @@ export const auth = betterAuth({
   },
 
   emailVerification: {
+    autoSignInAfterVerification: true, // OTP verify hote hi session cookie set ho jaaye, warna middleware dashboard se wapas /login pe bhej deta hai
     sendVerificationEmail: async ({ user, url }) => {
       await resend.emails.send({
         from: "onboarding@resend.dev",
