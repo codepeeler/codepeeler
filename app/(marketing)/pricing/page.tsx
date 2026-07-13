@@ -79,7 +79,7 @@ function PlanCard({ plan, cycle }: { plan: Plan; cycle: BillingCycle }) {
           <div className="font-[family-name:var(--font-display)] text-[30px] font-bold">Custom</div>
         ) : (
           <div className="flex items-baseline gap-1">
-            <span className="font-[family-name:var(--font-display)] text-[30px] font-bold">${price}</span>
+            <span className="font-[family-name:var(--font-display)] text-[30px] font-bold">₹{price}</span>
             <span className="text-[13px] text-[var(--text-faint)]">/ month</span>
           </div>
         )}

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/providers/toast-provider";
 import { signIn } from "@/lib/auth-client";
+import { validateEmail } from "@/lib/validators/auth-input";
 
 /**
  * All login form state and handlers live here. DesktopLoginView and
@@ -24,6 +25,12 @@ export function useLoginForm() {
     e.preventDefault();
     if (!email.trim() || !password.trim()) {
       toast("Enter your email and password");
+      return;
+    }
+
+    const emailCheck = validateEmail(email);
+    if (!emailCheck.valid) {
+      toast(emailCheck.reason);
       return;
     }
 

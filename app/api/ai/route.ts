@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
+import { getUserEntitlements, hasCapability } from "@/lib/entitlements";
+import { checkUsageLimit, incrementUsage } from "@/lib/usage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -184,6 +187,33 @@ async function callProvider(provider: Provider, apiKey: string, messages: { role
 }
 
 export async function POST(req: NextRequest) {
+  // AI calls hit a real (rate-limited, sometimes paid) provider — this is the
+  // one route in the app where an unauthenticated or free-plan caller can
+  // directly cost money, so it gets checked before anything else runs.
+  const session = await auth.api.getSession({ headers: req.headers });
+  if (!session) {
+    return NextResponse.json({ aiError: "Not authenticated" }, { status: 401 });
+  }
+
+  const entitlements = await getUserEntitlements(session.user.id);
+  if (!hasCapability(entitlements, "ai-assist")) {
+    return NextResponse.json(
+      { aiError: "AI Assistant is a Pro feature. Upgrade to Pro to use it.", upgradeUrl: "/pricing" },
+      { status: 402 }
+    );
+  }
+
+  const usageGate = await checkUsageLimit(session.user.id, "ai-calls", entitlements.limits.aiCallsPerMonth);
+  if (!usageGate.allowed) {
+    return NextResponse.json(
+      {
+        aiError: `Monthly AI Assistant limit reached (${usageGate.used}/${usageGate.limit}). Resets next month.`,
+        upgradeUrl: "/pricing",
+      },
+      { status: 402 }
+    );
+  }
+
   const configured = PROVIDERS.map((p) => ({ provider: p, apiKey: process.env[p.envKey] })).filter(
     (c): c is { provider: Provider; apiKey: string } => !!c.apiKey
   );
@@ -218,6 +248,7 @@ export async function POST(req: NextRequest) {
   for (const { provider, apiKey } of configured) {
     try {
       const content = await callProvider(provider, apiKey, messages, wantsJson);
+      await incrementUsage(session.user.id, "ai-calls");
       return NextResponse.json({ content, provider: provider.name });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "unknown error";

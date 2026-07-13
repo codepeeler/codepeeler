@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,6 +22,11 @@ interface ProxyPayload {
  * "Always send through server proxy" in request settings.
  */
 export async function POST(req: NextRequest) {
+  const session = await auth.api.getSession({ headers: req.headers });
+  if (!session) {
+    return NextResponse.json({ proxyError: "Not authenticated" }, { status: 401 });
+  }
+
   let payload: ProxyPayload;
   try {
     payload = await req.json();

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { GitBranch, Upload, Download, Unlink, ExternalLink, Loader2, Eye, EyeOff } from "lucide-react";
 import { Modal } from "@/components/api-tester/Modals";
+import { CapabilityGate } from "@/components/core/CapabilityGate";
 import { useApiTester } from "@/providers/api-tester-provider";
 import { uid } from "@/lib/api-tester/engine";
 import {
@@ -146,6 +147,7 @@ export function GitHubSyncModal({ collectionId, onClose }: { collectionId?: stri
 
   return (
     <Modal title={collection ? `GitHub Sync — ${collection.name}` : "Import Collection from GitHub"} onClose={onClose} width={520}>
+      <CapabilityGate capability="github-sync" label="GitHub Sync" description="Push and pull your collections to a GitHub Gist to back them up or share with your team.">
       <TokenField />
 
       {collection && (
@@ -226,6 +228,7 @@ export function GitHubSyncModal({ collectionId, onClose }: { collectionId?: stri
       </div>
 
       {error && <div className="mt-3 rounded-lg bg-[var(--danger-dim)] px-3 py-2 text-[12px] text-[var(--danger)]">{error}</div>}
+      </CapabilityGate>
     </Modal>
   );
 }

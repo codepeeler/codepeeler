@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Zap, Loader2, Square, Gauge, Timer, Activity } from "lucide-react";
 import { Modal } from "@/components/api-tester/Modals";
+import { CapabilityGate } from "@/components/core/CapabilityGate";
 import { useApiTester } from "@/providers/api-tester-provider";
 import { defaultLoadTestConfig } from "@/lib/api-tester/engine";
 import type { LoadTestConfig, LoadTestMode, LoadTestTargetType } from "@/lib/api-tester/types";
@@ -103,6 +104,11 @@ export function LoadTestModal({
 
   return (
     <Modal title={`Load Test — ${targetLabel}`} onClose={onClose} width={680}>
+      <CapabilityGate
+        capability="load-test"
+        label="Load Testing"
+        description="Simulate concurrent traffic against a request or collection to measure throughput and latency."
+      >
       {!loadTestResult && !loadTestRunning && (
         <>
           <div className="mb-3 text-xs text-[var(--text-faint)]">
@@ -251,6 +257,7 @@ export function LoadTestModal({
           </button>
         </div>
       )}
+      </CapabilityGate>
     </Modal>
   );
 }

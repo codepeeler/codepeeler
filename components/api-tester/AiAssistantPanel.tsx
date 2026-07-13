@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Sparkles, Wand2, Bug, FlaskConical, FileText, Link2, Loader2, Check, Plus, ArrowRight } from "lucide-react";
 import { Modal } from "@/components/api-tester/Modals";
+import { CapabilityGate } from "@/components/core/CapabilityGate";
 import { useApiTester } from "@/providers/api-tester-provider";
 import { newChainExtraction, newRow } from "@/lib/api-tester/engine";
 import type { HttpMethod } from "@/lib/api-tester/types";
@@ -454,27 +455,33 @@ export function AiAssistantModal({ onClose }: { onClose: () => void }) {
   const [mode, setMode] = useState<AiMode>("build");
   return (
     <Modal title="AI Assistant" onClose={onClose} width={640}>
-      <div className="mb-3.5 flex flex-wrap gap-1.5">
-        {MODES.map((m) => {
-          const Icon = m.icon;
-          const isActive = mode === m.key;
-          return (
-            <button
-              key={m.key}
-              onClick={() => setMode(m.key)}
-              className="flex items-center gap-1.5 rounded-lg px-3 py-[7px] text-xs font-semibold"
-              style={{ background: isActive ? "var(--primary-dim)" : "var(--card)", color: isActive ? "var(--primary)" : "var(--text-dim)" }}
-            >
-              <Icon size={13} /> {m.label}
-            </button>
-          );
-        })}
-      </div>
-      {mode === "build" && <BuildRequestMode />}
-      {mode === "fix" && <FixTestMode />}
-      {mode === "tests" && <GenerateTestsMode />}
-      {mode === "explain" && <ExplainMode />}
-      {mode === "chain" && <ChainMode />}
+      <CapabilityGate
+        capability="ai-assist"
+        label="AI Assistant"
+        description="Build requests from plain English, auto-fix failing tests, and generate test cases with AI."
+      >
+        <div className="mb-3.5 flex flex-wrap gap-1.5">
+          {MODES.map((m) => {
+            const Icon = m.icon;
+            const isActive = mode === m.key;
+            return (
+              <button
+                key={m.key}
+                onClick={() => setMode(m.key)}
+                className="flex items-center gap-1.5 rounded-lg px-3 py-[7px] text-xs font-semibold"
+                style={{ background: isActive ? "var(--primary-dim)" : "var(--card)", color: isActive ? "var(--primary)" : "var(--text-dim)" }}
+              >
+                <Icon size={13} /> {m.label}
+              </button>
+            );
+          })}
+        </div>
+        {mode === "build" && <BuildRequestMode />}
+        {mode === "fix" && <FixTestMode />}
+        {mode === "tests" && <GenerateTestsMode />}
+        {mode === "explain" && <ExplainMode />}
+        {mode === "chain" && <ChainMode />}
+      </CapabilityGate>
     </Modal>
   );
 }

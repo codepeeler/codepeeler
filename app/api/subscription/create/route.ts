@@ -9,6 +9,16 @@ import { subscription } from "@/lib/db/schema";
 // live" — don't let them start a second one on top of it.
 const BLOCKING_STATUSES = ["created", "authenticated", "active", "pending", "paused", "halted"];
 
+// Pricing page advertises a 14-day free trial. Razorpay itself has no
+// separate "trial" concept for subscriptions — the way to get one is to
+// pass `start_at` as a future Unix timestamp: the customer still
+// authorizes the mandate now (small auth hold, auto-reversed), but the
+// first real charge doesn't happen until start_at. Razorpay requires
+// start_at to be at least a few hours ahead of now, so pad slightly past
+// exactly 14 days to avoid clock-skew edge cases near the boundary.
+const TRIAL_DAYS = 14;
+const trialStartAt = Math.floor(Date.now() / 1000) + TRIAL_DAYS * 24 * 60 * 60;
+
 export async function POST(req: NextRequest) {
   const session = await auth.api.getSession({ headers: req.headers });
   if (!session) {
@@ -45,6 +55,7 @@ export async function POST(req: NextRequest) {
       plan_id: plan.planId,
       customer_notify: 1,
       total_count: plan.totalCount,
+      start_at: trialStartAt,
       notes: { userId: session.user.id },
     });
 

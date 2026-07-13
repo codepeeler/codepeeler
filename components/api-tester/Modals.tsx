@@ -5,6 +5,8 @@ import { X, Copy, Plus, Trash2, Play, Upload, Loader2, CheckCircle2, XCircle, Li
 import Papa from "papaparse";
 import KeyValueTable from "@/components/api-tester/KeyValueTable";
 import { useApiTester } from "@/providers/api-tester-provider";
+import { useEntitlements } from "@/hooks/use-entitlements";
+import { ProBadge } from "@/components/core/CapabilityGate";
 import { genAxios, genCurl, genFetch, genNodeHttp, genPython, uid } from "@/lib/api-tester/engine";
 import type { ApiRequest, Environment, HttpMethod, MockEndpoint, RunnerDataRow } from "@/lib/api-tester/types";
 
@@ -150,10 +152,18 @@ export function SaveRequestModal({ onClose }: { onClose: () => void }) {
 /* ============================= Environment manager modal ============================= */
 export function EnvironmentManagerModal({ onClose }: { onClose: () => void }) {
   const { environments, setEnvironments, activeEnvId, setActiveEnvId, toast } = useApiTester();
+  const { hasCapability } = useEntitlements();
   const [selected, setSelected] = useState<string | null>(activeEnvId || environments[0]?.id || null);
   const env = environments.find((e) => e.id === selected);
 
+  // Free plan: 1 environment. Pro (multi-env capability): unlimited.
+  const canAddMore = hasCapability("multi-env") || environments.length < 1;
+
   const addEnv = () => {
+    if (!canAddMore) {
+      toast("Free plan is limited to 1 environment — upgrade to Pro for unlimited environments");
+      return;
+    }
     const ne: Environment = { id: uid(), name: "New Environment", variables: [{ id: uid(), key: "", value: "", enabled: true }] };
     setEnvironments([...environments, ne]);
     setSelected(ne.id);
@@ -186,8 +196,11 @@ export function EnvironmentManagerModal({ onClose }: { onClose: () => void }) {
               {activeEnvId === e.id && <span className="rounded-md bg-[var(--success-dim)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--success)]">Active</span>}
             </div>
           ))}
-          <button onClick={addEnv} className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-[7px] text-xs font-semibold text-[var(--text-dim)]">
-            <Plus size={12} /> Add Environment
+          <button
+            onClick={addEnv}
+            className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-[7px] text-xs font-semibold text-[var(--text-dim)] disabled:opacity-50"
+          >
+            <Plus size={12} /> Add Environment {!canAddMore && <ProBadge />}
           </button>
         </div>
         <div className="w-px flex-shrink-0 self-stretch bg-[var(--border-soft)]" />

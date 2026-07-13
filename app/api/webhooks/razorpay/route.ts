@@ -18,6 +18,11 @@ function verifySignature(rawBody: string, signature: string | null) {
 }
 
 const STATUS_BY_EVENT: Record<string, string> = {
+  // Fires once the customer completes mandate setup at checkout — with a
+  // trial (start_at in the future) this is what actually happens right
+  // after payment, *before* any real charge. Without this mapping the row
+  // stays stuck on "created" for the whole 14-day trial.
+  "subscription.authenticated": "authenticated",
   "subscription.activated": "active",
   "subscription.charged": "active",
   "subscription.completed": "completed",

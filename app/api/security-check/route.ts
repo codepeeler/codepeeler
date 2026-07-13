@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import tls from "node:tls";
+import { auth } from "@/lib/auth";
+import { getUserEntitlements, hasCapability } from "@/lib/entitlements";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -65,6 +67,14 @@ const SECURITY_HEADERS: { key: string; label: string; why: string }[] = [
 ];
 
 export async function POST(req: NextRequest) {
+  const session = await auth.api.getSession({ headers: req.headers });
+  if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+
+  const entitlements = await getUserEntitlements(session.user.id);
+  if (!hasCapability(entitlements, "security-check")) {
+    return NextResponse.json({ error: "Security Health Check is a Pro feature.", upgradeUrl: "/pricing" }, { status: 402 });
+  }
+
   let body: { url?: string };
   try {
     body = await req.json();

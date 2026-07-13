@@ -26,7 +26,7 @@ export const PLANS: Plan[] = [
     price: { monthly: 0, yearly: 0 },
     features: [
       "5 Workflows",
-      "20 Tools Access",
+      "All Tools — Unlimited",
       "2 Collections",
       "100 Executions / month",
       "100 MB Storage",
@@ -39,7 +39,7 @@ export const PLANS: Plan[] = [
     key: "pro",
     name: "Pro",
     tagline: "For developers and power users",
-    price: { monthly: 9, yearly: 7 },
+    price: { monthly: 749, yearly: 599 },
     badge: "Most Popular",
     trialDays: 14,
     features: [
@@ -101,7 +101,7 @@ export const PLANS: Plan[] = [
 
 export const COMPARE_ROWS: { label: string; values: [string, string, string, string] }[] = [
   { label: "Workflows", values: ["5", "Unlimited", "Unlimited", "Unlimited"] },
-  { label: "Tools Access", values: ["20 Tools", "All Tools", "All Tools", "All Tools"] },
+  { label: "Tools Access", values: ["All Tools", "All Tools", "All Tools", "All Tools"] },
   { label: "Executions / month", values: ["100", "10,000", "50,000 / user", "Unlimited"] },
   { label: "Storage", values: ["100 MB", "10 GB", "100 GB / user", "Unlimited"] },
   { label: "Team Collaboration", values: ["—", "—", "✓", "✓"] },
@@ -111,7 +111,7 @@ export const COMPARE_ROWS: { label: string; values: [string, string, string, str
 ];
 
 export const PRICING_BADGES: { icon: LucideIcon; label: string }[] = [
-  { icon: CreditCard, label: "No credit card required" },
+  { icon: CreditCard, label: "No charge during your 14-day trial" },
   { icon: Ban, label: "Cancel anytime" },
   { icon: ShieldCheck, label: "14-day money back guarantee" },
   { icon: Lock, label: "Secure & Private" },
@@ -125,7 +125,7 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
   },
   {
     question: "Is there a free trial for paid plans?",
-    answer: "Every paid plan comes with a 14-day free trial, no credit card required to start.",
+    answer: "Every paid plan comes with a 14-day free trial. You'll authorize a payment method to start, but you're not charged until the trial ends.",
   },
   {
     question: "What payment methods do you accept?",

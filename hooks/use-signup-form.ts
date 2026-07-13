@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/providers/toast-provider";
 import { signUp, signIn } from "@/lib/auth-client";
+import { validateEmail, validateName } from "@/lib/validators/auth-input";
 
 /**
  * All signup form state and handlers live here, mirroring useLoginForm().
@@ -26,6 +27,19 @@ export function useSignupForm() {
       toast("Please fill in all fields");
       return;
     }
+
+    const nameCheck = validateName(name);
+    if (!nameCheck.valid) {
+      toast(nameCheck.reason);
+      return;
+    }
+
+    const emailCheck = validateEmail(email);
+    if (!emailCheck.valid) {
+      toast(emailCheck.reason);
+      return;
+    }
+
     if (password.length < 8) {
       toast("Password must be at least 8 characters");
       return;

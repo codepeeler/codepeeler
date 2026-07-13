@@ -6,6 +6,7 @@ import { Search, Bell } from "lucide-react";
 import Logo from "@/components/core/Logo";
 import ThemeToggle from "@/components/core/ThemeToggle";
 import UserMenu from "@/components/auth/UserMenu";
+import PlanBadge from "@/components/core/PlanBadge";
 import { TOPNAV_LINKS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { useCommandPalette } from "@/providers/command-palette-provider";
@@ -47,6 +48,7 @@ export default function Topbar() {
       </button>
 
       <div className="ml-auto flex flex-shrink-0 items-center gap-2">
+        <PlanBadge />
         <ThemeToggle />
         <button
           title="Notifications"

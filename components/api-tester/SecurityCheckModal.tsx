@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ShieldCheck, ShieldAlert, Loader2, CheckCircle2, XCircle } from "lucide-react";
 import { Modal } from "@/components/api-tester/Modals";
+import { CapabilityGate } from "@/components/core/CapabilityGate";
 
 interface TlsInfo {
   protocol: string | null;
@@ -69,6 +70,7 @@ export function SecurityCheckModal({ url, onClose }: { url: string; onClose: () 
 
   return (
     <Modal title="Security Health Check" onClose={onClose} width={560}>
+      <CapabilityGate capability="security-check" label="Security Health Check" description="Scan TLS certificate details and security headers for any URL.">
       <div className="mb-3.5 truncate rounded-lg border border-[var(--border-soft)] bg-[var(--bg-elev)] px-2.5 py-1.5 font-[family-name:var(--font-mono)] text-[12px] text-[var(--text-dim)]">{url}</div>
 
       {!result && (
@@ -147,6 +149,7 @@ export function SecurityCheckModal({ url, onClose }: { url: string; onClose: () 
           </Section>
         </div>
       )}
+      </CapabilityGate>
     </Modal>
   );
 }
