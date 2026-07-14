@@ -69,6 +69,7 @@ export const ENTITLEMENTS_BY_PLAN: Record<PlanKey, Entitlements> = {
 // "authenticated" covers the trial window: the mandate is authorized but the
 // first real charge (start_at) hasn't happened yet — they should still get Pro.
 const PRO_ACTIVE_STATUSES = ["authenticated", "active"];
+export { PRO_ACTIVE_STATUSES };
 
 /**
  * Resolves a user's plan from the subscription table, then returns their

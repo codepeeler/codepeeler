@@ -45,6 +45,19 @@ export const auth = betterAuth({
     },
   },
 
+  user: {
+    additionalFields: {
+      // Gates /admin and /api/admin/* (see lib/admin.ts). input: false means
+      // nobody can set/change this via signup or updateUser — only a direct
+      // DB write (drizzle/manual-migration-admin-role.sql) can promote someone.
+      role: {
+        type: "string",
+        input: false,
+        defaultValue: "user",
+      },
+    },
+  },
+
   socialProviders: {
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID!,

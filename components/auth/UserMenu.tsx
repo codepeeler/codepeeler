@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { User, LayoutDashboard, LogOut } from "lucide-react";
+import { User, LayoutDashboard, LogOut, Shield } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Dropdown from "@/components/ui/Dropdown";
 import { useSession, signOut } from "@/lib/auth-client";
@@ -106,6 +106,15 @@ export default function UserMenu({ size = "desktop" }: UserMenuProps) {
           >
             <LayoutDashboard size={15} /> Dashboard
           </Link>
+          {user.role === "admin" && (
+            <Link
+              href="/admin"
+              onClick={close}
+              className="flex items-center gap-2 rounded-[7px] px-2.5 py-2 text-[13px] text-[var(--text-dim)] transition-colors duration-150 hover:bg-[var(--card-hover)] hover:text-[var(--text)]"
+            >
+              <Shield size={15} /> Admin panel
+            </Link>
+          )}
           <button
             onClick={() => {
               close();
