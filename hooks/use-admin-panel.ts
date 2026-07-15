@@ -45,6 +45,7 @@ export type AdminUserDetail = {
   topTools: Array<{ toolId: string; name: string; count: number; lastUsedAt: string }>;
   counts: { collections: number; workflows: number; snippets: number };
   lastActiveAt: string | null;
+  recentActivity: Array<{ id: string; type: string; entityId: string | null; entityName: string | null; createdAt: string }>;
 };
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { recordToolUsageServer } from "@/lib/tool-usage-server";
+import { recordActivity } from "@/lib/activity";
 import { TOOLS } from "@/lib/data/tools";
 
 /**
@@ -15,10 +16,12 @@ export async function POST(req: NextRequest) {
 
   const body = (await req.json().catch(() => ({}))) as { toolId?: string };
   const toolId = body.toolId;
-  if (!toolId || !TOOLS.some((t) => t.id === toolId)) {
+  const tool = TOOLS.find((t) => t.id === toolId);
+  if (!tool) {
     return NextResponse.json({ error: "Unknown tool" }, { status: 400 });
   }
 
-  await recordToolUsageServer(session.user.id, toolId);
+  await recordToolUsageServer(session.user.id, tool.id);
+  await recordActivity(session.user.id, "tool_use", tool.id, tool.name);
   return NextResponse.json({ ok: true, tracked: true });
 }

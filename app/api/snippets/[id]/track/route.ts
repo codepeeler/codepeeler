@@ -3,6 +3,7 @@ import { eq, sql } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { snippet } from "@/lib/db/schema";
+import { recordActivity } from "@/lib/activity";
 
 /**
  * Fire-and-forget counters: { type: "view" } when a snippet is opened,
@@ -21,10 +22,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   const column = body.type === "view" ? snippet.views : snippet.uses;
-  await db
+  const [row] = await db
     .update(snippet)
     .set({ [body.type === "view" ? "views" : "uses"]: sql`${column} + 1` })
-    .where(eq(snippet.id, id));
+    .where(eq(snippet.id, id))
+    .returning({ title: snippet.title });
+
+  await recordActivity(session.user.id, body.type === "view" ? "snippet_view" : "snippet_use", id, row?.title ?? null);
 
   return NextResponse.json({ ok: true });
 }

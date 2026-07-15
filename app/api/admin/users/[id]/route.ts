@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { user, subscription, session, collection, workflow, snippet } from "@/lib/db/schema";
 import { getUserEntitlements, PRO_ACTIVE_STATUSES } from "@/lib/entitlements";
 import { getToolUsageForUser } from "@/lib/tool-usage-server";
+import { getRecentActivity } from "@/lib/activity";
 import { TOOLS } from "@/lib/data/tools";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -28,6 +29,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     [{ count: workflowCount }],
     [{ count: snippetCount }],
     [lastSession],
+    recentActivity,
   ] = await Promise.all([
     db.select().from(subscription).where(eq(subscription.userId, id)).orderBy(desc(subscription.createdAt)),
     getUserEntitlements(id),
@@ -36,6 +38,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     db.select({ count: sql<number>`count(*)::int` }).from(workflow).where(eq(workflow.userId, id)),
     db.select({ count: sql<number>`count(*)::int` }).from(snippet).where(eq(snippet.userId, id)),
     db.select({ updatedAt: session.updatedAt }).from(session).where(eq(session.userId, id)).orderBy(desc(session.updatedAt)).limit(1),
+    getRecentActivity(id, 15),
   ]);
 
   const toolNameById = new Map(TOOLS.map((t) => [t.id, t.name]));
@@ -54,5 +57,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     topTools,
     counts: { collections: collectionCount, workflows: workflowCount, snippets: snippetCount },
     lastActiveAt: lastSession?.updatedAt ?? null,
+    recentActivity,
   });
 }

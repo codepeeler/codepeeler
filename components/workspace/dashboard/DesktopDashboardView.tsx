@@ -7,6 +7,7 @@ import Button from "@/components/ui/Button";
 import ToolCard from "@/components/ui/ToolCard";
 import StatCard from "@/components/workspace/dashboard/StatCard";
 import PlanCard from "@/components/workspace/dashboard/PlanCard";
+import RecentActivity from "@/components/workspace/dashboard/RecentActivity";
 import VerifyEmailBanner from "@/components/auth/VerifyEmailBanner";
 import { useDashboardData, QUICK_ACTIONS, STATUS_META } from "@/hooks/use-dashboard-data";
 
@@ -25,6 +26,7 @@ export default function DesktopDashboardView() {
     favoriteTools,
     recentWorkflows,
     spotlightCollection,
+    recentActivity,
   } = useDashboardData();
 
   return (
@@ -200,6 +202,13 @@ export default function DesktopDashboardView() {
               Your Plan
             </h2>
             <PlanCard />
+          </div>
+
+          <div className="mt-4">
+            <h2 className="mb-2.5 px-1 font-[family-name:var(--font-display)] text-[15px] font-semibold">
+              Recent Activity
+            </h2>
+            <RecentActivity events={recentActivity} />
           </div>
 
           {spotlightCollection && (

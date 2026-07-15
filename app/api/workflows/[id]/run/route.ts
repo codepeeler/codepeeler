@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { workflow } from "@/lib/db/schema";
 import { getUserEntitlements } from "@/lib/entitlements";
 import { checkUsageLimit, incrementUsage } from "@/lib/usage";
+import { recordActivity } from "@/lib/activity";
 
 // This is the real enforcement point for "100 executions/month" (free) /
 // "10,000/month" (Pro) from the pricing page. The actual run/transform logic
@@ -35,6 +36,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const used = await incrementUsage(session.user.id, "executions");
   await db.update(workflow).set({ lastRunAt: new Date() }).where(eq(workflow.id, id));
+  await recordActivity(session.user.id, "workflow_run", wf.id, wf.name);
 
   return NextResponse.json({ allowed: true, used, limit: entitlements.limits.executionsPerMonth });
 }

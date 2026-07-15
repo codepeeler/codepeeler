@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect } from "react";
-import { X, Sparkles, Ban, RotateCcw, BadgeCheck, CircleAlert, Shield, Wrench, Layers, Workflow, Code2 } from "lucide-react";
+import { X, Sparkles, Ban, RotateCcw, BadgeCheck, CircleAlert, Shield, Wrench, Layers, Workflow, Code2, History } from "lucide-react";
 import type { AdminUserDetail } from "@/hooks/use-admin-panel";
+import { ACTIVITY_META } from "@/lib/data/activity";
+import { formatTimeAgo } from "@/lib/utils";
+import type { ActivityType } from "@/lib/activity";
 
 function formatDate(iso: string | null) {
   if (!iso) return "—";
@@ -180,6 +183,31 @@ export default function AdminUserDetailPanel({ detail, loading, actionPending, o
                       </span>
                     </div>
                   ))}
+                </div>
+              )}
+
+              <h4 className="mb-2 flex items-center gap-1.5 text-[12.5px] font-semibold text-[var(--text-dim)]">
+                <History size={13} /> Recent activity
+              </h4>
+              {detail.recentActivity.length === 0 ? (
+                <p className="mb-5 rounded-[10px] border border-dashed border-[var(--border)] p-4 text-center text-[12.5px] text-[var(--text-faint)]">
+                  No activity recorded yet.
+                </p>
+              ) : (
+                <div className="mb-5 flex flex-col gap-1.5">
+                  {detail.recentActivity.map((ev) => {
+                    const meta = ACTIVITY_META[ev.type as ActivityType];
+                    const Icon = meta?.icon ?? History;
+                    return (
+                      <div key={ev.id} className="flex items-center gap-2.5 rounded-[9px] border border-[var(--border)] px-3 py-2">
+                        <Icon size={13} className="flex-shrink-0 text-[var(--text-faint)]" />
+                        <span className="min-w-0 flex-1 truncate text-[12px] text-[var(--text-dim)]">
+                          {meta ? meta.label(ev.entityName) : ev.type}
+                        </span>
+                        <span className="flex-shrink-0 text-[10.5px] text-[var(--text-faint)]">{formatTimeAgo(ev.createdAt)}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 

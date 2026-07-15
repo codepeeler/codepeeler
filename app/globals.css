@@ -2,7 +2,7 @@
 
 /* ============================= TOKENS ============================= */
 :root {
-  --bg: #09090B;
+  --bg: #1b1b24;
   --bg-elev: #0D0E11;
   --card: #111318;
   --card-hover: #151822;
@@ -35,9 +35,9 @@
   --cat-image: #F472B6;
   --cat-sec: #F59E0B;
   --cat-text: #A3E635;
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 18px;
+  --radius-sm: 2px;
+  --radius-md: 3px;
+  --radius-lg: 6px;
   --shadow-soft: 0 8px 30px -12px rgba(0, 0, 0, 0.6);
   --shadow-glow: 0 0 0 1px rgba(109, 93, 246, 0.15), 0 8px 24px -8px rgba(109, 93, 246, 0.25);
   --font-display: var(--font-space-grotesk), sans-serif;
@@ -146,9 +146,9 @@
   input:focus-visible,
   textarea:focus-visible,
   [tabindex]:focus-visible {
-    outline: 2px solid var(--primary);
-    outline-offset: 2px;
-    border-radius: 6px;
+    outline: 1px solid var(--primary);
+    outline-offset: 1px;
+    border-radius: 2px;
   }
 }
 

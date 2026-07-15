@@ -167,6 +167,28 @@ export const toolUsage = pgTable("tool_usage", {
   lastUsedAt: timestamp("last_used_at").notNull().defaultNow(),
 });
 
+// Chronological "what did this user do" history — one row per meaningful
+// action (tool opened, snippet created/viewed/used, collection
+// created/updated, workflow created/run). This is the missing piece the
+// other tables don't cover: `snippet`/`collection`/`workflow` only hold
+// *current state*, not a timeline of events, and `usage`/`toolUsage` only
+// hold running *totals*, not individual moments. Powers "Recent Activity"
+// on the user's own dashboard and in the admin user detail panel.
+// `entityName` is denormalized (copied at event time, not looked up live)
+// so the timeline still reads correctly even if the snippet/collection/
+// workflow it refers to is later renamed or deleted.
+export const activityEvent = pgTable("activity_event", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  type: text("type").notNull(), // ActivityType, see lib/activity.ts
+  entityId: text("entity_id"), // id of the tool/snippet/collection/workflow, if any
+  entityName: text("entity_name"), // display name at the time of the event
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+
 // Per-user bookmark on a snippet. Composite-unique on (snippetId, userId) so
 // toggling bookmark is a simple insert/delete, no boolean flag on `snippet`
 // itself (which is shared across all viewers).

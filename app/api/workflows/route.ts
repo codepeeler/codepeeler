@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { workflow } from "@/lib/db/schema";
 import { getUserEntitlements } from "@/lib/entitlements";
+import { recordActivity } from "@/lib/activity";
 
 export async function GET(req: NextRequest) {
   const session = await auth.api.getSession({ headers: req.headers });
@@ -37,6 +38,8 @@ export async function POST(req: NextRequest) {
     .insert(workflow)
     .values({ id: crypto.randomUUID(), userId: session.user.id, name: name.trim(), collectionId: collectionId ?? null })
     .returning();
+
+  await recordActivity(session.user.id, "workflow_create", row.id, row.name);
 
   return NextResponse.json({ workflow: row }, { status: 201 });
 }

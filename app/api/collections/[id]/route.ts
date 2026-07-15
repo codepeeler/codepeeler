@@ -3,6 +3,7 @@ import { eq, and } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { collection } from "@/lib/db/schema";
+import { recordActivity } from "@/lib/activity";
 
 const PATCHABLE_FIELDS = [
   "name",
@@ -41,6 +42,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     .returning();
 
   if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  await recordActivity(session.user.id, "collection_update", row.id, row.name);
+
   return NextResponse.json({ collection: row });
 }
 

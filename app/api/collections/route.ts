@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { collection } from "@/lib/db/schema";
 import { getUserEntitlements } from "@/lib/entitlements";
+import { recordActivity } from "@/lib/activity";
 
 export async function GET(req: NextRequest) {
   const session = await auth.api.getSession({ headers: req.headers });
@@ -55,6 +56,8 @@ export async function POST(req: NextRequest) {
       visibility: body.visibility ?? "Private",
     })
     .returning();
+
+  await recordActivity(session.user.id, "collection_create", row.id, row.name);
 
   return NextResponse.json({ collection: row }, { status: 201 });
 }

@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { snippet, snippetBookmark, user } from "@/lib/db/schema";
 import { formatTimeAgo } from "@/lib/utils";
+import { recordActivity } from "@/lib/activity";
 
 const VALID_LANGUAGES = ["JavaScript", "TypeScript", "Python", "SQL", "Bash", "JSON", "HTML", "CSS", "Go", "Rust"];
 
@@ -130,6 +131,8 @@ export async function POST(req: NextRequest) {
       tags: body.tags ?? [],
     })
     .returning();
+
+  await recordActivity(session.user.id, "snippet_create", row.id, row.title);
 
   return NextResponse.json(
     {

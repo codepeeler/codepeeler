@@ -73,6 +73,7 @@ type ApiWorkflow = {
 };
 type ApiEntitlements = { usage: { executions: number; "ai-calls": number } };
 type ApiToolUsage = { toolId: string; count: number; lastUsedAt: string };
+type ApiActivityEvent = { id: string; type: string; entityId: string | null; entityName: string | null; createdAt: string };
 
 /**
  * Single source of truth for every number/list shown on the dashboard.
@@ -92,6 +93,7 @@ export function useDashboardData() {
   const [workflows, setWorkflows] = useState<ApiWorkflow[]>([]);
   const [executions, setExecutions] = useState(0);
   const [toolUsage, setToolUsage] = useState<ApiToolUsage[]>([]);
+  const [recentActivity, setRecentActivity] = useState<ApiActivityEvent[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -99,18 +101,20 @@ export function useDashboardData() {
 
     async function load() {
       try {
-        const [collectionsRes, workflowsRes, entitlementsRes, toolUsageRes] = await Promise.all([
+        const [collectionsRes, workflowsRes, entitlementsRes, toolUsageRes, activityRes] = await Promise.all([
           fetch("/api/collections"),
           fetch("/api/workflows"),
           fetch("/api/entitlements"),
           fetch("/api/tools/usage"),
+          fetch("/api/activity"),
         ]);
 
-        const [collectionsData, workflowsData, entitlementsData, toolUsageData] = await Promise.all([
+        const [collectionsData, workflowsData, entitlementsData, toolUsageData, activityData] = await Promise.all([
           collectionsRes.ok ? collectionsRes.json() : { collections: [] },
           workflowsRes.ok ? workflowsRes.json() : { workflows: [] },
           entitlementsRes.ok ? entitlementsRes.json() : null,
           toolUsageRes.ok ? toolUsageRes.json() : { tools: [] },
+          activityRes.ok ? activityRes.json() : { activity: [] },
         ]);
 
         if (cancelled) return;
@@ -118,12 +122,14 @@ export function useDashboardData() {
         setWorkflows(workflowsData.workflows ?? []);
         setExecutions((entitlementsData as ApiEntitlements | null)?.usage?.executions ?? 0);
         setToolUsage(toolUsageData.tools ?? []);
+        setRecentActivity(activityData.activity ?? []);
       } catch {
         if (!cancelled) {
           setCollections([]);
           setWorkflows([]);
           setExecutions(0);
           setToolUsage([]);
+          setRecentActivity([]);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -208,5 +214,6 @@ export function useDashboardData() {
     favoriteTools,
     recentWorkflows,
     spotlightCollection,
+    recentActivity,
   };
 }
