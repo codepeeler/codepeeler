@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { SNIPPETS, type Snippet, type SnippetFilterKey, type SnippetLanguage } from "@/lib/data/snippets";
+import { useEffect, useMemo, useState, useCallback } from "react";
+import { type Snippet, type SnippetFilterKey, type SnippetLanguage } from "@/lib/data/snippets";
 import { useToast } from "@/providers/toast-provider";
 
 export type SortKey = "latest" | "rating" | "views" | "uses" | "title";
@@ -14,11 +14,25 @@ export const SORT_OPTIONS: { key: SortKey; label: string }[] = [
   { key: "title", label: "Title (A–Z)" },
 ];
 
-let idCounter = 0;
-function nextId() {
-  idCounter += 1;
-  return `custom-${idCounter}`;
-}
+export type SnippetStats = {
+  totalSnippets: string;
+  totalUses: string;
+  contributors: string;
+  avgRating: string;
+  avgRatingSub: string;
+};
+
+type ApiSnippet = Snippet & { createdAt: string };
+type PopularTag = { label: string; count: string };
+type TrendingSnippet = { id: string; title: string; author: string; uses: string };
+
+const EMPTY_STATS: SnippetStats = {
+  totalSnippets: "0",
+  totalUses: "0",
+  contributors: "0",
+  avgRating: "—",
+  avgRatingSub: "from 0 reviews",
+};
 
 /**
  * All Snippets page state, filtering/sorting, and handlers live here.
@@ -26,10 +40,20 @@ function nextId() {
  * the list of snippets a user sees, search results, and every action
  * (bookmark, create, clear filters) behave identically on both — only the
  * layout around them differs. Same pattern as useDashboardData().
+ *
+ * Unlike the old mock-data version, `list` now comes from GET /api/snippets
+ * (real, shared across every user) and every mutation (create, bookmark,
+ * open/use) calls the matching API route rather than just touching local
+ * state.
  */
 export function useSnippetsData() {
   const { toast } = useToast();
-  const [list, setList] = useState<Snippet[]>(SNIPPETS);
+  const [list, setList] = useState<ApiSnippet[]>([]);
+  const [stats, setStats] = useState<SnippetStats>(EMPTY_STATS);
+  const [popularTags, setPopularTags] = useState<PopularTag[]>([]);
+  const [trendingSnippets, setTrendingSnippets] = useState<TrendingSnippet[]>([]);
+  const [loading, setLoading] = useState(true);
+
   const [activeTab, setActiveTab] = useState<SnippetFilterKey>("featured");
   const [query, setQuery] = useState("");
   const [language, setLanguage] = useState<SnippetLanguage | "all">("all");
@@ -38,44 +62,125 @@ export function useSnippetsData() {
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [mineTab, setMineTab] = useState<"mine" | "bookmarked" | "recent" | "drafts" | null>(null);
 
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch("/api/snippets");
+      if (!res.ok) throw new Error("Failed to load snippets");
+      const data = await res.json();
+      setList(data.snippets ?? []);
+      setStats(data.stats ?? EMPTY_STATS);
+      setPopularTags(data.popularTags ?? []);
+      setTrendingSnippets(data.trendingSnippets ?? []);
+    } catch {
+      toast("Couldn't load snippets — try refreshing");
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
   const counts = useMemo(
     () => ({
       mine: list.filter((s) => s.mine).length,
       bookmarked: list.filter((s) => s.bookmarked).length,
       recent: Math.min(list.length, 15),
-      drafts: 6,
+      drafts: 0, // no draft state on real snippets yet — every save is published
     }),
     [list]
   );
 
-  const toggleBookmark = (id: string) => {
+  const toggleBookmark = async (id: string) => {
     setList((prev) => prev.map((s) => (s.id === id ? { ...s, bookmarked: !s.bookmarked } : s)));
+    try {
+      const res = await fetch(`/api/snippets/${id}/bookmark`, { method: "POST" });
+      if (!res.ok) throw new Error();
+    } catch {
+      setList((prev) => prev.map((s) => (s.id === id ? { ...s, bookmarked: !s.bookmarked } : s)));
+      toast("Couldn't update bookmark");
+    }
   };
 
   const handleOpen = (s: Snippet) => {
     toast(`Opening "${s.title}"…`);
+    setList((prev) => prev.map((row) => (row.id === s.id ? { ...row, views: row.views + 1 } : row)));
+    fetch(`/api/snippets/${s.id}/track`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "view" }),
+    }).catch(() => {});
   };
 
-  const handleCreateSnippet = () => {
-    const fresh: Snippet = {
-      id: nextId(),
-      title: "Untitled Snippet",
-      desc: "Add a description for your new snippet.",
-      language: "JavaScript",
-      category: "Utilities",
-      author: "you",
-      views: 0,
-      uses: 0,
-      rating: 0,
-      tags: [],
-      bookmarked: false,
-      mine: true,
-      createdAgo: "just now",
-      updatedAgo: "just now",
-      code: "// Start typing your snippet here",
-    };
-    setList((prev) => [fresh, ...prev]);
-    toast("New snippet created — start editing");
+  const handleUse = (s: Snippet) => {
+    setList((prev) => prev.map((row) => (row.id === s.id ? { ...row, uses: row.uses + 1 } : row)));
+    fetch(`/api/snippets/${s.id}/track`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "use" }),
+    }).catch(() => {});
+  };
+
+  const createSnippet = async (payload: {
+    title: string;
+    desc: string;
+    language: SnippetLanguage;
+    category: string;
+    code: string;
+    tags: string[];
+  }) => {
+    try {
+      const res = await fetch("/api/snippets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast(data.error ?? "Couldn't create snippet");
+        return false;
+      }
+      const data = await res.json();
+      setList((prev) => [data.snippet, ...prev]);
+      toast("Snippet published");
+      return true;
+    } catch {
+      toast("Couldn't create snippet — try again");
+      return false;
+    }
+  };
+
+  const deleteSnippet = async (id: string) => {
+    const prev = list;
+    setList((p) => p.filter((s) => s.id !== id));
+    try {
+      const res = await fetch(`/api/snippets/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      toast("Snippet deleted");
+    } catch {
+      setList(prev);
+      toast("Couldn't delete snippet");
+    }
+  };
+
+  const updateSnippet = async (id: string, updates: Partial<Pick<Snippet, "title" | "desc" | "language" | "category" | "code" | "tags">>) => {
+    const prev = list;
+    setList((p) => p.map((s) => (s.id === id ? { ...s, ...updates } : s)));
+    try {
+      const res = await fetch(`/api/snippets/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+      if (!res.ok) throw new Error();
+      toast("Snippet updated");
+      return true;
+    } catch {
+      setList(prev);
+      toast("Couldn't save changes");
+      return false;
+    }
   };
 
   const clearAllFilters = () => {
@@ -110,7 +215,7 @@ export function useSnippetsData() {
     } else if (activeTab === "most-used") {
       result = [...result].sort((a, b) => b.uses - a.uses);
     } else if (activeTab === "latest") {
-      result = [...result].reverse();
+      result = [...result].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }
 
     const sorted = [...result].sort((a, b) => {
@@ -123,6 +228,8 @@ export function useSnippetsData() {
           return b.uses - a.uses;
         case "title":
           return a.title.localeCompare(b.title);
+        case "latest":
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
         default:
           return 0;
       }
@@ -135,6 +242,10 @@ export function useSnippetsData() {
 
   return {
     list,
+    loading,
+    stats,
+    popularTags,
+    trendingSnippets,
     toast,
     activeTab,
     setActiveTab,
@@ -153,7 +264,10 @@ export function useSnippetsData() {
     counts,
     toggleBookmark,
     handleOpen,
-    handleCreateSnippet,
+    handleUse,
+    createSnippet,
+    deleteSnippet,
+    updateSnippet,
     clearAllFilters,
     filtered,
     hasFilters,

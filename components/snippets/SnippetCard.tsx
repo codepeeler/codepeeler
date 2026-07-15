@@ -1,6 +1,6 @@
 "use client";
 
-import { Eye, Play, Star, Bookmark } from "lucide-react";
+import { Eye, Play, Star, Bookmark, Trash2, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import CopyButton from "@/components/tools/CopyButton";
 import { LANGUAGE_COLOR, type Snippet } from "@/lib/data/snippets";
@@ -14,10 +14,16 @@ export default function SnippetCard({
   snippet,
   onOpen,
   onToggleBookmark,
+  onUse,
+  onEdit,
+  onDelete,
 }: {
   snippet: Snippet;
   onOpen: () => void;
   onToggleBookmark: () => void;
+  onUse?: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
 }) {
   const s = snippet;
   const color = LANGUAGE_COLOR[s.language];
@@ -32,22 +38,42 @@ export default function SnippetCard({
         >
           {s.title}
         </button>
-        <span
-          className="flex-shrink-0 rounded-full border px-2 py-0.5 text-[10.5px] font-semibold"
-          style={{
-            color,
-            borderColor: `color-mix(in srgb, ${color} 35%, transparent)`,
-            background: `color-mix(in srgb, ${color} 14%, transparent)`,
-          }}
-        >
-          {s.language}
-        </span>
+        <div className="flex flex-shrink-0 items-center gap-1.5">
+          {s.mine && onEdit && (
+            <button
+              onClick={onEdit}
+              title="Edit snippet"
+              className="text-[var(--text-faint)] transition-colors duration-150 hover:text-[var(--primary)]"
+            >
+              <Pencil size={13} />
+            </button>
+          )}
+          {s.mine && onDelete && (
+            <button
+              onClick={onDelete}
+              title="Delete snippet"
+              className="text-[var(--text-faint)] transition-colors duration-150 hover:text-[var(--danger)]"
+            >
+              <Trash2 size={13} />
+            </button>
+          )}
+          <span
+            className="rounded-full border px-2 py-0.5 text-[10.5px] font-semibold"
+            style={{
+              color,
+              borderColor: `color-mix(in srgb, ${color} 35%, transparent)`,
+              background: `color-mix(in srgb, ${color} 14%, transparent)`,
+            }}
+          >
+            {s.language}
+          </span>
+        </div>
       </div>
 
       <p className="mb-3 text-[12px] leading-[1.5] text-[var(--text-faint)]">{s.desc}</p>
 
       <div className="relative mb-3 overflow-hidden rounded-[9px] border border-[var(--border-soft)] bg-[var(--bg)]">
-        <div className="absolute right-2 top-2 z-10">
+        <div className="absolute right-2 top-2 z-10" onClickCapture={onUse}>
           <CopyButton value={s.code} />
         </div>
         <pre className="max-h-[168px] overflow-hidden px-3.5 py-3 font-[family-name:var(--font-mono)] text-[11.5px] leading-[1.7] text-[var(--text-dim)]">
@@ -75,7 +101,7 @@ export default function SnippetCard({
             <Play size={12} /> {formatCount(s.uses)}
           </span>
           <span className="flex items-center gap-1" title="Rating">
-            <Star size={12} className="fill-[var(--warning)] text-[var(--warning)]" /> {s.rating}
+            <Star size={12} className="fill-[var(--warning)] text-[var(--warning)]" /> {s.rating || "—"}
           </span>
           <button
             onClick={onToggleBookmark}

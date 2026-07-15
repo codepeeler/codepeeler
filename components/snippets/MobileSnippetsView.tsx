@@ -1,12 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import { Search, ChevronDown, Check, X, Plus, Menu } from "lucide-react";
 import MobileHeader from "@/components/layout/mobile/MobileHeader";
 import MobileFooter from "@/components/layout/mobile/MobileFooter";
 import Sidebar, { SIDEBAR_PANEL_ID } from "@/components/layout/Sidebar";
 import Dropdown from "@/components/ui/Dropdown";
 import SnippetCard from "@/components/snippets/SnippetCard";
-import { LANGUAGES, CATEGORIES, FILTER_TABS } from "@/lib/data/snippets";
+import SnippetEditorModal from "@/components/snippets/SnippetEditorModal";
+import { LANGUAGES, CATEGORIES, FILTER_TABS, type Snippet } from "@/lib/data/snippets";
 import { useSnippetsData, SORT_OPTIONS } from "@/hooks/use-snippets-data";
 import { useMobileShell } from "@/providers/mobile-shell-provider";
 import { cn } from "@/lib/utils";
@@ -21,6 +23,7 @@ import { cn } from "@/lib/utils";
 export default function MobileSnippetsView() {
   const { togglePanel } = useMobileShell();
   const {
+    loading,
     activeTab,
     setActiveTab,
     query,
@@ -33,18 +36,33 @@ export default function MobileSnippetsView() {
     setSortBy,
     toggleBookmark,
     handleOpen,
-    handleCreateSnippet,
+    handleUse,
+    createSnippet,
+    updateSnippet,
+    deleteSnippet,
     clearAllFilters,
     filtered,
     hasFilters,
   } = useSnippetsData();
+
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editingSnippet, setEditingSnippet] = useState<Snippet | null>(null);
+
+  const openCreate = () => {
+    setEditingSnippet(null);
+    setEditorOpen(true);
+  };
+  const openEdit = (s: Snippet) => {
+    setEditingSnippet(s);
+    setEditorOpen(true);
+  };
 
   return (
     <>
       <MobileHeader
         title="Snippets"
         actions={[
-          { key: "create", icon: Plus, label: "Create snippet", onClick: handleCreateSnippet },
+          { key: "create", icon: Plus, label: "Create snippet", onClick: openCreate },
           { key: "menu", icon: Menu, label: "Menu", onClick: () => togglePanel(SIDEBAR_PANEL_ID) },
         ]}
       />
@@ -232,7 +250,11 @@ export default function MobileSnippetsView() {
 
             <div className="mb-3 text-[11.5px] text-[var(--text-faint)]">{filtered.length} snippets found</div>
 
-            {filtered.length === 0 ? (
+            {loading ? (
+              <div className="rounded-[12px] border border-dashed border-[var(--border)] px-6 py-14 text-center">
+                <div className="text-[13px] text-[var(--text-faint)]">Loading snippets…</div>
+              </div>
+            ) : filtered.length === 0 ? (
               <div className="rounded-[12px] border border-dashed border-[var(--border)] px-6 py-14 text-center">
                 <div className="mb-1 text-[14px] font-semibold">No snippets match your search</div>
                 <p className="text-[12.5px] text-[var(--text-faint)]">
@@ -247,6 +269,9 @@ export default function MobileSnippetsView() {
                     snippet={s}
                     onOpen={() => handleOpen(s)}
                     onToggleBookmark={() => toggleBookmark(s.id)}
+                    onUse={() => handleUse(s)}
+                    onEdit={s.mine ? () => openEdit(s) : undefined}
+                    onDelete={s.mine ? () => deleteSnippet(s.id) : undefined}
                   />
                 ))}
               </div>
@@ -256,6 +281,14 @@ export default function MobileSnippetsView() {
           </div>
         </main>
       </div>
+
+      {editorOpen && (
+        <SnippetEditorModal
+          editing={editingSnippet}
+          onClose={() => setEditorOpen(false)}
+          onSubmit={(values) => (editingSnippet ? updateSnippet(editingSnippet.id, values) : createSnippet(values))}
+        />
+      )}
     </>
   );
 }

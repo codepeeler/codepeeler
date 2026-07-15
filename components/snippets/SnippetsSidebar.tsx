@@ -2,12 +2,7 @@
 
 import { Sparkles, Flame } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  MY_SNIPPETS_NAV,
-  POPULAR_TAGS,
-  TRENDING_SNIPPETS,
-  type SnippetFilterKey,
-} from "@/lib/data/snippets";
+import { MY_SNIPPETS_NAV, type SnippetFilterKey } from "@/lib/data/snippets";
 
 const TAG_COLORS = ["var(--cat-gen)", "var(--cat-data)", "var(--cat-encode)", "var(--cat-web)", "var(--cat-image)"];
 
@@ -18,6 +13,8 @@ export default function SnippetsSidebar({
   onSelectTag,
   onSelectTrending,
   onCreateSnippet,
+  popularTags,
+  trendingSnippets,
 }: {
   counts: Record<"mine" | "bookmarked" | "recent" | "drafts", number>;
   activeMineTab: string | null;
@@ -25,6 +22,8 @@ export default function SnippetsSidebar({
   onSelectTag: (tag: string) => void;
   onSelectTrending: (id: string) => void;
   onCreateSnippet: () => void;
+  popularTags: { label: string; count: string }[];
+  trendingSnippets: { id: string; title: string; author: string; uses: string }[];
 }) {
   return (
     <aside className="hidden w-[280px] flex-shrink-0 flex-col gap-4 xl:flex">
@@ -55,20 +54,23 @@ export default function SnippetsSidebar({
       <div className="rounded-[12px] border border-[var(--border)] bg-[var(--card)] p-4">
         <div className="mb-2.5 flex items-center justify-between">
           <h3 className="text-[13px] font-semibold">Popular Tags</h3>
-          <button className="text-[11px] font-semibold text-[var(--primary)] hover:underline">View all →</button>
         </div>
-        <div className="flex flex-wrap gap-1.5">
-          {POPULAR_TAGS.map((t, i) => (
-            <button
-              key={t.label}
-              onClick={() => onSelectTag(t.label)}
-              className="flex items-center gap-1.5 rounded-full border border-[var(--border-soft)] bg-[var(--bg)] px-2.5 py-1 text-[11px] font-medium transition-colors duration-150 hover:border-[var(--border)]"
-            >
-              <span style={{ color: TAG_COLORS[i % TAG_COLORS.length] }}>{t.label}</span>
-              <span className="text-[var(--text-faint)]">{t.count}</span>
-            </button>
-          ))}
-        </div>
+        {popularTags.length === 0 ? (
+          <p className="text-[11.5px] text-[var(--text-faint)]">No tags yet — add tags when you create a snippet.</p>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
+            {popularTags.map((t, i) => (
+              <button
+                key={t.label}
+                onClick={() => onSelectTag(t.label)}
+                className="flex items-center gap-1.5 rounded-full border border-[var(--border-soft)] bg-[var(--bg)] px-2.5 py-1 text-[11px] font-medium transition-colors duration-150 hover:border-[var(--border)]"
+              >
+                <span style={{ color: TAG_COLORS[i % TAG_COLORS.length] }}>{t.label}</span>
+                <span className="text-[var(--text-faint)]">{t.count}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="rounded-[12px] border border-[var(--border)] bg-[var(--card)] p-4">
@@ -77,26 +79,29 @@ export default function SnippetsSidebar({
             <Flame size={14} className="text-[var(--warning)]" />
             Trending Snippets
           </h3>
-          <button className="text-[11px] font-semibold text-[var(--primary)] hover:underline">View all →</button>
         </div>
-        <div className="flex flex-col gap-2.5">
-          {TRENDING_SNIPPETS.map((t, i) => (
-            <button
-              key={t.id}
-              onClick={() => onSelectTrending(t.id)}
-              className="flex w-full items-center gap-2.5 rounded-[8px] px-1.5 py-1 text-left transition-colors duration-150 hover:bg-[var(--card-hover)]"
-            >
-              <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-[6px] bg-[var(--primary-dim)] text-[11px] font-bold text-[var(--primary)]">
-                {i + 1}
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-[12px] font-medium">{t.title}</div>
-                <div className="truncate text-[10.5px] text-[var(--text-faint)]">@{t.author}</div>
-              </div>
-              <span className="flex-shrink-0 text-[10.5px] text-[var(--text-faint)]">▷ {t.uses}</span>
-            </button>
-          ))}
-        </div>
+        {trendingSnippets.length === 0 ? (
+          <p className="text-[11.5px] text-[var(--text-faint)]">No snippets used yet.</p>
+        ) : (
+          <div className="flex flex-col gap-2.5">
+            {trendingSnippets.map((t, i) => (
+              <button
+                key={t.id}
+                onClick={() => onSelectTrending(t.id)}
+                className="flex w-full items-center gap-2.5 rounded-[8px] px-1.5 py-1 text-left transition-colors duration-150 hover:bg-[var(--card-hover)]"
+              >
+                <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-[6px] bg-[var(--primary-dim)] text-[11px] font-bold text-[var(--primary)]">
+                  {i + 1}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[12px] font-medium">{t.title}</div>
+                  <div className="truncate text-[10.5px] text-[var(--text-faint)]">@{t.author}</div>
+                </div>
+                <span className="flex-shrink-0 text-[10.5px] text-[var(--text-faint)]">▷ {t.uses}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="rounded-[12px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--primary)_10%,var(--card))] p-4">

@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { Layers, Workflow, Wrench, Zap, ChevronRight, Clock, Plus, Sparkles, Check, Flame } from "lucide-react";
+import { Layers, Workflow, Wrench, Zap, ChevronRight, Clock, Plus, Flame } from "lucide-react";
 import Sidebar from "@/components/layout/Sidebar";
 import CollectionsStatsBar from "@/components/collections/CollectionsStatsBar";
 import CollectionIcon from "@/components/collections/CollectionIcon";
 import Button from "@/components/ui/Button";
 import ToolCard from "@/components/ui/ToolCard";
 import StatCard from "@/components/workspace/dashboard/StatCard";
+import PlanCard from "@/components/workspace/dashboard/PlanCard";
 import VerifyEmailBanner from "@/components/auth/VerifyEmailBanner";
 import { useDashboardData, QUICK_ACTIONS, STATUS_META } from "@/hooks/use-dashboard-data";
 
@@ -198,39 +199,7 @@ export default function DesktopDashboardView() {
             <h2 className="mb-2.5 px-1 font-[family-name:var(--font-display)] text-[15px] font-semibold">
               Your Plan
             </h2>
-            <div className="rounded-[12px] border border-[var(--border)] bg-[linear-gradient(160deg,var(--primary-dim),transparent)] p-4">
-              <div className="mb-3 flex items-center gap-2.5">
-                <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[9px] bg-[color-mix(in_srgb,var(--primary)_16%,transparent)] text-[var(--primary)]">
-                  <Sparkles size={15} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="text-[13px] font-semibold">Free &amp; Local</div>
-                  <div className="text-[11px] text-[var(--text-faint)]">No account needed</div>
-                </div>
-                <span className="flex-shrink-0 rounded-full bg-[color-mix(in_srgb,var(--success)_16%,transparent)] px-2 py-0.5 text-[10px] font-semibold text-[var(--success)]">
-                  Active
-                </span>
-              </div>
-              <ul className="mb-3 space-y-1.5">
-                {[
-                  "Unlimited workflows",
-                  "All tools included",
-                  "100% local storage",
-                  "No sign-up required",
-                ].map((f) => (
-                  <li key={f} className="flex items-center gap-2 text-[12px] text-[var(--text-dim)]">
-                    <Check size={13} className="flex-shrink-0 text-[var(--success)]" />
-                    {f}
-                  </li>
-                ))}
-              </ul>
-              <Link
-                href="/workspace/settings"
-                className="flex w-full items-center justify-center rounded-[9px] border border-[var(--border)] bg-[var(--card)] py-2 text-[12px] font-semibold text-[var(--text)] transition-colors duration-150 hover:bg-[var(--card-hover)]"
-              >
-                View Settings
-              </Link>
-            </div>
+            <PlanCard />
           </div>
 
           {spotlightCollection && (

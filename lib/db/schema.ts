@@ -126,3 +126,57 @@ export const workflow = pgTable("workflow", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
+
+// Community snippets — public code snippets any signed-in user can browse,
+// create, and bookmark. `mine`/`bookmarked` in the UI's Snippet type are
+// derived per-request (not stored) from userId/snippetBookmark, same
+// pattern as how the admin panel derives isAdmin from session.user.role.
+export const snippet = pgTable("snippet", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  desc: text("desc").notNull().default(""),
+  language: text("language").notNull().default("JavaScript"),
+  category: text("category").notNull().default("Utilities"),
+  code: text("code").notNull().default(""),
+  tags: jsonb("tags").$type<string[]>().notNull().default([]),
+  views: integer("views").notNull().default(0),
+  uses: integer("uses").notNull().default(0),
+  rating: integer("rating").notNull().default(0), // 0-5, not yet user-submittable — display only for now
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Per-user, per-tool usage counter — powers "Favorite Tools" on the user's
+// own dashboard and the "Tools Used" breakdown in the admin user detail
+// panel. Previously this only lived in the browser's localStorage
+// (lib/tool-usage.ts), which meant it wasn't tied to the account, didn't
+// survive a new device/browser, and admins couldn't see it. This table is
+// the real, server-side counterpart — same increment-with-upsert shape as
+// `usage` above, but keyed by tool instead of metered type, and not
+// period-scoped (it's a running lifetime total, not a monthly cap).
+export const toolUsage = pgTable("tool_usage", {
+  id: text("id").primaryKey(), // `${userId}:${toolId}`
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  toolId: text("tool_id").notNull(), // matches Tool.id in lib/data/tools.ts
+  count: integer("count").notNull().default(0),
+  lastUsedAt: timestamp("last_used_at").notNull().defaultNow(),
+});
+
+// Per-user bookmark on a snippet. Composite-unique on (snippetId, userId) so
+// toggling bookmark is a simple insert/delete, no boolean flag on `snippet`
+// itself (which is shared across all viewers).
+export const snippetBookmark = pgTable("snippet_bookmark", {
+  id: text("id").primaryKey(),
+  snippetId: text("snippet_id")
+    .notNull()
+    .references(() => snippet.id, { onDelete: "cascade" }),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});

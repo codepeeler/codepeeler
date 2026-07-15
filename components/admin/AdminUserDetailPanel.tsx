@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { X, Sparkles, Ban, RotateCcw, BadgeCheck, CircleAlert, Shield } from "lucide-react";
+import { X, Sparkles, Ban, RotateCcw, BadgeCheck, CircleAlert, Shield, Wrench, Layers, Workflow, Code2 } from "lucide-react";
 import type { AdminUserDetail } from "@/hooks/use-admin-panel";
 
 function formatDate(iso: string | null) {
@@ -133,6 +133,55 @@ export default function AdminUserDetailPanel({ detail, loading, actionPending, o
                   <div className="mt-1 text-[18px] font-bold">{(detail.entitlements.usage["ai-calls"] ?? 0).toLocaleString()}</div>
                 </div>
               </div>
+
+              <div className="mb-5">
+                <div className="mb-2 flex items-center justify-between">
+                  <h4 className="text-[12.5px] font-semibold text-[var(--text-dim)]">Activity</h4>
+                  <span className="text-[11px] text-[var(--text-faint)]">
+                    Last active {detail.lastActiveAt ? formatDate(detail.lastActiveAt) : "—"}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="rounded-[10px] border border-[var(--border)] p-3 text-center">
+                    <Layers size={14} className="mx-auto mb-1 text-[var(--text-faint)]" />
+                    <div className="text-[15px] font-bold">{detail.counts.collections}</div>
+                    <div className="text-[10.5px] text-[var(--text-faint)]">Collections</div>
+                  </div>
+                  <div className="rounded-[10px] border border-[var(--border)] p-3 text-center">
+                    <Workflow size={14} className="mx-auto mb-1 text-[var(--text-faint)]" />
+                    <div className="text-[15px] font-bold">{detail.counts.workflows}</div>
+                    <div className="text-[10.5px] text-[var(--text-faint)]">Workflows</div>
+                  </div>
+                  <div className="rounded-[10px] border border-[var(--border)] p-3 text-center">
+                    <Code2 size={14} className="mx-auto mb-1 text-[var(--text-faint)]" />
+                    <div className="text-[15px] font-bold">{detail.counts.snippets}</div>
+                    <div className="text-[10.5px] text-[var(--text-faint)]">Snippets</div>
+                  </div>
+                </div>
+              </div>
+
+              <h4 className="mb-2 flex items-center gap-1.5 text-[12.5px] font-semibold text-[var(--text-dim)]">
+                <Wrench size={13} /> Tools used
+              </h4>
+              {detail.topTools.length === 0 ? (
+                <p className="mb-5 rounded-[10px] border border-dashed border-[var(--border)] p-4 text-center text-[12.5px] text-[var(--text-faint)]">
+                  No tool activity yet.
+                </p>
+              ) : (
+                <div className="mb-5 flex flex-col gap-1.5">
+                  {detail.topTools.map((t) => (
+                    <div
+                      key={t.toolId}
+                      className="flex items-center justify-between rounded-[9px] border border-[var(--border)] px-3 py-2"
+                    >
+                      <span className="truncate text-[12.5px] font-medium">{t.name}</span>
+                      <span className="flex-shrink-0 text-[11.5px] font-semibold text-[var(--text-dim)]">
+                        {t.count.toLocaleString()}×
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               <h4 className="mb-2 text-[12.5px] font-semibold text-[var(--text-dim)]">Subscription history</h4>
               {detail.subscriptions.length === 0 ? (

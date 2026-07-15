@@ -1,19 +1,26 @@
-import { SNIPPET_STATS, SNIPPET_STAT_ICONS } from "@/lib/data/snippets";
+import { SNIPPET_STAT_ICONS } from "@/lib/data/snippets";
+import type { SnippetStats } from "@/hooks/use-snippets-data";
 
-const LABELS: Record<string, { title: string; sub: string }> = {
-  totalSnippets: { title: "Total Snippets", sub: SNIPPET_STATS.totalSnippetsGrowth },
-  totalUses: { title: "Total Uses", sub: SNIPPET_STATS.totalUsesGrowth },
-  contributors: { title: "Contributors", sub: SNIPPET_STATS.contributorsGrowth },
-  avgRating: { title: "Average Rating", sub: SNIPPET_STATS.avgRatingSub },
+const LABELS: Record<string, { title: string; subKey: keyof SnippetStats }> = {
+  totalSnippets: { title: "Total Snippets", subKey: "totalSnippets" },
+  totalUses: { title: "Total Uses", subKey: "totalUses" },
+  contributors: { title: "Contributors", subKey: "contributors" },
+  avgRating: { title: "Average Rating", subKey: "avgRating" },
 };
 
-export default function SnippetsStatsRow() {
+export default function SnippetsStatsRow({ stats, loading }: { stats: SnippetStats; loading?: boolean }) {
+  const subFor = (key: string) => {
+    if (key === "totalSnippets") return `${stats.totalSnippets} total`;
+    if (key === "totalUses") return `${stats.totalUses} uses`;
+    if (key === "contributors") return `${stats.contributors} contributing`;
+    return stats.avgRatingSub;
+  };
+
   return (
     <div className="mb-5 grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
       {SNIPPET_STAT_ICONS.map(({ key, icon: Icon, color }) => {
         const meta = LABELS[key];
-        const value = SNIPPET_STATS[key as keyof typeof SNIPPET_STATS];
-        const isGrowth = meta.sub.startsWith("+");
+        const value = loading ? "—" : stats[key as keyof SnippetStats];
         return (
           <div
             key={key}
@@ -34,9 +41,7 @@ export default function SnippetsStatsRow() {
                 {value}
               </div>
               <div className="text-[12px] text-[var(--text-dim)]">{meta.title}</div>
-              <div className={isGrowth ? "text-[10.5px] text-[var(--success)]" : "text-[10.5px] text-[var(--text-faint)]"}>
-                {meta.sub}
-              </div>
+              <div className="text-[10.5px] text-[var(--text-faint)]">{loading ? "" : subFor(key)}</div>
             </div>
           </div>
         );

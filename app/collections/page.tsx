@@ -217,8 +217,8 @@ export default function CollectionsPage() {
               </div>
             </div>
 
-            <div className="mb-4 flex flex-wrap items-center gap-2 overflow-x-auto lg:justify-between lg:gap-3">
-              <div className="flex flex-shrink-0 items-center gap-1 rounded-[10px] border border-[var(--border)] bg-[var(--card)] p-1">
+            <div className="mb-4 flex flex-wrap items-center gap-2 lg:justify-between lg:gap-3">
+              <div className="flex flex-shrink-0 items-center gap-1 overflow-x-auto rounded-[10px] border border-[var(--border)] bg-[var(--card)] p-1">
                 {filterTabs.map((t) => (
                   <button
                     key={t.key}

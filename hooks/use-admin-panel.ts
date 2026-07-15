@@ -42,6 +42,9 @@ export type AdminUserDetail = {
   }>;
   activeSubscription: AdminUserDetail["subscriptions"][number] | null;
   entitlements: { plan: "free" | "pro"; usage: Record<string, number> };
+  topTools: Array<{ toolId: string; name: string; count: number; lastUsedAt: string }>;
+  counts: { collections: number; workflows: number; snippets: number };
+  lastActiveAt: string | null;
 };
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {

@@ -100,6 +100,9 @@ export default function WebhooksPage() {
           </button>
         </div>
         <div className="flex-1 overflow-y-auto p-1.5">
+          {error && !activeInbox && (
+            <div className="mb-2 rounded-lg bg-[var(--danger-dim)] px-2.5 py-2 text-[11px] leading-[1.5] text-[var(--danger)]">{error}</div>
+          )}
           {inboxes.length === 0 && (
             <button
               onClick={() => createInbox()}

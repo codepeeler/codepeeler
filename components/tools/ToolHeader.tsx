@@ -5,7 +5,7 @@ import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 import CategoryBadge from "@/components/ui/CategoryBadge";
-import type { CatKey } from "@/lib/data/tools";
+import { TOOLS, type CatKey } from "@/lib/data/tools";
 import { recordToolVisit } from "@/lib/tool-usage";
 
 type ToolHeaderProps = {
@@ -20,8 +20,23 @@ export default function ToolHeader({ cat, badge, title, desc }: ToolHeaderProps)
 
   // Record a visit each time a tool page is opened, so "Popular tools" on
   // the landing page can reflect what this user actually reaches for.
+  // Also mirror it to the account server-side (fire-and-forget, no-ops
+  // silently when logged out) so it survives across devices and shows up
+  // in the user's own dashboard and in the admin panel.
   useEffect(() => {
-    if (pathname) recordToolVisit(pathname);
+    if (!pathname) return;
+    recordToolVisit(pathname);
+
+    const tool = TOOLS.find((t) => t.page === pathname);
+    if (tool) {
+      fetch("/api/tools/track", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ toolId: tool.id }),
+      }).catch(() => {
+        // best-effort — localStorage tracking above already covers this visit
+      });
+    }
   }, [pathname]);
 
   return (

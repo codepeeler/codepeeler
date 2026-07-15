@@ -72,6 +72,7 @@ type ApiWorkflow = {
   updatedAt: string;
 };
 type ApiEntitlements = { usage: { executions: number; "ai-calls": number } };
+type ApiToolUsage = { toolId: string; count: number; lastUsedAt: string };
 
 /**
  * Single source of truth for every number/list shown on the dashboard.
@@ -90,6 +91,7 @@ export function useDashboardData() {
   const [collections, setCollections] = useState<ApiCollection[]>([]);
   const [workflows, setWorkflows] = useState<ApiWorkflow[]>([]);
   const [executions, setExecutions] = useState(0);
+  const [toolUsage, setToolUsage] = useState<ApiToolUsage[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -97,27 +99,31 @@ export function useDashboardData() {
 
     async function load() {
       try {
-        const [collectionsRes, workflowsRes, entitlementsRes] = await Promise.all([
+        const [collectionsRes, workflowsRes, entitlementsRes, toolUsageRes] = await Promise.all([
           fetch("/api/collections"),
           fetch("/api/workflows"),
           fetch("/api/entitlements"),
+          fetch("/api/tools/usage"),
         ]);
 
-        const [collectionsData, workflowsData, entitlementsData] = await Promise.all([
+        const [collectionsData, workflowsData, entitlementsData, toolUsageData] = await Promise.all([
           collectionsRes.ok ? collectionsRes.json() : { collections: [] },
           workflowsRes.ok ? workflowsRes.json() : { workflows: [] },
           entitlementsRes.ok ? entitlementsRes.json() : null,
+          toolUsageRes.ok ? toolUsageRes.json() : { tools: [] },
         ]);
 
         if (cancelled) return;
         setCollections(collectionsData.collections ?? []);
         setWorkflows(workflowsData.workflows ?? []);
         setExecutions((entitlementsData as ApiEntitlements | null)?.usage?.executions ?? 0);
+        setToolUsage(toolUsageData.tools ?? []);
       } catch {
         if (!cancelled) {
           setCollections([]);
           setWorkflows([]);
           setExecutions(0);
+          setToolUsage([]);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -149,7 +155,14 @@ export function useDashboardData() {
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     .slice(0, 5);
 
-  const favoriteTools = FAVORITE_TOOL_IDS.map((id) => TOOLS.find((t) => t.id === id)).filter(
+  // Real usage first — a user's actual most-opened tools (see
+  // /api/tools/usage, backed by the tool_usage table). Brand new accounts
+  // have no rows yet, so fall back to the same fixed starter list as
+  // before rather than showing an empty section on day one.
+  const usedTools = toolUsage
+    .map((u) => TOOLS.find((t) => t.id === u.toolId))
+    .filter((t): t is (typeof TOOLS)[number] => !!t);
+  const favoriteTools = usedTools.length > 0 ? usedTools : FAVORITE_TOOL_IDS.map((id) => TOOLS.find((t) => t.id === id)).filter(
     (t): t is (typeof TOOLS)[number] => !!t
   );
 

@@ -1,13 +1,15 @@
 "use client";
 
-import { Search, ChevronDown, SlidersHorizontal, Plus, Check, X } from "lucide-react";
+import { useState } from "react";
+import { Search, ChevronDown, Plus, Check, X } from "lucide-react";
 import Sidebar from "@/components/layout/Sidebar";
 import Footer from "@/components/layout/Footer";
 import Dropdown from "@/components/ui/Dropdown";
 import SnippetCard from "@/components/snippets/SnippetCard";
 import SnippetsStatsRow from "@/components/snippets/SnippetsStatsRow";
 import SnippetsSidebar from "@/components/snippets/SnippetsSidebar";
-import { LANGUAGES, CATEGORIES, FILTER_TABS } from "@/lib/data/snippets";
+import SnippetEditorModal from "@/components/snippets/SnippetEditorModal";
+import { LANGUAGES, CATEGORIES, FILTER_TABS, type Snippet } from "@/lib/data/snippets";
 import { useSnippetsData, SORT_OPTIONS } from "@/hooks/use-snippets-data";
 import { cn } from "@/lib/utils";
 
@@ -19,7 +21,10 @@ import { cn } from "@/lib/utils";
 export default function DesktopSnippetsView() {
   const {
     list,
-    toast,
+    loading,
+    stats,
+    popularTags,
+    trendingSnippets,
     activeTab,
     setActiveTab,
     query,
@@ -36,11 +41,26 @@ export default function DesktopSnippetsView() {
     counts,
     toggleBookmark,
     handleOpen,
-    handleCreateSnippet,
+    handleUse,
+    createSnippet,
+    updateSnippet,
+    deleteSnippet,
     clearAllFilters,
     filtered,
     hasFilters,
   } = useSnippetsData();
+
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editingSnippet, setEditingSnippet] = useState<Snippet | null>(null);
+
+  const openCreate = () => {
+    setEditingSnippet(null);
+    setEditorOpen(true);
+  };
+  const openEdit = (s: Snippet) => {
+    setEditingSnippet(s);
+    setEditorOpen(true);
+  };
 
   return (
     <div className="relative flex min-h-0 flex-1">
@@ -64,14 +84,14 @@ export default function DesktopSnippetsView() {
               </p>
             </div>
             <button
-              onClick={handleCreateSnippet}
+              onClick={openCreate}
               className="flex items-center gap-1.5 rounded-[9px] bg-[var(--primary)] px-4 py-2.5 text-[13px] font-semibold text-white transition-opacity duration-150 hover:opacity-90"
             >
               <Plus size={15} /> Create Snippet
             </button>
           </div>
 
-          <SnippetsStatsRow />
+          <SnippetsStatsRow stats={stats} loading={loading} />
 
           <div className="mb-4 flex flex-wrap items-center gap-2">
             <div className="relative min-w-[220px] flex-1">
@@ -219,13 +239,6 @@ export default function DesktopSnippetsView() {
               )}
             </Dropdown>
 
-            <button
-              onClick={() => toast("Advanced filters coming soon")}
-              className="flex h-9 items-center gap-1.5 whitespace-nowrap rounded-[9px] border border-[var(--border)] bg-[var(--card)] px-3 text-[12px] font-medium text-[var(--text-dim)] transition-colors duration-150 hover:text-[var(--text)]"
-            >
-              <SlidersHorizontal size={13} /> Filters
-            </button>
-
             {hasFilters && (
               <button
                 onClick={clearAllFilters}
@@ -254,15 +267,33 @@ export default function DesktopSnippetsView() {
             </span>
           </div>
 
-          {filtered.length === 0 ? (
+          {loading ? (
             <div className="rounded-[12px] border border-dashed border-[var(--border)] px-6 py-16 text-center">
-              <div className="mb-1 text-[14px] font-semibold">No snippets match your search</div>
-              <p className="text-[12.5px] text-[var(--text-faint)]">Try a different search term or clear your filters.</p>
+              <div className="text-[13px] text-[var(--text-faint)]">Loading snippets…</div>
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="rounded-[12px] border border-dashed border-[var(--border)] px-6 py-16 text-center">
+              <div className="mb-1 text-[14px] font-semibold">
+                {list.length === 0 ? "No snippets yet" : "No snippets match your search"}
+              </div>
+              <p className="text-[12.5px] text-[var(--text-faint)]">
+                {list.length === 0
+                  ? "Be the first to share one with the community."
+                  : "Try a different search term or clear your filters."}
+              </p>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               {filtered.map((s) => (
-                <SnippetCard key={s.id} snippet={s} onOpen={() => handleOpen(s)} onToggleBookmark={() => toggleBookmark(s.id)} />
+                <SnippetCard
+                  key={s.id}
+                  snippet={s}
+                  onOpen={() => handleOpen(s)}
+                  onToggleBookmark={() => toggleBookmark(s.id)}
+                  onUse={() => handleUse(s)}
+                  onEdit={s.mine ? () => openEdit(s) : undefined}
+                  onDelete={s.mine ? () => deleteSnippet(s.id) : undefined}
+                />
               ))}
             </div>
           )}
@@ -281,9 +312,19 @@ export default function DesktopSnippetsView() {
             const target = list.find((s) => s.id === id);
             if (target) handleOpen(target);
           }}
-          onCreateSnippet={handleCreateSnippet}
+          onCreateSnippet={openCreate}
+          popularTags={popularTags}
+          trendingSnippets={trendingSnippets}
         />
       </div>
+
+      {editorOpen && (
+        <SnippetEditorModal
+          editing={editingSnippet}
+          onClose={() => setEditorOpen(false)}
+          onSubmit={(values) => (editingSnippet ? updateSnippet(editingSnippet.id, values) : createSnippet(values))}
+        />
+      )}
     </div>
   );
 }

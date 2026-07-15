@@ -44,8 +44,14 @@ function saveRefs(refs: WebhookInboxRef[]) {
 }
 
 export function WebhookInboxProvider({ children }: { children: React.ReactNode }) {
-  const [inboxes, setInboxes] = useState<WebhookInboxRef[]>(() => loadRefs());
-  const [activeSlug, setActiveSlugState] = useState<string | null>(() => loadRefs()[0]?.slug ?? null);
+  // Start empty on both the server render and the client's first render —
+  // localStorage doesn't exist on the server, so seeding this from
+  // loadRefs() in the initializer (as before) made the client's first
+  // paint differ from the server-rendered HTML and triggered a hydration
+  // mismatch. Loading the real refs in the effect below means the empty
+  // state flashes for one frame instead, which is the correct trade-off.
+  const [inboxes, setInboxes] = useState<WebhookInboxRef[]>([]);
+  const [activeSlug, setActiveSlugState] = useState<string | null>(null);
   const [requests, setRequests] = useState<CapturedRequest[]>([]);
   const [requestsInboxId, setRequestsInboxId] = useState<string | null>(null);
   const [loadingRequests, setLoadingRequests] = useState(false);
@@ -55,6 +61,14 @@ export function WebhookInboxProvider({ children }: { children: React.ReactNode }
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
   const configured = !!supabase;
   const channelRef = useRef<ReturnType<NonNullable<typeof supabase>["channel"]> | null>(null);
+
+  // Runs once after mount, client-only — safe to touch localStorage here.
+  useEffect(() => {
+    const refs = loadRefs();
+    setInboxes(refs);
+    setActiveSlugState(refs[0]?.slug ?? null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const activeInbox = useMemo(() => inboxes.find((i) => i.slug === activeSlug) || null, [inboxes, activeSlug]);
 
