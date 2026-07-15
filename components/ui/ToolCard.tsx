@@ -14,7 +14,7 @@ type ToolCardProps = {
  */
 export default function ToolCard({ tool, onUnavailable }: ToolCardProps) {
   const card = (
-    <div className="group flex h-full cursor-pointer flex-col gap-2.5 rounded-[12px] border border-[var(--border)] bg-[var(--card)] p-4 transition-all duration-150 hover:-translate-y-0.5 hover:border-[color-mix(in_srgb,var(--primary)_45%,var(--border))] hover:shadow-[var(--shadow-soft)]">
+    <div className="group flex h-full cursor-pointer flex-col gap-2.5 rounded-[8px] border border-[var(--border)] bg-[var(--card)] p-4 transition-all duration-150 hover:-translate-y-0.5 hover:border-[color-mix(in_srgb,var(--primary)_45%,var(--border))] hover:shadow-[var(--shadow-soft)]">
       <CategoryBadge cat={tool.cat}>{tool.badge}</CategoryBadge>
       <div>
         <div className="text-sm font-semibold">{tool.name}</div>

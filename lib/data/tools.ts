@@ -19,6 +19,7 @@ export const TOOLS: Tool[] = [
   { id: "words", name: "Word Counter", desc: "Chars, words, lines & more", badge: "#", cat: "data", page: "/tools/word-counter" },
   { id: "hash", name: "Hash Generator", desc: "SHA-1 / SHA-256 / SHA-512", badge: "#", cat: "sec", page: "/tools/hash-generator" },
   { id: "jwt", name: "JWT Decoder", desc: "Decode JWT tokens", badge: "JWT", cat: "sec", page: "/tools/jwt-decoder" },
+  { id: "jwt-encoder", name: "JWT Encoder", desc: "Sign JSON payloads into JWTs", badge: "JWT", cat: "sec", page: "/tools/jwt-encoder" },
   { id: "uuid", name: "UUID Generator", desc: "Generate random UUIDs", badge: "id", cat: "gen", page: "/tools/uuid-generator" },
   { id: "password", name: "Password Generator", desc: "Create strong passwords", badge: "••", cat: "gen", page: "/tools/password-generator" },
   { id: "regex", name: "Regex Tester", desc: "Test & debug patterns", badge: ".*", cat: "web", page: "/tools/regex-tester" },

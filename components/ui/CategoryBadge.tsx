@@ -19,7 +19,7 @@ type CategoryBadgeProps = {
 const SIZES = {
   sm: "h-[30px] w-[30px] text-[10.5px] rounded-[8px]",
   md: "h-[38px] w-[38px] text-[13px] rounded-[10px]",
-  lg: "h-11 w-11 text-sm rounded-[10px]",
+  lg: "h-11 w-11 text-sm rounded-[6px]",
 };
 
 export default function CategoryBadge({ cat, children, size = "md" }: CategoryBadgeProps) {

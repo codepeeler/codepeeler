@@ -24,7 +24,7 @@ const VARIANT_CLASSES: Record<ButtonVariant, string> = {
 
 const SIZE_CLASSES: Record<ButtonSize, string> = {
   // Utility size — used across tool pages (Clear / Copy / Convert / Generate...)
-  md: "rounded-[7px] px-3.5 py-[7px] text-[12.5px] font-semibold gap-1.5",
+  md: "rounded-[5px] px-3.5 py-[5px] text-[12.5px] font-semibold gap-1.5",
   // Marketing CTA size — used on the homepage and other promotional sections
   lg: "rounded-[9px] px-5 py-[11px] text-sm font-semibold gap-[7px] hover:-translate-y-px hover:shadow-[var(--shadow-glow)]",
 };
