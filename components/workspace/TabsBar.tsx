@@ -74,7 +74,7 @@ export default function TabsBar() {
         className="min-w-[90px] max-w-[160px] flex-shrink-0 rounded-[7px] border border-transparent bg-transparent px-[9px] py-1.5 font-[family-name:var(--font-display)] text-[13px] font-semibold transition-colors duration-150 hover:border-[var(--border)] hover:bg-[var(--card)] focus:border-[var(--primary)] focus:bg-[var(--card)] lg:max-w-[200px]"
       />
 
-      <span className="hidden flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-[color-mix(in_srgb,var(--success)_14%,transparent)] py-1 pl-[7px] pr-[9px] text-[11px] font-semibold text-[var(--success)] lg:flex">
+      <span className="hidden flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[8px] bg-[color-mix(in_srgb,var(--success)_14%,transparent)] py-1 pl-[7px] pr-[9px] text-[11px] font-semibold text-[var(--success)] lg:flex">
         <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-current" />
         Saved locally
       </span>

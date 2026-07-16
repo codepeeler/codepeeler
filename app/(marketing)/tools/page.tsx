@@ -78,7 +78,7 @@ function ToolsIndexInner() {
         <button
           onClick={() => setCat(null)}
           className={cn(
-            "rounded-full border px-3 py-1.5 text-[12.5px] font-medium transition-colors duration-150",
+            "rounded-[8px] border px-3 py-1.5 text-[12.5px] font-medium transition-colors duration-150",
             !activeCat
               ? "border-[var(--primary)] bg-[var(--primary-dim)] text-[var(--primary)]"
               : "border-[var(--border)] text-[var(--text-dim)] hover:text-[var(--text)]"
@@ -91,7 +91,7 @@ function ToolsIndexInner() {
             key={cat}
             onClick={() => setCat(cat)}
             className={cn(
-              "rounded-full border px-3 py-1.5 text-[12.5px] font-medium transition-colors duration-150",
+              "rounded-[8px] border px-3 py-1.5 text-[12.5px] font-medium transition-colors duration-150",
               activeCat === cat
                 ? "border-[var(--primary)] bg-[var(--primary-dim)] text-[var(--primary)]"
                 : "border-[var(--border)] text-[var(--text-dim)] hover:text-[var(--text)]"

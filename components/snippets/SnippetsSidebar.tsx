@@ -63,7 +63,7 @@ export default function SnippetsSidebar({
               <button
                 key={t.label}
                 onClick={() => onSelectTag(t.label)}
-                className="flex items-center gap-1.5 rounded-full border border-[var(--border-soft)] bg-[var(--bg)] px-2.5 py-1 text-[11px] font-medium transition-colors duration-150 hover:border-[var(--border)]"
+                className="flex items-center gap-1.5 rounded-[8px] border border-[var(--border-soft)] bg-[var(--bg)] px-2.5 py-1 text-[11px] font-medium transition-colors duration-150 hover:border-[var(--border)]"
               >
                 <span style={{ color: TAG_COLORS[i % TAG_COLORS.length] }}>{t.label}</span>
                 <span className="text-[var(--text-faint)]">{t.count}</span>

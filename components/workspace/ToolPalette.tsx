@@ -68,7 +68,7 @@ function ToolPaletteContent() {
             key={c.key}
             onClick={() => setActiveCat(c.key)}
             className={cn(
-              "rounded-full border border-[var(--border)] bg-[var(--card)] px-[9px] py-[4.5px] text-[10.5px] font-semibold text-[var(--text-faint)] transition-colors duration-150 hover:text-[var(--text)]",
+              "rounded-[8px] border border-[var(--border)] bg-[var(--card)] px-[9px] py-[4.5px] text-[10.5px] font-semibold text-[var(--text-faint)] transition-colors duration-150 hover:text-[var(--text)]",
               activeCat === c.key && "border-transparent bg-[var(--primary)] text-white"
             )}
           >

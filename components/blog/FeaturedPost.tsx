@@ -37,7 +37,7 @@ export default function FeaturedPost({ post }: { post: BlogPost }) {
     <div className="overflow-hidden rounded-[14px] border border-[var(--border)] bg-[var(--card)]">
       <div className="flex flex-col gap-6 p-5 sm:flex-row sm:items-center sm:p-6">
         <div className="flex-1">
-          <span className="mb-3 flex w-fit items-center gap-1.5 rounded-full bg-[color-mix(in_srgb,var(--primary)_16%,transparent)] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.04em] text-[var(--primary)]">
+          <span className="mb-3 flex w-fit items-center gap-1.5 rounded-[8px] bg-[color-mix(in_srgb,var(--primary)_16%,transparent)] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.04em] text-[var(--primary)]">
             <Sparkles size={11} /> Featured
           </span>
           <h2 className="mb-2 font-[family-name:var(--font-display)] text-[22px] font-bold leading-tight tracking-[-0.01em] sm:text-[26px]">

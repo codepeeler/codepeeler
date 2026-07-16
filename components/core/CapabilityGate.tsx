@@ -62,7 +62,7 @@ export function UpgradeCard({ label, description }: { label: string; description
 /** Small inline "Pro" badge for buttons/tiles that should look locked without hiding them entirely. */
 export function ProBadge() {
   return (
-    <span className="ml-1 inline-flex items-center rounded-full bg-[var(--accent)]/10 px-1.5 py-[1px] text-[9.5px] font-bold uppercase tracking-wide text-[var(--accent)]">
+    <span className="ml-1 inline-flex items-center rounded-[8px] bg-[var(--accent)]/10 px-1.5 py-[1px] text-[9.5px] font-bold uppercase tracking-wide text-[var(--accent)]">
       Pro
     </span>
   );

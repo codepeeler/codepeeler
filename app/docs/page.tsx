@@ -73,7 +73,7 @@ export default function DocsPage() {
               {TOPICS.map((t) => (
                 <span
                   key={t}
-                  className="rounded-full border border-dashed border-[var(--border)] px-3 py-1.5 text-[11.5px] text-[var(--text-faint)]"
+                  className="rounded-[8px] border border-dashed border-[var(--border)] px-3 py-1.5 text-[11.5px] text-[var(--text-faint)]"
                   title="Coming soon"
                 >
                   {t} · Coming soon

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ChevronLeft, Database, Keyboard } from "lucide-react";
@@ -8,15 +8,58 @@ import { cn } from "@/lib/utils";
 import { NAV_RAIL_ITEMS } from "@/lib/data/workspace-shell";
 import { useWorkflow } from "@/providers/workflow-provider";
 import { useCommandPalette } from "@/providers/command-palette-provider";
+import { useEntitlements } from "@/hooks/use-entitlements";
 import Drawer from "@/components/layout/mobile/Drawer";
 
 export const NAV_RAIL_PANEL_ID = "nav-rail";
+
+const WORKFLOWS_STORAGE_KEY = "codepeeler:workflows";
+const ACTIVE_ID_STORAGE_KEY = "codepeeler:activeWorkflowId";
+
+/** Fallback-only quota — ~5 MB is the commonly-quoted per-origin localStorage
+ * limit across browsers, used only while entitlements haven't loaded yet. */
+const LOCAL_STORAGE_QUOTA_BYTES = 5 * 1024 * 1024;
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
 
 function NavRailContent({ collapsed, onToggleCollapse, showCollapseButton }: { collapsed: boolean; onToggleCollapse?: () => void; showCollapseButton: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
   const { nodes, conns, workflows, activeWorkflowId, switchWorkflow, createWorkflow } = useWorkflow();
   const { open: openCommandPalette } = useCommandPalette();
+  // /workspace is a logged-in-only area (see middleware.ts), so whoever sees
+  // this rail always has an account — real per-account storage (collections
+  // + workflows + snippets, measured server-side) is what actually matters
+  // against their plan's storageMB limit, not a browser-local estimate.
+  const { loading: entitlementsLoading, entitlements } = useEntitlements();
+
+  // Local-only fallback, used solely if entitlements haven't loaded yet (or
+  // fail to) — never the primary number for a signed-in user.
+  const [localBytes, setLocalBytes] = useState(0);
+  useEffect(() => {
+    const readLocalUsage = () => {
+      try {
+        const raw =
+          (window.localStorage.getItem(WORKFLOWS_STORAGE_KEY) ?? "") +
+          (window.localStorage.getItem(ACTIVE_ID_STORAGE_KEY) ?? "");
+        setLocalBytes(new Blob([raw]).size);
+      } catch {
+        setLocalBytes(0);
+      }
+    };
+    readLocalUsage();
+    const t = setTimeout(readLocalUsage, 700);
+    return () => clearTimeout(t);
+  }, [nodes, conns, workflows]);
+
+  const hasRealStorageData = !entitlementsLoading && !!entitlements;
+  const storageBytes = hasRealStorageData ? entitlements!.storageUsedBytes : localBytes;
+  const storageQuotaBytes = hasRealStorageData ? entitlements!.limits.storageMB * 1024 * 1024 : LOCAL_STORAGE_QUOTA_BYTES;
+  const storagePct = Math.min(100, Math.round((storageBytes / Math.max(storageQuotaBytes, 1)) * 100));
 
   const goToTemplates = () => {
     if (pathname === "/collections") {
@@ -114,9 +157,14 @@ function NavRailContent({ collapsed, onToggleCollapse, showCollapseButton }: { c
               Storage Used
             </div>
             <div className="h-1.5 overflow-hidden rounded-full bg-[var(--border-soft)]">
-              <div className="h-full w-[2%] rounded-full bg-[var(--primary)]" />
+              <div
+                className={`h-full rounded-full ${storagePct >= 90 ? "bg-[var(--danger)]" : "bg-[var(--primary)]"}`}
+                style={{ width: `${Math.max(storagePct, storageBytes > 0 ? 2 : 0)}%` }}
+              />
             </div>
-            <div className="mt-1.5 text-[10.5px] text-[var(--text-faint)]">0 KB / 5 MB</div>
+            <div className="mt-1.5 text-[10.5px] text-[var(--text-faint)]">
+              {formatBytes(storageBytes)} / {formatBytes(storageQuotaBytes)}
+            </div>
           </div>
 
           <button

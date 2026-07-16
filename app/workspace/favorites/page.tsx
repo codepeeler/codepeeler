@@ -5,18 +5,16 @@ import { Star, Workflow, Wrench } from "lucide-react";
 import NavRail from "@/components/workspace/NavRail";
 import CollectionsStatsBar from "@/components/collections/CollectionsStatsBar";
 import CollectionIcon from "@/components/collections/CollectionIcon";
-import CategoryBadge from "@/components/ui/CategoryBadge";
+import ToolCard from "@/components/ui/ToolCard";
 import { WorkflowProvider } from "@/providers/workflow-provider";
 import { COLLECTIONS } from "@/lib/data/collections";
-import { TOOLS } from "@/lib/data/tools";
-
-const PINNED_TOOL_IDS = ["json", "base64", "hash", "uuid", "regex", "password"];
+import { useFavoriteTools } from "@/hooks/use-favorite-tools";
 
 export default function FavoritesPage() {
   const starredCollections = COLLECTIONS.filter((c) => c.starred);
-  const pinnedTools = PINNED_TOOL_IDS.map((id) => TOOLS.find((t) => t.id === id)).filter(
-    (t): t is (typeof TOOLS)[number] => !!t
-  );
+  // Real per-account pinned tools (tool_favorite table) — replaces the old
+  // hardcoded PINNED_TOOL_IDS demo list.
+  const { favoriteTools, toggle: toggleFavorite } = useFavoriteTools();
 
   return (
     <WorkflowProvider>
@@ -85,27 +83,31 @@ export default function FavoritesPage() {
               <h2 className="mb-1 font-[family-name:var(--font-display)] text-[16px] font-semibold">
                 Pinned Tools
               </h2>
-              <p className="mb-3 text-[12.5px] text-[var(--text-faint)]">Quick links to your most-used tools</p>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                {pinnedTools.map((tool) => {
-                  const card = (
-                    <div className="group flex h-full cursor-pointer flex-col gap-2.5 rounded-[12px] border border-[var(--border)] bg-[var(--card)] p-4 transition-all duration-150 hover:-translate-y-0.5 hover:border-[color-mix(in_srgb,var(--primary)_45%,var(--border))] hover:shadow-[var(--shadow-soft)]">
-                      <CategoryBadge cat={tool.cat}>{tool.badge}</CategoryBadge>
-                      <div>
-                        <div className="text-sm font-semibold">{tool.name}</div>
-                        <div className="text-xs text-[var(--text-faint)]">{tool.desc}</div>
-                      </div>
-                    </div>
-                  );
-                  return tool.page ? (
-                    <Link key={tool.id} href={tool.page}>
-                      {card}
-                    </Link>
-                  ) : (
-                    <div key={tool.id}>{card}</div>
-                  );
-                })}
-              </div>
+              <p className="mb-3 text-[12.5px] text-[var(--text-faint)]">
+                Tools you&apos;ve pinned — tap the star on any tool card to pin or unpin it
+              </p>
+              {favoriteTools.length === 0 ? (
+                <div className="rounded-[12px] border border-dashed border-[var(--border)] px-6 py-10 text-center">
+                  <p className="text-[12.5px] text-[var(--text-faint)]">
+                    You haven&apos;t pinned any tools yet. Pin a tool from the{" "}
+                    <Link href="/tools" className="font-semibold text-[var(--primary)] hover:underline">
+                      Tools page
+                    </Link>{" "}
+                    or your dashboard to see it here.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                  {favoriteTools.map((tool) => (
+                    <ToolCard
+                      key={tool.id}
+                      tool={tool}
+                      isFavorite
+                      onToggleFavorite={(t) => toggleFavorite(t.id)}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </main>

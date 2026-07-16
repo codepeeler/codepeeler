@@ -178,7 +178,7 @@ function BottomPanelContent() {
                   key={f.key}
                   onClick={() => setLogFilter(f.key)}
                   className={cn(
-                    "rounded-full border border-[var(--border)] px-2.5 py-1 text-[10.5px] font-semibold text-[var(--text-faint)] transition-colors duration-150",
+                    "rounded-[8px] border border-[var(--border)] px-2.5 py-1 text-[10.5px] font-semibold text-[var(--text-faint)] transition-colors duration-150",
                     logFilter === f.key && "border-transparent bg-[var(--primary)] text-white"
                   )}
                 >
@@ -397,7 +397,7 @@ function BottomPanelContent() {
               {(["idle", "ok", "err", "busy"] as const).map((s) => (
                 <span
                   key={s}
-                  className="rounded-full border border-[var(--border)] px-2.5 py-1 text-[10.5px] capitalize text-[var(--text-dim)]"
+                  className="rounded-[8px] border border-[var(--border)] px-2.5 py-1 text-[10.5px] capitalize text-[var(--text-dim)]"
                 >
                   {s}: {stats.byStatus[s]}
                 </span>
@@ -419,7 +419,7 @@ function BottomPanelContent() {
                       borderColor: `color-mix(in srgb, ${NODE_CAT_COLOR[cat as keyof typeof NODE_CAT_COLOR]} 35%, transparent)`,
                       background: `color-mix(in srgb, ${NODE_CAT_COLOR[cat as keyof typeof NODE_CAT_COLOR]} 12%, transparent)`,
                     }}
-                    className="rounded-full border px-2.5 py-1 text-[10.5px] font-semibold capitalize"
+                    className="rounded-[8px] border px-2.5 py-1 text-[10.5px] font-semibold capitalize"
                   >
                     {cat}: {count}
                   </span>

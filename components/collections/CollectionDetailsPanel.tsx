@@ -94,7 +94,7 @@ export default function CollectionDetailsPanel({
                 <span className="truncate font-[family-name:var(--font-display)] text-[15px] font-semibold">
                   {collection.name}
                 </span>
-                <span className="flex-shrink-0 rounded-full bg-[var(--primary-dim)] px-2 py-[3px] text-[9.5px] font-semibold text-[var(--primary)]">
+                <span className="flex-shrink-0 rounded-[8px] bg-[var(--primary-dim)] px-2 py-[3px] text-[9.5px] font-semibold text-[var(--primary)]">
                   {OWNER_BADGE[collection.owner]}
                 </span>
               </div>
@@ -157,14 +157,14 @@ export default function CollectionDetailsPanel({
               {collection.tags.map((tag) => (
                 <span
                   key={tag}
-                  className="rounded-full border border-[var(--border-soft)] bg-[var(--card)] px-2 py-1 text-[11px] text-[var(--text-dim)]"
+                  className="rounded-[8px] border border-[var(--border-soft)] bg-[var(--card)] px-2 py-1 text-[11px] text-[var(--text-dim)]"
                 >
                   {tag}
                 </span>
               ))}
               <button
                 onClick={() => toast("Adding tags is coming soon")}
-                className="flex items-center gap-1 rounded-full border border-dashed border-[var(--border)] px-2 py-1 text-[11px] text-[var(--text-faint)] transition-colors duration-150 hover:border-[var(--primary)] hover:text-[var(--primary)]"
+                className="flex items-center gap-1 rounded-[8px] border border-dashed border-[var(--border)] px-2 py-1 text-[11px] text-[var(--text-faint)] transition-colors duration-150 hover:border-[var(--primary)] hover:text-[var(--primary)]"
               >
                 <Plus size={11} /> Add Tag
               </button>

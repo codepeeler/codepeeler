@@ -42,7 +42,7 @@ export default function AboutPage() {
           <div className="mb-9 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[
               [`${toolCount}+`, "Developer Tools"],
-              ["Offline First", "Most tools work offline"],
+              ["Workflow Canvas", "Drag & drop builder"],
               ["Secure & Private", "Your data stays in your browser"],
               ["24/7", "Support"],
             ].map(([big, small]) => (

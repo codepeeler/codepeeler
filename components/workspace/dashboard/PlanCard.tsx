@@ -41,7 +41,7 @@ export default function PlanCard() {
           </div>
         </div>
         {!loading && (
-          <span className="flex-shrink-0 rounded-full bg-[color-mix(in_srgb,var(--success)_16%,transparent)] px-2 py-0.5 text-[10px] font-semibold text-[var(--success)]">
+          <span className="flex-shrink-0 rounded-[8px] bg-[color-mix(in_srgb,var(--success)_16%,transparent)] px-2 py-0.5 text-[10px] font-semibold text-[var(--success)]">
             Active
           </span>
         )}

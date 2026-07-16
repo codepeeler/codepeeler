@@ -52,7 +52,7 @@ export default function BlogPostCard({ post, compact = false }: { post: BlogPost
 
       <div className="flex flex-1 flex-col p-4">
         <span
-          className="mb-1.5 w-fit rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.04em]"
+          className="mb-1.5 w-fit rounded-[8px] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.04em]"
           style={{ color, background: `color-mix(in srgb, ${color} 14%, transparent)` }}
         >
           {post.category}

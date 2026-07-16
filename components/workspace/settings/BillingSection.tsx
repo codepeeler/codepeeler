@@ -55,6 +55,7 @@ export default function BillingSection() {
   const aiCallsUsed = entitlements?.usage["ai-calls"] ?? 0;
   const aiCallsLimit = entitlements?.limits.aiCallsPerMonth ?? 0;
   const storageLimitMB = entitlements?.limits.storageMB ?? 0;
+  const storageUsedMB = (entitlements?.storageUsedBytes ?? 0) / (1024 * 1024);
 
   const handleCancel = async () => {
     if (!billing) return;
@@ -136,6 +137,10 @@ export default function BillingSection() {
             {isPro && billing && (
               <div className="mb-4 flex flex-wrap gap-x-6 gap-y-1 rounded-[9px] bg-[var(--card)]/60 px-3 py-2.5 text-[12px]">
                 <div>
+                  <span className="text-[var(--text-faint)]">Subscribed since</span>{" "}
+                  <span className="font-medium text-[var(--text)]">{formatDate(billing.startedAt)}</span>
+                </div>
+                <div>
                   <span className="text-[var(--text-faint)]">
                     {billing.status === "authenticated" ? "Trial ends" : "Next billing date"}
                   </span>{" "}
@@ -153,11 +158,24 @@ export default function BillingSection() {
               {aiCallsLimit > 0 && (
                 <UsageBar label="AI calls this month" used={aiCallsUsed} limit={aiCallsLimit} />
               )}
-              <div className="flex items-center justify-between text-[12px]">
-                <span className="text-[var(--text-dim)]">Storage limit</span>
-                <span className="font-medium text-[var(--text)]">
-                  {Number.isFinite(storageLimitMB) ? `${storageLimitMB.toLocaleString()} MB` : "Unlimited"}
-                </span>
+              <div>
+                <div className="mb-1.5 flex items-center justify-between text-[12px]">
+                  <span className="text-[var(--text-dim)]">Storage used</span>
+                  <span className="font-medium text-[var(--text)]">
+                    {storageUsedMB < 1 ? `${(storageUsedMB * 1024).toFixed(0)} KB` : `${storageUsedMB.toFixed(1)} MB`} /{" "}
+                    {storageLimitMB.toLocaleString()} MB
+                  </span>
+                </div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--border-soft)]">
+                  <div
+                    className={`h-full rounded-full ${
+                      storageUsedMB / Math.max(storageLimitMB, 1) >= 0.9 ? "bg-[var(--danger)]" : "bg-[var(--primary)]"
+                    }`}
+                    style={{
+                      width: `${Math.min(100, Math.round((storageUsedMB / Math.max(storageLimitMB, 1)) * 100))}%`,
+                    }}
+                  />
+                </div>
               </div>
             </div>
 

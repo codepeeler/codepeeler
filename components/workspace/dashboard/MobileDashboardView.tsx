@@ -30,6 +30,8 @@ export default function MobileDashboardView() {
     totalAiCalls,
     recentCollections,
     favoriteTools,
+    isFavoriteTool,
+    toggleFavoriteTool,
     recentTools,
     recentWorkflows,
     spotlightCollection,
@@ -120,11 +122,19 @@ export default function MobileDashboardView() {
                   View all →
                 </Link>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                {favoriteTools.map((t) => (
-                  <ToolCard key={t.id} tool={t} />
-                ))}
-              </div>
+              {favoriteTools.length === 0 ? (
+                <div className="rounded-[12px] border border-dashed border-[var(--border)] px-4 py-6 text-center">
+                  <p className="text-[12px] text-[var(--text-faint)]">
+                    No favorite tools yet — tap the star on any tool card to pin it here.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  {favoriteTools.map((t) => (
+                    <ToolCard key={t.id} tool={t} isFavorite onToggleFavorite={(tool) => toggleFavoriteTool(tool.id)} />
+                  ))}
+                </div>
+              )}
             </div>
 
             {recentTools.length > 0 && (
@@ -136,7 +146,12 @@ export default function MobileDashboardView() {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   {recentTools.map((t) => (
-                    <ToolCard key={t.id} tool={t} />
+                    <ToolCard
+                      key={t.id}
+                      tool={t}
+                      isFavorite={isFavoriteTool(t.id)}
+                      onToggleFavorite={(tool) => toggleFavoriteTool(tool.id)}
+                    />
                   ))}
                 </div>
               </div>
@@ -203,7 +218,7 @@ export default function MobileDashboardView() {
                     >
                       <Icon size={15} className="flex-shrink-0 text-[var(--text-faint)]" />
                       <span className="flex-1">{label}</span>
-                      <span className="flex-shrink-0 rounded-full border border-[var(--border)] px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-[0.03em] text-[var(--text-faint)]">
+                      <span className="flex-shrink-0 rounded-[8px] border border-[var(--border)] px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-[0.03em] text-[var(--text-faint)]">
                         Soon
                       </span>
                     </div>

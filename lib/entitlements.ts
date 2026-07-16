@@ -2,6 +2,7 @@ import { eq, and, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { subscription } from "@/lib/db/schema";
 import { getUsageSnapshot, type UsageType } from "@/lib/usage";
+import { getStorageUsageBytes } from "@/lib/storage-usage";
 
 /**
  * Single source of truth for "what can this plan do". Two kinds of gates:
@@ -75,7 +76,8 @@ export type BillingInfo = {
   subscriptionId: string;
   billingCycle: "monthly" | "yearly";
   status: string;
-  currentPeriodEnd: string | null; // ISO string, null if not yet known
+  startedAt: string; // ISO string — when this subscription was first created (purchase date)
+  currentPeriodEnd: string | null; // ISO string, null if not yet known — next renewal / expiry date
 } | null;
 
 /**
@@ -85,7 +87,7 @@ export type BillingInfo = {
  * access — every route/component calls this, never queries `subscription` directly.
  */
 export async function getUserEntitlements(userId: string): Promise<
-  Entitlements & { usage: Record<UsageType, number>; billing: BillingInfo }
+  Entitlements & { usage: Record<UsageType, number>; billing: BillingInfo; storageUsedBytes: number }
 > {
   const [activeSub] = await db
     .select()
@@ -94,18 +96,22 @@ export async function getUserEntitlements(userId: string): Promise<
 
   const plan: PlanKey = activeSub ? "pro" : "free";
   const entitlements = ENTITLEMENTS_BY_PLAN[plan];
-  const usage = await getUsageSnapshot(userId);
+  const [usage, storageUsedBytes] = await Promise.all([
+    getUsageSnapshot(userId),
+    getStorageUsageBytes(userId),
+  ]);
 
   const billing: BillingInfo = activeSub
     ? {
         subscriptionId: activeSub.id,
         billingCycle: activeSub.billingCycle as "monthly" | "yearly",
         status: activeSub.status,
+        startedAt: activeSub.createdAt.toISOString(),
         currentPeriodEnd: activeSub.currentPeriodEnd ? activeSub.currentPeriodEnd.toISOString() : null,
       }
     : null;
 
-  return { ...entitlements, usage, billing };
+  return { ...entitlements, usage, billing, storageUsedBytes };
 }
 
 export function hasCapability(entitlements: Entitlements, capability: Capability): boolean {

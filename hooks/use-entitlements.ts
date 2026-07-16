@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import type { Capability, Entitlements, BillingInfo } from "@/lib/entitlements";
 import type { UsageType } from "@/lib/usage";
 
-type EntitlementsResponse = Entitlements & { usage: Record<UsageType, number>; billing: BillingInfo };
+type EntitlementsResponse = Entitlements & { usage: Record<UsageType, number>; billing: BillingInfo; storageUsedBytes: number };
 
 type State = {
   data: EntitlementsResponse | null;

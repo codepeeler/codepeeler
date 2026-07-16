@@ -120,7 +120,7 @@ export default function CollectionCard({
         {c.tags.slice(0, 3).map((tag) => (
           <span
             key={tag}
-            className="rounded-full border border-[var(--border-soft)] bg-[var(--bg)] px-2 py-0.5 text-[10.5px] text-[var(--text-dim)]"
+            className="rounded-[8px] border border-[var(--border-soft)] bg-[var(--bg)] px-2 py-0.5 text-[10.5px] text-[var(--text-dim)]"
           >
             {tag}
           </span>

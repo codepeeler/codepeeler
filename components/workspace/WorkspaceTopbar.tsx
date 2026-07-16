@@ -37,7 +37,7 @@ export default function WorkspaceTopbar() {
         className="min-w-[120px] max-w-[260px] rounded-[7px] border border-transparent px-[9px] py-1.5 font-[family-name:var(--font-display)] text-sm font-semibold transition-colors duration-150 hover:border-[var(--border)] hover:bg-[var(--card)] focus:border-[var(--primary)] focus:bg-[var(--card)]"
       />
 
-      <span className="flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-[color-mix(in_srgb,var(--success)_14%,transparent)] py-1 pl-[7px] pr-[9px] text-[11px] font-semibold text-[var(--success)]">
+      <span className="flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[8px] bg-[color-mix(in_srgb,var(--success)_14%,transparent)] py-1 pl-[7px] pr-[9px] text-[11px] font-semibold text-[var(--success)]">
         <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-current" />
         Saved locally
       </span>

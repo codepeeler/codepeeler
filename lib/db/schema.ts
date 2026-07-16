@@ -168,6 +168,20 @@ export const toolUsage = pgTable("tool_usage", {
   lastUsedAt: timestamp("last_used_at").notNull().defaultNow(),
 });
 
+// Per-user, per-tool pin — the user explicitly starred this tool via the
+// pin control (dashboard + Favorites page). Distinct from `toolUsage` above
+// (an automatic most-opened counter): a tool can be heavily used but never
+// pinned, or pinned but rarely opened. Composite-unique on (userId, toolId),
+// same shape as `snippetBookmark` below, so pin/unpin is a plain insert/delete.
+export const toolFavorite = pgTable("tool_favorite", {
+  id: text("id").primaryKey(), // `${userId}:${toolId}`
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  toolId: text("tool_id").notNull(), // matches Tool.id in lib/data/tools.ts
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // Chronological "what did this user do" history — one row per meaningful
 // action (tool opened, snippet created/viewed/used, collection
 // created/updated, workflow created/run). This is the missing piece the

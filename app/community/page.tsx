@@ -21,7 +21,7 @@ export default function CommunityPage() {
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-[12px] bg-[color-mix(in_srgb,var(--primary)_16%,transparent)] text-[var(--primary)]">
               <Users size={22} />
             </div>
-            <span className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] px-2.5 py-1 text-[10.5px] font-semibold uppercase tracking-[0.04em] text-[var(--text-faint)]">
+            <span className="mb-2 inline-flex items-center gap-1.5 rounded-[8px] border border-[var(--border)] px-2.5 py-1 text-[10.5px] font-semibold uppercase tracking-[0.04em] text-[var(--text-faint)]">
               <Clock size={11} /> Coming Soon
             </span>
             <h1 className="mb-2 font-[family-name:var(--font-display)] text-[24px] font-bold tracking-[-0.01em]">

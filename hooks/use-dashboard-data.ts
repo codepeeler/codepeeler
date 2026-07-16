@@ -19,9 +19,7 @@ import {
 } from "lucide-react";
 import { TOOLS } from "@/lib/data/tools";
 import { formatTimeAgo } from "@/lib/utils";
-
-// Same six tools already surfaced as favorites elsewhere on the site.
-const FAVORITE_TOOL_IDS = ["json", "jwt", "base64", "regex", "hash", "url"];
+import { useFavoriteTools } from "@/hooks/use-favorite-tools";
 
 // Distinct from the sidebar nav — these are one-off actions, not another
 // copy of the same page links. Anything not shipped yet is marked
@@ -99,6 +97,9 @@ export function useDashboardData() {
   const [recentToolsUsage, setRecentToolsUsage] = useState<ApiToolUsage[]>([]);
   const [recentActivity, setRecentActivity] = useState<ApiActivityEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  // Real pin/unpin favorites (tool_favorite table) — separate signal from
+  // toolUsage below, which is just an automatic most-opened counter.
+  const { favoriteTools, isFavorite, toggle: toggleFavorite, loading: favoritesLoading } = useFavoriteTools();
 
   useEffect(() => {
     let cancelled = false;
@@ -173,17 +174,6 @@ export function useDashboardData() {
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     .slice(0, 5);
 
-  // Real usage first — a user's actual most-opened tools (see
-  // /api/tools/usage, backed by the tool_usage table). Brand new accounts
-  // have no rows yet, so fall back to the same fixed starter list as
-  // before rather than showing an empty section on day one.
-  const usedTools = toolUsage
-    .map((u) => TOOLS.find((t) => t.id === u.toolId))
-    .filter((t): t is (typeof TOOLS)[number] => !!t);
-  const favoriteTools = usedTools.length > 0 ? usedTools : FAVORITE_TOOL_IDS.map((id) => TOOLS.find((t) => t.id === id)).filter(
-    (t): t is (typeof TOOLS)[number] => !!t
-  );
-
   const recentTools = recentToolsUsage
     .map((u) => TOOLS.find((t) => t.id === u.toolId))
     .filter((t): t is (typeof TOOLS)[number] => !!t);
@@ -231,6 +221,9 @@ export function useDashboardData() {
     aiCallsLimit,
     recentCollections,
     favoriteTools,
+    isFavoriteTool: isFavorite,
+    toggleFavoriteTool: toggleFavorite,
+    favoritesLoading,
     recentTools,
     recentWorkflows,
     spotlightCollection,

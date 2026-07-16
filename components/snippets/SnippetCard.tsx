@@ -58,7 +58,7 @@ export default function SnippetCard({
             </button>
           )}
           <span
-            className="rounded-full border px-2 py-0.5 text-[10.5px] font-semibold"
+            className="rounded-[8px] border px-2 py-0.5 text-[10.5px] font-semibold"
             style={{
               color,
               borderColor: `color-mix(in srgb, ${color} 35%, transparent)`,
