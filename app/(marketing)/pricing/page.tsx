@@ -6,6 +6,7 @@ import { ChevronRight, Check, Sparkles, Rocket, CreditCard, ShieldCheck, LifeBuo
 import Button from "@/components/ui/Button";
 import { useCheckout } from "@/hooks/use-checkout";
 import { useToast } from "@/providers/toast-provider";
+import { useSession } from "@/lib/auth-client";
 import {
   PLANS,
   COMPARE_ROWS,
@@ -41,6 +42,7 @@ function BillingToggle({ cycle, onChange }: { cycle: BillingCycle; onChange: (c:
 function PlanCard({ plan, cycle }: { plan: Plan; cycle: BillingCycle }) {
   const { startCheckout, loading } = useCheckout();
   const { toast } = useToast();
+  const { data: session } = useSession();
   const price = plan.price[cycle];
 
   const handleCta = () => {
@@ -96,8 +98,13 @@ function PlanCard({ plan, cycle }: { plan: Plan; cycle: BillingCycle }) {
 
       <div className="mt-4">
         {plan.cta.type === "signup" && (
-          <Button href="/signup" size="lg" variant="outline" className="w-full justify-center">
-            {plan.cta.label}
+          <Button
+            href={session ? "/workspace/dashboard" : "/signup"}
+            size="lg"
+            variant="outline"
+            className="w-full justify-center"
+          >
+            {session ? "Go to Dashboard" : plan.cta.label}
           </Button>
         )}
         {plan.cta.type === "contact" && (

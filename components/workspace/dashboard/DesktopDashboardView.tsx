@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Layers, Workflow, Wrench, Zap, ChevronRight, Clock, Plus, Flame } from "lucide-react";
+import { Layers, Workflow, Wrench, Zap, ChevronRight, Clock, Plus, Flame, Sparkles } from "lucide-react";
 import Sidebar from "@/components/layout/Sidebar";
 import CollectionsStatsBar from "@/components/collections/CollectionsStatsBar";
 import CollectionIcon from "@/components/collections/CollectionIcon";
@@ -22,8 +22,10 @@ export default function DesktopDashboardView() {
     totalWorkflows,
     totalTools,
     totalExecutions,
+    totalAiCalls,
     recentCollections,
     favoriteTools,
+    recentTools,
     recentWorkflows,
     spotlightCollection,
     recentActivity,
@@ -52,7 +54,7 @@ export default function DesktopDashboardView() {
               </Button>
             </div>
 
-            <div className="mb-7 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="mb-7 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
               <StatCard icon={Layers} label="Collections" value={totalCollections} color="var(--primary)" />
               <StatCard icon={Workflow} label="Total Workflows" value={totalWorkflows} color="var(--secondary)" />
               <StatCard icon={Wrench} label="Total Tools" value={totalTools} color="var(--success)" />
@@ -61,6 +63,12 @@ export default function DesktopDashboardView() {
                 label="Total Executions"
                 value={totalExecutions.toLocaleString()}
                 color="var(--warning)"
+              />
+              <StatCard
+                icon={Sparkles}
+                label="AI Assist Calls"
+                value={totalAiCalls.toLocaleString()}
+                color="var(--accent)"
               />
             </div>
 
@@ -109,6 +117,19 @@ export default function DesktopDashboardView() {
                 ))}
               </div>
             </div>
+
+            {recentTools.length > 0 && (
+              <div className="mb-7">
+                <div className="mb-3 flex items-center justify-between">
+                  <h2 className="font-[family-name:var(--font-display)] text-[16px] font-semibold">Recent Tools</h2>
+                </div>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                  {recentTools.map((t) => (
+                    <ToolCard key={t.id} tool={t} />
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div>
               <div className="mb-3 flex items-center justify-between">

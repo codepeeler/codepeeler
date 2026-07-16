@@ -7,6 +7,7 @@ export const user = pgTable("user", {
   emailVerified: boolean("email_verified").notNull().default(false),
   image: text("image"),
   role: text("role").notNull().default("user"), // "user" | "admin" — gates /admin and /api/admin/*
+  banned: boolean("banned").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -187,7 +188,6 @@ export const activityEvent = pgTable("activity_event", {
   entityName: text("entity_name"), // display name at the time of the event
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
-
 
 // Per-user bookmark on a snippet. Composite-unique on (snippetId, userId) so
 // toggling bookmark is a simple insert/delete, no boolean flag on `snippet`

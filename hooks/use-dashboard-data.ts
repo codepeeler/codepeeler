@@ -92,7 +92,11 @@ export function useDashboardData() {
   const [collections, setCollections] = useState<ApiCollection[]>([]);
   const [workflows, setWorkflows] = useState<ApiWorkflow[]>([]);
   const [executions, setExecutions] = useState(0);
+  const [aiCalls, setAiCalls] = useState(0);
+  const [aiCallsLimit, setAiCallsLimit] = useState(0);
+  const [executionsLimit, setExecutionsLimit] = useState(0);
   const [toolUsage, setToolUsage] = useState<ApiToolUsage[]>([]);
+  const [recentToolsUsage, setRecentToolsUsage] = useState<ApiToolUsage[]>([]);
   const [recentActivity, setRecentActivity] = useState<ApiActivityEvent[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -113,7 +117,7 @@ export function useDashboardData() {
           collectionsRes.ok ? collectionsRes.json() : { collections: [] },
           workflowsRes.ok ? workflowsRes.json() : { workflows: [] },
           entitlementsRes.ok ? entitlementsRes.json() : null,
-          toolUsageRes.ok ? toolUsageRes.json() : { tools: [] },
+          toolUsageRes.ok ? toolUsageRes.json() : { tools: [], recent: [] },
           activityRes.ok ? activityRes.json() : { activity: [] },
         ]);
 
@@ -121,14 +125,22 @@ export function useDashboardData() {
         setCollections(collectionsData.collections ?? []);
         setWorkflows(workflowsData.workflows ?? []);
         setExecutions((entitlementsData as ApiEntitlements | null)?.usage?.executions ?? 0);
+        setAiCalls((entitlementsData as any)?.usage?.["ai-calls"] ?? 0);
+        setAiCallsLimit((entitlementsData as any)?.limits?.aiCallsPerMonth ?? 0);
+        setExecutionsLimit((entitlementsData as any)?.limits?.executionsPerMonth ?? 0);
         setToolUsage(toolUsageData.tools ?? []);
+        setRecentToolsUsage(toolUsageData.recent ?? []);
         setRecentActivity(activityData.activity ?? []);
       } catch {
         if (!cancelled) {
           setCollections([]);
           setWorkflows([]);
           setExecutions(0);
+          setAiCalls(0);
+          setAiCallsLimit(0);
+          setExecutionsLimit(0);
           setToolUsage([]);
+          setRecentToolsUsage([]);
           setRecentActivity([]);
         }
       } finally {
@@ -172,6 +184,10 @@ export function useDashboardData() {
     (t): t is (typeof TOOLS)[number] => !!t
   );
 
+  const recentTools = recentToolsUsage
+    .map((u) => TOOLS.find((t) => t.id === u.toolId))
+    .filter((t): t is (typeof TOOLS)[number] => !!t);
+
   const collectionNameById = new Map(collections.map((c) => [c.id, c.name]));
 
   const recentWorkflows = [...workflows]
@@ -210,8 +226,12 @@ export function useDashboardData() {
     totalWorkflows: workflows.length,
     totalTools: TOOLS.length,
     totalExecutions: executions,
+    executionsLimit,
+    totalAiCalls: aiCalls,
+    aiCallsLimit,
     recentCollections,
     favoriteTools,
+    recentTools,
     recentWorkflows,
     spotlightCollection,
     recentActivity,

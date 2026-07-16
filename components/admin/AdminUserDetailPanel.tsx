@@ -37,9 +37,21 @@ type Props = {
   onGrantPro: (userId: string) => void;
   onRevokePro: (userId: string) => void;
   onResetUsage: (userId: string, type: "executions" | "ai-calls" | "all") => void;
+  onToggleBan: (userId: string, banned: boolean) => void;
+  onToggleRole: (userId: string, role: "admin" | "user") => void;
 };
 
-export default function AdminUserDetailPanel({ detail, loading, actionPending, onClose, onGrantPro, onRevokePro, onResetUsage }: Props) {
+export default function AdminUserDetailPanel({
+  detail,
+  loading,
+  actionPending,
+  onClose,
+  onGrantPro,
+  onRevokePro,
+  onResetUsage,
+  onToggleBan,
+  onToggleRole,
+}: Props) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
@@ -68,11 +80,16 @@ export default function AdminUserDetailPanel({ detail, loading, actionPending, o
             <>
               <div className="mb-5 flex items-start justify-between gap-3">
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <h3 className="text-[16px] font-bold">{detail.user.name}</h3>
                     {detail.user.role === "admin" && (
                       <span className="flex items-center gap-1 rounded-full bg-[var(--primary)]/10 px-2 py-[3px] text-[10.5px] font-bold text-[var(--primary)]">
                         <Shield size={11} /> Admin
+                      </span>
+                    )}
+                    {detail.user.banned && (
+                      <span className="flex items-center gap-1 rounded-full bg-[var(--danger)]/10 px-2 py-[3px] text-[10.5px] font-bold text-[var(--danger)] animate-pulse">
+                        <Ban size={11} /> Banned
                       </span>
                     )}
                   </div>
@@ -87,23 +104,45 @@ export default function AdminUserDetailPanel({ detail, loading, actionPending, o
                   <div className="mt-1 text-[11.5px] text-[var(--text-faint)]">Joined {formatDate(detail.user.createdAt)}</div>
                 </div>
 
-                {isPro ? (
+                <div className="flex flex-col gap-2 min-w-[130px]">
+                  {isPro ? (
+                    <button
+                      onClick={() => onRevokePro(detail.user.id)}
+                      disabled={actionPending}
+                      className="flex h-8 w-full items-center justify-center gap-1.5 rounded-[8px] border border-[var(--danger)] px-3 text-[12px] font-semibold text-[var(--danger)] transition-opacity duration-150 hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <Sparkles size={13} /> Revoke Pro
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => onGrantPro(detail.user.id)}
+                      disabled={actionPending}
+                      className="flex h-8 w-full items-center justify-center gap-1.5 rounded-[8px] bg-[var(--primary)] px-3 text-[12px] font-semibold text-white transition-opacity duration-150 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <Sparkles size={13} /> Grant Pro
+                    </button>
+                  )}
+
                   <button
-                    onClick={() => onRevokePro(detail.user.id)}
+                    onClick={() => onToggleBan(detail.user.id, !detail.user.banned)}
                     disabled={actionPending}
-                    className="flex h-8 flex-shrink-0 items-center gap-1.5 rounded-[8px] border border-[var(--danger)] px-3 text-[12px] font-semibold text-[var(--danger)] transition-opacity duration-150 hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-40"
+                    className={`flex h-8 w-full items-center justify-center gap-1.5 rounded-[8px] px-3 text-[12px] font-semibold transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40 ${
+                      detail.user.banned
+                        ? "bg-[var(--success)] text-white hover:opacity-90"
+                        : "border border-[var(--danger)] text-[var(--danger)] hover:bg-[var(--danger)]/10"
+                    }`}
                   >
-                    <Ban size={13} /> Revoke Pro
+                    <Ban size={13} /> {detail.user.banned ? "Unban User" : "Ban User"}
                   </button>
-                ) : (
+
                   <button
-                    onClick={() => onGrantPro(detail.user.id)}
+                    onClick={() => onToggleRole(detail.user.id, detail.user.role === "admin" ? "user" : "admin")}
                     disabled={actionPending}
-                    className="flex h-8 flex-shrink-0 items-center gap-1.5 rounded-[8px] bg-[var(--primary)] px-3 text-[12px] font-semibold text-white transition-opacity duration-150 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="flex h-8 w-full items-center justify-center gap-1.5 rounded-[8px] border border-[var(--border)] bg-[var(--card)] px-3 text-[12px] font-semibold text-[var(--text-dim)] hover:text-[var(--text)] transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    <Sparkles size={13} /> Grant Pro
+                    <Shield size={13} /> {detail.user.role === "admin" ? "Demote" : "Promote Admin"}
                   </button>
-                )}
+                </div>
               </div>
 
               <div className="mb-5 grid grid-cols-2 gap-3">

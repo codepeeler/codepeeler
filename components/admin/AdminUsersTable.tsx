@@ -82,7 +82,21 @@ export default function AdminUsersTable({ query, setQuery, onSearchSubmit, users
                   onClick={() => onSelectUser(u.id)}
                   className="cursor-pointer border-b border-[var(--border-soft)] transition-colors duration-150 last:border-0 hover:bg-[var(--card-hover)]"
                 >
-                  <td className="px-4 py-3 font-medium text-[var(--text)]">{u.name}</td>
+                  <td className="px-4 py-3 font-medium text-[var(--text)]">
+                    <div className="flex items-center gap-1.5">
+                      <span>{u.name}</span>
+                      {u.role === "admin" && (
+                        <span className="rounded bg-[var(--primary)]/10 px-1.5 py-0.5 text-[9px] font-bold text-[var(--primary)] uppercase tracking-wide">
+                          Admin
+                        </span>
+                      )}
+                      {u.banned && (
+                        <span className="rounded bg-[var(--danger)]/10 px-1.5 py-0.5 text-[9px] font-bold text-[var(--danger)] uppercase tracking-wide">
+                          Banned
+                        </span>
+                      )}
+                    </div>
+                  </td>
                   <td className="px-4 py-3">
                     <PlanPill plan={u.plan} />
                   </td>

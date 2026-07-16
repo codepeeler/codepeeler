@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import type { Capability, Entitlements } from "@/lib/entitlements";
+import type { Capability, Entitlements, BillingInfo } from "@/lib/entitlements";
 import type { UsageType } from "@/lib/usage";
 
-type EntitlementsResponse = Entitlements & { usage: Record<UsageType, number> };
+type EntitlementsResponse = Entitlements & { usage: Record<UsageType, number>; billing: BillingInfo };
 
 type State = {
   data: EntitlementsResponse | null;
@@ -45,6 +45,7 @@ export function useEntitlements() {
   return {
     loading: state.loading,
     entitlements: state.data,
+    billing: state.data?.billing ?? null,
     plan,
     isPro,
     hasCapability,

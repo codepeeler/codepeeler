@@ -39,6 +39,8 @@ export default function AdminPage() {
     handleGrantPro,
     handleRevokePro,
     handleResetUsage,
+    handleToggleBan,
+    handleToggleRole,
   } = useAdminPanel();
 
   if (checkingAccess || !isAdmin) {
@@ -83,6 +85,8 @@ export default function AdminPage() {
           onGrantPro={handleGrantPro}
           onRevokePro={handleRevokePro}
           onResetUsage={handleResetUsage}
+          onToggleBan={handleToggleBan}
+          onToggleRole={handleToggleRole}
         />
       )}
     </>

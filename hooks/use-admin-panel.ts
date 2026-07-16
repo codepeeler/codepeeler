@@ -20,6 +20,7 @@ export type AdminUserRow = {
   email: string;
   emailVerified: boolean;
   role: string;
+  banned: boolean;
   createdAt: string;
   plan: "free" | "pro";
   subscriptionStatus: string | null;
@@ -30,7 +31,7 @@ export type AdminUserRow = {
 };
 
 export type AdminUserDetail = {
-  user: { id: string; name: string; email: string; emailVerified: boolean; role: string; createdAt: string };
+  user: { id: string; name: string; email: string; emailVerified: boolean; role: string; banned: boolean; createdAt: string };
   subscriptions: Array<{
     id: string;
     planId: string;
@@ -218,6 +219,40 @@ export function useAdminPanel() {
     }
   };
 
+  const handleToggleBan = async (userId: string, banned: boolean) => {
+    setActionPending(true);
+    try {
+      await fetchJson(`/api/admin/users/${userId}/ban`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ banned }),
+      });
+      toast(banned ? "User banned" : "User unbanned");
+      await refreshAfterAction();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Couldn't toggle ban state");
+    } finally {
+      setActionPending(false);
+    }
+  };
+
+  const handleToggleRole = async (userId: string, role: "admin" | "user") => {
+    setActionPending(true);
+    try {
+      await fetchJson(`/api/admin/users/${userId}/role`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role }),
+      });
+      toast(`User role updated to ${role}`);
+      await refreshAfterAction();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Couldn't update role");
+    } finally {
+      setActionPending(false);
+    }
+  };
+
   return {
     isAdmin,
     checkingAccess: sessionPending || !session,
@@ -243,5 +278,7 @@ export function useAdminPanel() {
     handleGrantPro,
     handleRevokePro,
     handleResetUsage,
+    handleToggleBan,
+    handleToggleRole,
   };
 }

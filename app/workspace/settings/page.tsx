@@ -5,6 +5,7 @@ import { useTheme } from "next-themes";
 import { Sun, Moon, Trash2, RotateCcw, Menu } from "lucide-react";
 import NavRail, { NAV_RAIL_PANEL_ID } from "@/components/workspace/NavRail";
 import CollectionsStatsBar from "@/components/collections/CollectionsStatsBar";
+import BillingSection from "@/components/workspace/settings/BillingSection";
 import Toggle from "@/components/ui/Toggle";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/providers/toast-provider";
@@ -70,6 +71,8 @@ export default function SettingsPage() {
                 Manage your appearance, notifications and workspace preferences
               </p>
             </div>
+
+            <BillingSection />
 
             <SettingsSection title="Appearance" description="Choose how CodePeeler looks on your device">
               <div className="flex items-center justify-between rounded-[9px] px-3 py-2.5">

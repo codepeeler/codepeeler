@@ -71,6 +71,13 @@ export const ENTITLEMENTS_BY_PLAN: Record<PlanKey, Entitlements> = {
 const PRO_ACTIVE_STATUSES = ["authenticated", "active"];
 export { PRO_ACTIVE_STATUSES };
 
+export type BillingInfo = {
+  subscriptionId: string;
+  billingCycle: "monthly" | "yearly";
+  status: string;
+  currentPeriodEnd: string | null; // ISO string, null if not yet known
+} | null;
+
 /**
  * Resolves a user's plan from the subscription table, then returns their
  * full entitlements + current usage against the metered limits.
@@ -78,7 +85,7 @@ export { PRO_ACTIVE_STATUSES };
  * access — every route/component calls this, never queries `subscription` directly.
  */
 export async function getUserEntitlements(userId: string): Promise<
-  Entitlements & { usage: Record<UsageType, number> }
+  Entitlements & { usage: Record<UsageType, number>; billing: BillingInfo }
 > {
   const [activeSub] = await db
     .select()
@@ -89,7 +96,16 @@ export async function getUserEntitlements(userId: string): Promise<
   const entitlements = ENTITLEMENTS_BY_PLAN[plan];
   const usage = await getUsageSnapshot(userId);
 
-  return { ...entitlements, usage };
+  const billing: BillingInfo = activeSub
+    ? {
+        subscriptionId: activeSub.id,
+        billingCycle: activeSub.billingCycle as "monthly" | "yearly",
+        status: activeSub.status,
+        currentPeriodEnd: activeSub.currentPeriodEnd ? activeSub.currentPeriodEnd.toISOString() : null,
+      }
+    : null;
+
+  return { ...entitlements, usage, billing };
 }
 
 export function hasCapability(entitlements: Entitlements, capability: Capability): boolean {

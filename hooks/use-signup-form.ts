@@ -159,8 +159,7 @@ export function useSignupForm() {
     }
 
     toast("Email verified — signing you in");
-    router.push(redirect);
-    router.refresh();
+    window.location.href = redirect;
   };
 
   const handleOAuth = async (provider: "google" | "github") => {

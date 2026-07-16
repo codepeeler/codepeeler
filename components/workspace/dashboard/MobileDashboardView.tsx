@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Layers, Workflow, Wrench, Zap, ChevronRight, Clock, Plus, Flame, Menu } from "lucide-react";
+import { Layers, Workflow, Wrench, Zap, ChevronRight, Clock, Plus, Flame, Menu, Sparkles } from "lucide-react";
 import MobileHeader from "@/components/layout/mobile/MobileHeader";
 import MobileFooter from "@/components/layout/mobile/MobileFooter";
 import Sidebar, { SIDEBAR_PANEL_ID } from "@/components/layout/Sidebar";
@@ -27,8 +27,10 @@ export default function MobileDashboardView() {
     totalWorkflows,
     totalTools,
     totalExecutions,
+    totalAiCalls,
     recentCollections,
     favoriteTools,
+    recentTools,
     recentWorkflows,
     spotlightCollection,
     recentActivity,
@@ -70,6 +72,14 @@ export default function MobileDashboardView() {
                 value={totalExecutions.toLocaleString()}
                 color="var(--warning)"
               />
+              <div className="col-span-2">
+                <StatCard
+                  icon={Sparkles}
+                  label="AI Assist Calls"
+                  value={totalAiCalls.toLocaleString()}
+                  color="var(--accent)"
+                />
+              </div>
             </div>
 
             <div className="mb-6">
@@ -116,6 +126,21 @@ export default function MobileDashboardView() {
                 ))}
               </div>
             </div>
+
+            {recentTools.length > 0 && (
+              <div className="mb-6">
+                <div className="mb-2.5 flex items-center justify-between">
+                  <h2 className="font-[family-name:var(--font-display)] text-[14.5px] font-semibold">
+                    Recent Tools
+                  </h2>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {recentTools.map((t) => (
+                    <ToolCard key={t.id} tool={t} />
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="mb-6">
               <div className="mb-2.5 flex items-center justify-between">

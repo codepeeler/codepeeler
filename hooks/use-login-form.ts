@@ -59,7 +59,7 @@ export function useLoginForm() {
     }
 
     toast("Signed in — redirecting to your dashboard");
-    router.push("/workspace/dashboard");
+    window.location.href = "/workspace/dashboard";
   };
 
   const handleOAuth = async (provider: "google" | "github") => {

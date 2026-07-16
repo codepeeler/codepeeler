@@ -18,6 +18,8 @@ export default function PlanCard() {
   const planCopy = PLANS.find((p) => p.key === (isPro ? "pro" : "free"));
   const executionsUsed = entitlements?.usage.executions ?? 0;
   const executionsLimit = entitlements?.limits.executionsPerMonth ?? 0;
+  const aiCallsUsed = entitlements?.usage["ai-calls"] ?? 0;
+  const aiCallsLimit = entitlements?.limits.aiCallsPerMonth ?? 0;
 
   return (
     <div className="rounded-[12px] border border-[var(--border)] bg-[linear-gradient(160deg,var(--primary-dim),transparent)] p-4">
@@ -27,8 +29,15 @@ export default function PlanCard() {
         </div>
         <div className="min-w-0 flex-1">
           <div className="text-[13px] font-semibold">{loading ? "Loading…" : isPro ? "Pro Plan" : "Free Plan"}</div>
-          <div className="text-[11px] text-[var(--text-faint)]">
-            {loading ? "\u00A0" : `${executionsUsed.toLocaleString()} / ${executionsLimit.toLocaleString()} executions used`}
+          <div className="text-[11px] leading-tight text-[var(--text-faint)]">
+            {loading ? (
+              "\u00A0"
+            ) : (
+              <>
+                <div>{executionsUsed.toLocaleString()} / {executionsLimit.toLocaleString()} runs used</div>
+                <div className="mt-0.5">{aiCallsUsed.toLocaleString()} / {aiCallsLimit.toLocaleString()} AI calls used</div>
+              </>
+            )}
           </div>
         </div>
         {!loading && (

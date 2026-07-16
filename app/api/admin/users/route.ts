@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
 
   const [rows, [{ count: total }]] = await Promise.all([
     db
-      .select({ id: user.id, name: user.name, email: user.email, emailVerified: user.emailVerified, role: user.role, createdAt: user.createdAt })
+      .select({ id: user.id, name: user.name, email: user.email, emailVerified: user.emailVerified, role: user.role, banned: user.banned, createdAt: user.createdAt })
       .from(user)
       .where(whereClause)
       .orderBy(desc(user.createdAt))

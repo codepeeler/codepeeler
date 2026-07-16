@@ -22,3 +22,8 @@ export async function recordToolUsageServer(userId: string, toolId: string) {
 export async function getToolUsageForUser(userId: string, limit = 8) {
   return db.select().from(toolUsage).where(eq(toolUsage.userId, userId)).orderBy(desc(toolUsage.count)).limit(limit);
 }
+
+/** Most recently used tools for a user, newest first. */
+export async function getRecentToolsForUser(userId: string, limit = 10) {
+  return db.select().from(toolUsage).where(eq(toolUsage.userId, userId)).orderBy(desc(toolUsage.lastUsedAt)).limit(limit);
+}

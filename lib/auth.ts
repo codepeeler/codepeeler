@@ -7,7 +7,7 @@ import { db } from "./db";
 import * as schema from "./db/schema";
 import { validateEmail, validateName } from "./validators/auth-input";
 
-const resend = new Resend(process.env.RESEND_API_KEY!);
+const resend = new Resend(process.env.RESEND_API_KEY || "re_mock_123456789");
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -54,6 +54,11 @@ export const auth = betterAuth({
         type: "string",
         input: false,
         defaultValue: "user",
+      },
+      banned: {
+        type: "boolean",
+        input: false,
+        defaultValue: false,
       },
     },
   },
