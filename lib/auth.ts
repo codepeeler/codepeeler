@@ -24,24 +24,28 @@ export const auth = betterAuth({
     enabled: true,
     requireEmailVerification: true, // ab email verify kiye bina login nahi hoga
     sendResetPassword: async ({ user, url }) => {
-      await resend.emails.send({
-        from: "onboarding@resend.dev", // apna verified domain aane ke baad ye badlega
+      const { data, error } = await resend.emails.send({
+        from: "CodePeeler <noreply@codepeeler.in>",
         to: user.email,
-        subject: "Apna CodePeeler password reset karein",
-        html: `<p>Password reset karne ke liye <a href="${url}">yahan click karein</a>. Agar aapne request nahi ki to is email ko ignore karein.</p>`,
+        subject: "Reset your CodePeeler password",
+        html: `<p>Click <a href="${url}">here</a> to reset your password. If you didn't request this, you can safely ignore this email.</p>`,
       });
+      if (error) console.error("Resend error (reset password):", error);
+      else console.log("Resend sent (reset password):", data?.id);
     },
   },
 
   emailVerification: {
     autoSignInAfterVerification: true, // OTP verify hote hi session cookie set ho jaaye, warna middleware dashboard se wapas /login pe bhej deta hai
     sendVerificationEmail: async ({ user, url }) => {
-      await resend.emails.send({
-        from: "onboarding@resend.dev",
+      const { data, error } = await resend.emails.send({
+        from: "CodePeeler <noreply@codepeeler.in>",
         to: user.email,
-        subject: "Apna email verify karein - CodePeeler",
-        html: `<p>Email verify karne ke liye <a href="${url}">yahan click karein</a>.</p>`,
+        subject: "Verify your email - CodePeeler",
+        html: `<p>Click <a href="${url}">here</a> to verify your email.</p>`,
       });
+      if (error) console.error("Resend error (verify email):", error);
+      else console.log("Resend sent (verify email):", data?.id);
     },
   },
 
@@ -83,12 +87,14 @@ export const auth = betterAuth({
       sendVerificationOnSignUp: true, // signup hote hi OTP mail chala jaaye
       async sendVerificationOTP({ email, otp, type }) {
         if (type !== "email-verification") return;
-        await resend.emails.send({
-          from: "onboarding@resend.dev", // apna verified domain aane ke baad ye badlega
+        const { data, error } = await resend.emails.send({
+          from: "CodePeeler <noreply@codepeeler.in>",
           to: email,
-          subject: "Apna CodePeeler email verify karein",
-          html: `<p>Aapka verification code hai: <strong style="font-size:20px;letter-spacing:4px">${otp}</strong></p><p>Ye code 5 minute mein expire ho jaayega. Agar aapne request nahi ki to is email ko ignore karein.</p>`,
+          subject: "Verify your CodePeeler email",
+          html: `<p>Your verification code is: <strong style="font-size:20px;letter-spacing:4px">${otp}</strong></p><p>This code will expire in 5 minutes. If you didn't request this, you can safely ignore this email.</p>`,
         });
+        if (error) console.error("Resend error (OTP):", error);
+        else console.log("Resend sent (OTP):", data?.id);
       },
     }),
   ],

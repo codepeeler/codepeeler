@@ -28,6 +28,7 @@ export default function SignupFormCard(props: ReturnType<typeof useSignupForm>) 
     resendCooldown,
     handleResendOtp,
     handleVerifyOtp,
+    handleBackToForm,
   } = props;
 
   if (step === "otp") {
@@ -77,9 +78,13 @@ export default function SignupFormCard(props: ReturnType<typeof useSignupForm>) 
 
         <p className="mt-6 text-center text-[13px] text-[var(--text-dim)]">
           Wrong email?{" "}
-          <Link href="/signup" className="font-semibold text-[var(--primary)] hover:underline">
+          <button
+            type="button"
+            onClick={handleBackToForm}
+            className="font-semibold text-[var(--primary)] hover:underline"
+          >
             Sign up again
-          </Link>
+          </button>
         </p>
       </div>
     );

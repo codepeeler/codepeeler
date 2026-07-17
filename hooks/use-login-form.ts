@@ -59,14 +59,14 @@ export function useLoginForm() {
     }
 
     toast("Signed in — redirecting to your dashboard");
-    window.location.href = "/workspace/dashboard";
+    window.location.href = "/";
   };
 
   const handleOAuth = async (provider: "google" | "github") => {
     toast(`Redirecting to ${provider}…`);
     await signIn.social({
       provider,
-      callbackURL: "/workspace/dashboard",
+      callbackURL: "/",
     });
   };
 

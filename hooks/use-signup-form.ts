@@ -37,7 +37,7 @@ export function useSignupForm() {
   const cooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const autosentRef = useRef(false);
 
-  const redirect = params.get("redirect") || "/workspace/dashboard";
+  const redirect = params.get("redirect") || "/";
 
   const startCooldown = () => {
     setResendCooldown(RESEND_COOLDOWN_SECONDS);
@@ -162,11 +162,26 @@ export function useSignupForm() {
     window.location.href = redirect;
   };
 
+  // "Wrong email? Sign up again" — since we're already on /signup, a <Link>
+  // to the same URL doesn't remount the component or reset step state.
+  // This resets everything back to the initial form manually instead.
+  const handleBackToForm = () => {
+    if (cooldownRef.current) clearInterval(cooldownRef.current);
+    setStep("form");
+    setOtp("");
+    setEmail("");
+    setPassword("");
+    setConfirmPassword("");
+    setSending(false);
+    setVerifying(false);
+    setResendCooldown(0);
+  };
+
   const handleOAuth = async (provider: "google" | "github") => {
     toast(`Redirecting to ${provider}…`);
     await signIn.social({
       provider,
-      callbackURL: "/workspace/dashboard",
+      callbackURL: "/",
     });
   };
 
@@ -192,5 +207,6 @@ export function useSignupForm() {
     resendCooldown,
     handleResendOtp,
     handleVerifyOtp,
+    handleBackToForm,
   };
 }
