@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/admin";
+import { logAdminAction } from "@/lib/admin-audit";
 import { db } from "@/lib/db";
 import { user } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
@@ -32,5 +33,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
+  await logAdminAction(session.user.id, userId, role === "admin" ? "promote_admin" : "demote_admin");
   return NextResponse.json({ user: updatedUser });
 }

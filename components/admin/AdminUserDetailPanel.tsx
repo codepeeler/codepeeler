@@ -1,11 +1,20 @@
 "use client";
 
-import { useEffect } from "react";
-import { X, Sparkles, Ban, RotateCcw, BadgeCheck, CircleAlert, Shield, Wrench, Layers, Workflow, Code2, History } from "lucide-react";
-import type { AdminUserDetail } from "@/hooks/use-admin-panel";
+import { useEffect, useState } from "react";
+import { X, Sparkles, Ban, RotateCcw, BadgeCheck, CircleAlert, Shield, Wrench, Layers, Workflow, Code2, History, Mail, Send } from "lucide-react";
+import type { AdminUserDetail, GrantDuration } from "@/hooks/use-admin-panel";
 import { ACTIVITY_META } from "@/lib/data/activity";
 import { formatTimeAgo } from "@/lib/utils";
 import type { ActivityType } from "@/lib/activity";
+
+const DURATION_OPTIONS: { value: GrantDuration; label: string }[] = [
+  { value: "7d", label: "7 days" },
+  { value: "1m", label: "1 month" },
+  { value: "3m", label: "3 months" },
+  { value: "6m", label: "6 months" },
+  { value: "1y", label: "1 year" },
+  { value: "lifetime", label: "Lifetime (no expiry)" },
+];
 
 function formatDate(iso: string | null) {
   if (!iso) return "—";
@@ -34,11 +43,12 @@ type Props = {
   loading: boolean;
   actionPending: boolean;
   onClose: () => void;
-  onGrantPro: (userId: string) => void;
+  onGrantPro: (userId: string, duration: GrantDuration) => void;
   onRevokePro: (userId: string) => void;
   onResetUsage: (userId: string, type: "executions" | "ai-calls" | "all") => void;
   onToggleBan: (userId: string, banned: boolean) => void;
   onToggleRole: (userId: string, role: "admin" | "user") => void;
+  onSendEmail: (userId: string, subject: string, message: string) => Promise<void>;
 };
 
 export default function AdminUserDetailPanel({
@@ -51,7 +61,16 @@ export default function AdminUserDetailPanel({
   onResetUsage,
   onToggleBan,
   onToggleRole,
+  onSendEmail,
 }: Props) {
+  const [showGrantPicker, setShowGrantPicker] = useState(false);
+  const [duration, setDuration] = useState<GrantDuration>("1m");
+
+  const [showEmailForm, setShowEmailForm] = useState(false);
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailMessage, setEmailMessage] = useState("");
+  const [sendingEmail, setSendingEmail] = useState(false);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
@@ -113,15 +132,56 @@ export default function AdminUserDetailPanel({
                     >
                       <Sparkles size={13} /> Revoke Pro
                     </button>
+                  ) : showGrantPicker ? (
+                    <div className="flex flex-col gap-1.5 rounded-[8px] border border-[var(--border)] bg-[var(--card)] p-2">
+                      <select
+                        value={duration}
+                        onChange={(e) => setDuration(e.target.value as GrantDuration)}
+                        className="h-7 w-full rounded-[6px] border border-[var(--border)] bg-[var(--bg)] px-1.5 text-[11.5px] outline-none focus:border-[var(--primary)]"
+                      >
+                        {DURATION_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="flex gap-1.5">
+                        <button
+                          onClick={() => {
+                            onGrantPro(detail.user.id, duration);
+                            setShowGrantPicker(false);
+                          }}
+                          disabled={actionPending}
+                          className="h-7 flex-1 rounded-[6px] bg-[var(--primary)] text-[11.5px] font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          Confirm
+                        </button>
+                        <button
+                          onClick={() => setShowGrantPicker(false)}
+                          disabled={actionPending}
+                          className="h-7 flex-1 rounded-[6px] border border-[var(--border)] text-[11.5px] font-semibold text-[var(--text-dim)] hover:text-[var(--text)] disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
                   ) : (
                     <button
-                      onClick={() => onGrantPro(detail.user.id)}
+                      onClick={() => setShowGrantPicker(true)}
                       disabled={actionPending}
                       className="flex h-8 w-full items-center justify-center gap-1.5 rounded-[8px] bg-[var(--primary)] px-3 text-[12px] font-semibold text-white transition-opacity duration-150 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       <Sparkles size={13} /> Grant Pro
                     </button>
                   )}
+
+                  <button
+                    onClick={() => setShowEmailForm((v) => !v)}
+                    disabled={actionPending}
+                    className="flex h-8 w-full items-center justify-center gap-1.5 rounded-[8px] border border-[var(--border)] bg-[var(--card)] px-3 text-[12px] font-semibold text-[var(--text-dim)] hover:text-[var(--text)] transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <Mail size={13} /> Email user
+                  </button>
 
                   <button
                     onClick={() => onToggleBan(detail.user.id, !detail.user.banned)}
@@ -144,6 +204,57 @@ export default function AdminUserDetailPanel({
                   </button>
                 </div>
               </div>
+
+              {showEmailForm && (
+                <div className="mb-5 rounded-[10px] border border-[var(--border)] p-3">
+                  <h4 className="mb-2 flex items-center gap-1.5 text-[12.5px] font-semibold text-[var(--text-dim)]">
+                    <Mail size={13} /> Send email to {detail.user.email}
+                  </h4>
+                  <input
+                    type="text"
+                    value={emailSubject}
+                    onChange={(e) => setEmailSubject(e.target.value)}
+                    placeholder="Subject"
+                    className="mb-2 h-8 w-full rounded-[7px] border border-[var(--border)] bg-[var(--bg)] px-2.5 text-[12.5px] outline-none placeholder:text-[var(--text-faint)] focus:border-[var(--primary)]"
+                  />
+                  <textarea
+                    value={emailMessage}
+                    onChange={(e) => setEmailMessage(e.target.value)}
+                    placeholder="Message..."
+                    rows={4}
+                    className="mb-2 w-full resize-none rounded-[7px] border border-[var(--border)] bg-[var(--bg)] px-2.5 py-2 text-[12.5px] outline-none placeholder:text-[var(--text-faint)] focus:border-[var(--primary)]"
+                  />
+                  <div className="flex gap-1.5">
+                    <button
+                      onClick={async () => {
+                        if (!emailSubject.trim() || !emailMessage.trim()) return;
+                        setSendingEmail(true);
+                        try {
+                          await onSendEmail(detail.user.id, emailSubject, emailMessage);
+                          setEmailSubject("");
+                          setEmailMessage("");
+                          setShowEmailForm(false);
+                        } catch {
+                          // toast already shown by the hook — keep the form open so nothing is lost
+                        } finally {
+                          setSendingEmail(false);
+                        }
+                      }}
+                      disabled={sendingEmail || actionPending || !emailSubject.trim() || !emailMessage.trim()}
+                      className="flex h-8 items-center gap-1.5 rounded-[7px] bg-[var(--primary)] px-3 text-[12px] font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <Send size={12} /> {sendingEmail ? "Sending…" : "Send"}
+                    </button>
+                    <button
+                      onClick={() => setShowEmailForm(false)}
+                      disabled={sendingEmail}
+                      className="h-8 rounded-[7px] border border-[var(--border)] px-3 text-[12px] font-semibold text-[var(--text-dim)] hover:text-[var(--text)] disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div className="mb-5 grid grid-cols-2 gap-3">
                 <div className="rounded-[10px] border border-[var(--border)] p-3">
@@ -244,6 +355,37 @@ export default function AdminUserDetailPanel({
                           {meta ? meta.label(ev.entityName) : ev.type}
                         </span>
                         <span className="flex-shrink-0 text-[10.5px] text-[var(--text-faint)]">{formatTimeAgo(ev.createdAt)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              <h4 className="mb-2 flex items-center gap-1.5 text-[12.5px] font-semibold text-[var(--text-dim)]">
+                Login history
+              </h4>
+              {detail.sessions.length === 0 ? (
+                <p className="mb-5 rounded-[10px] border border-dashed border-[var(--border)] p-4 text-center text-[12.5px] text-[var(--text-faint)]">
+                  No sessions recorded yet.
+                </p>
+              ) : (
+                <div className="mb-5 flex flex-col gap-1.5">
+                  {detail.sessions.map((s) => {
+                    const isActive = new Date(s.expiresAt).getTime() > Date.now();
+                    return (
+                      <div key={s.id} className="flex items-center justify-between gap-2 rounded-[9px] border border-[var(--border)] px-3 py-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-[12px] text-[var(--text-dim)]">
+                            {s.ipAddress ?? "Unknown IP"}
+                            {s.userAgent && <span className="text-[var(--text-faint)]"> · {s.userAgent}</span>}
+                          </div>
+                        </div>
+                        <div className="flex flex-shrink-0 items-center gap-2">
+                          {isActive && (
+                            <span className="rounded-full bg-[var(--success)]/10 px-2 py-[2px] text-[10px] font-semibold text-[var(--success)]">Active</span>
+                          )}
+                          <span className="text-[10.5px] text-[var(--text-faint)]">{formatTimeAgo(s.createdAt)}</span>
+                        </div>
                       </div>
                     );
                   })}

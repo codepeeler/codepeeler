@@ -216,3 +216,163 @@ export const snippetBookmark = pgTable("snippet_bookmark", {
     .references(() => user.id, { onDelete: "cascade" }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+// One row per admin action — "who did what, to whom, when". Written
+// alongside every admin mutation (grant/revoke Pro, ban, role change,
+// email sent, usage reset) — never read from directly by app logic, purely
+// for accountability. Surfaced in Admin → Security → Audit Logs.
+export const adminAuditLog = pgTable("admin_audit_log", {
+  id: text("id").primaryKey(),
+  adminUserId: text("admin_user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  targetUserId: text("target_user_id").references(() => user.id, { onDelete: "set null" }),
+  action: text("action").notNull(), // e.g. "grant_pro", "revoke_pro", "ban", "unban", "promote_admin", "demote_admin", "reset_usage", "send_email"
+  details: jsonb("details"), // free-form context, e.g. { duration: "3m" } or { subject: "..." }
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Single-row sitewide config table (id is always "site"). Read on every
+// page load for the maintenance banner / announcement bar. Kept as one
+// row instead of a key-value table since there are only ever these two
+// switches right now — add columns here as more site-wide toggles show up.
+export const siteSettings = pgTable("site_settings", {
+  id: text("id").primaryKey().default("site"),
+  maintenanceMode: boolean("maintenance_mode").notNull().default(false),
+  maintenanceMessage: text("maintenance_message"),
+  announcementEnabled: boolean("announcement_enabled").notNull().default(false),
+  announcementMessage: text("announcement_message"),
+  announcementLink: text("announcement_link"),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Simple on/off switches for gradually rolling out new features without a
+// deploy. `key` is whatever string the code checks (e.g. "new-snippets-ui");
+// read via lib/feature-flags.ts, never query this table directly elsewhere.
+export const featureFlag = pgTable("feature_flag", {
+  key: text("key").primaryKey(),
+  enabled: boolean("enabled").notNull().default(false),
+  description: text("description"),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Coupons extend the free trial rather than discounting price — applying a
+// real % / flat-amount discount to a live Razorpay subscription needs a
+// Razorpay "Offer" linked at subscription-create time (a further
+// integration, not implemented here). This version is simpler and needs no
+// Razorpay-side setup: redeeming a code just pushes back start_at at
+// checkout (see app/api/subscription/create/route.ts).
+export const coupon = pgTable("coupon", {
+  code: text("code").primaryKey(), // stored uppercase, e.g. "LAUNCH30"
+  description: text("description"),
+  extraTrialDays: integer("extra_trial_days").notNull().default(0),
+  maxRedemptions: integer("max_redemptions"), // null = unlimited
+  timesRedeemed: integer("times_redeemed").notNull().default(0),
+  active: boolean("active").notNull().default(true),
+  expiresAt: timestamp("expires_at"), // null = never expires
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// One row per support ticket a user opens. `status` drives the admin queue:
+// "open" = needs a first admin reply, "pending" = admin replied and it's
+// back in the user's court, "closed" = resolved. A new user reply on a
+// closed ticket flips it back to "open" (see the ticket-message route).
+export const supportTicket = pgTable("support_ticket", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  subject: text("subject").notNull(),
+  status: text("status").notNull().default("open"), // "open" | "pending" | "closed"
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Thread messages for a support_ticket, oldest first. senderRole is
+// denormalized (rather than looked up via senderId -> user.role every time)
+// since a user's role can't retroactively change who "spoke" in the past.
+export const supportTicketMessage = pgTable("support_ticket_message", {
+  id: text("id").primaryKey(),
+  ticketId: text("ticket_id")
+    .notNull()
+    .references(() => supportTicket.id, { onDelete: "cascade" }),
+  senderId: text("sender_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  senderRole: text("sender_role").notNull(), // "user" | "admin"
+  message: text("message").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Per-tool admin override on top of the static TOOLS list in
+// lib/data/tools.ts. Row only exists once an admin changes a tool away
+// from its default (enabled/not-featured/not-beta) — absence of a row
+// means "all defaults", see lib/tool-overrides.ts. `id` is the tool's id
+// from lib/data/tools.ts. Admin → Management → Tools.
+export const toolOverride = pgTable("tool_override", {
+  id: text("id").primaryKey(),
+  enabled: boolean("enabled").notNull().default(true),
+  featured: boolean("featured").notNull().default(false),
+  beta: boolean("beta").notNull().default(false),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// A user's request to be refunded for a subscription charge. Tracked here
+// instead of directly in Razorpay so support/ops has a queue with a status
+// and an admin note, even before the "actually call Razorpay's refund
+// API" step is wired up. Admin → Billing → Refunds.
+export const refundRequest = pgTable("refund_request", {
+  id: text("id").primaryKey(),
+  subscriptionId: text("subscription_id").references(() => subscription.id, { onDelete: "set null" }),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  amount: integer("amount"), // smallest currency unit (paise), null = "full amount" / unspecified
+  reason: text("reason").notNull().default(""),
+  status: text("status").notNull().default("pending"), // "pending" | "approved" | "rejected" | "processed"
+  adminNote: text("admin_note"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Unified table for Feedback → User Feedback / Feature Requests / Bug
+// Reports / Ratings — one shape, `type` distinguishes the sidebar tabs
+// instead of four near-identical tables. `rating` is only meaningful for
+// type="rating" (1-5), null otherwise.
+export const feedbackEntry = pgTable("feedback_entry", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
+  type: text("type").notNull().default("feedback"), // "feedback" | "feature_request" | "bug_report" | "rating"
+  message: text("message").notNull().default(""),
+  rating: integer("rating"),
+  status: text("status").notNull().default("new"), // "new" | "reviewed" | "resolved" | "wont_fix"
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Manual allow/block list for specific IPs — not enforced automatically
+// anywhere yet (no middleware reads this table); it's a queue an admin
+// curates now so the enforcement hook has a source of truth to read from
+// whenever that gets wired in. Admin → Security → IP Management.
+export const ipRule = pgTable("ip_rule", {
+  id: text("id").primaryKey(),
+  ip: text("ip").notNull().unique(),
+  type: text("type").notNull().default("block"), // "block" | "allow"
+  note: text("note").notNull().default(""),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Admin-issued API tokens for external/programmatic access — separate from
+// better-auth's own session/account tables since these are long-lived,
+// admin-managed credentials rather than a login session. Only `keyPrefix`
+// (first 8 chars) is stored for display; the full key is shown once at
+// creation and never persisted, `keyHash` is what's checked on use.
+export const apiKey = pgTable("api_key", {
+  id: text("id").primaryKey(),
+  label: text("label").notNull(),
+  keyPrefix: text("key_prefix").notNull(),
+  keyHash: text("key_hash").notNull(),
+  createdByUserId: text("created_by_user_id").references(() => user.id, { onDelete: "set null" }),
+  lastUsedAt: timestamp("last_used_at"),
+  revoked: boolean("revoked").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});

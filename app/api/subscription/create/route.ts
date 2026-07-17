@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, sql } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { razorpay, PLAN_MAP, type BillingCycle } from "@/lib/razorpay";
 import { db } from "@/lib/db";
-import { subscription } from "@/lib/db/schema";
+import { subscription, coupon } from "@/lib/db/schema";
 
 // Statuses that mean "this user already has a subscription in flight or
 // live" — don't let them start a second one on top of it.
@@ -17,7 +17,6 @@ const BLOCKING_STATUSES = ["created", "authenticated", "active", "pending", "pau
 // start_at to be at least a few hours ahead of now, so pad slightly past
 // exactly 14 days to avoid clock-skew edge cases near the boundary.
 const TRIAL_DAYS = 14;
-const trialStartAt = Math.floor(Date.now() / 1000) + TRIAL_DAYS * 24 * 60 * 60;
 
 export async function POST(req: NextRequest) {
   const session = await auth.api.getSession({ headers: req.headers });
@@ -25,7 +24,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const { billingCycle } = (await req.json()) as { billingCycle: BillingCycle };
+  const { billingCycle, couponCode } = (await req.json()) as { billingCycle: BillingCycle; couponCode?: string };
   const plan = PLAN_MAP[billingCycle];
   if (!plan) {
     return NextResponse.json({ error: "Invalid billing cycle" }, { status: 400 });
@@ -50,24 +49,64 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Coupons extend the trial (see lib/db/schema.ts comment on `coupon` for
+  // why this isn't a price discount) — validate it here rather than
+  // trusting whatever the client sends.
+  let extraTrialDays = 0;
+  let redeemedCode: string | null = null;
+  if (couponCode?.trim()) {
+    const code = couponCode.trim().toUpperCase();
+    const [found] = await db.select().from(coupon).where(eq(coupon.code, code));
+    if (!found) {
+      return NextResponse.json({ error: "Invalid coupon code" }, { status: 400 });
+    }
+    if (!found.active) {
+      return NextResponse.json({ error: "This coupon is no longer active" }, { status: 400 });
+    }
+    if (found.expiresAt && found.expiresAt < new Date()) {
+      return NextResponse.json({ error: "This coupon has expired" }, { status: 400 });
+    }
+    if (found.maxRedemptions !== null && found.timesRedeemed >= found.maxRedemptions) {
+      return NextResponse.json({ error: "This coupon has reached its redemption limit" }, { status: 400 });
+    }
+    extraTrialDays = found.extraTrialDays;
+    redeemedCode = found.code;
+  }
+
+  const trialStartAt = Math.floor(Date.now() / 1000) + (TRIAL_DAYS + extraTrialDays) * 24 * 60 * 60;
+
   try {
     const razorpaySub = await razorpay.subscriptions.create({
       plan_id: plan.planId,
       customer_notify: 1,
       total_count: plan.totalCount,
       start_at: trialStartAt,
-      notes: { userId: session.user.id },
+      notes: { userId: session.user.id, couponCode: redeemedCode ?? "" },
     });
 
     // Row starts as "created" — the webhook flips it to "active" once the
     // customer actually completes payment in the checkout widget.
+    // currentPeriodEnd is set to trialStartAt up front — Razorpay doesn't
+    // return current_end until the subscription is actually "active" (i.e.
+    // after the trial ends and the first real charge happens), so without
+    // this the "Trial ends" / "Renews" date would show a dash the whole
+    // trial. The webhook overwrites it with the real current_end once
+    // billing actually starts.
     await db.insert(subscription).values({
       id: razorpaySub.id,
       userId: session.user.id,
       planId: plan.planId,
       billingCycle,
       status: razorpaySub.status,
+      currentPeriodEnd: new Date(trialStartAt * 1000),
     });
+
+    if (redeemedCode) {
+      await db
+        .update(coupon)
+        .set({ timesRedeemed: sql`${coupon.timesRedeemed} + 1` })
+        .where(eq(coupon.code, redeemedCode));
+    }
 
     return NextResponse.json({
       subscriptionId: razorpaySub.id,

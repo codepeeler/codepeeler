@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { requireAdminSession } from "@/lib/admin";
+import { logAdminAction } from "@/lib/admin-audit";
 import { db } from "@/lib/db";
 import { usage } from "@/lib/db/schema";
 import type { UsageType } from "@/lib/usage";
@@ -26,5 +27,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     await db.delete(usage).where(and(eq(usage.userId, userId), eq(usage.type, type)));
   }
 
+  await logAdminAction(session.user.id, userId, "reset_usage", { type });
   return NextResponse.json({ ok: true });
 }

@@ -5,6 +5,7 @@ import { ToastProvider } from "@/providers/toast-provider";
 import { CommandPaletteProvider } from "@/providers/command-palette-provider";
 import CommandPalette from "@/components/core/CommandPalette";
 import RootShell from "@/components/layout/RootShell";
+import SiteStatusGate from "@/components/core/SiteStatusGate";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -36,9 +37,11 @@ export default function RootLayout({
         <ThemeProvider>
           <ToastProvider>
             <CommandPaletteProvider>
-              <div className="flex min-h-screen flex-col bg-[var(--bg)] text-[var(--text)]">
-                <RootShell>{children}</RootShell>
-              </div>
+              <SiteStatusGate>
+                <div className="flex min-h-screen flex-col bg-[var(--bg)] text-[var(--text)]">
+                  <RootShell>{children}</RootShell>
+                </div>
+              </SiteStatusGate>
               <CommandPalette />
             </CommandPaletteProvider>
           </ToastProvider>

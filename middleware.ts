@@ -4,12 +4,12 @@ import { getSessionCookie } from "better-auth/cookies";
 // Pages that require login. Middleware only checks "is there a session
 // cookie at all" (fast, edge-safe, no DB hit) — actual plan/entitlement
 // checks happen server-side in the page/route itself via getUserEntitlements().
-const PROTECTED_PAGES = ["/dashboard", "/workspace", "/api-tester", "/snippets", "/collections", "/profile"];
+const PROTECTED_PAGES = ["/dashboard", "/workspace", "/api-tester", "/snippets", "/collections", "/profile", "/support"];
 
 // API routes that must never run for a logged-out caller — either because
 // they cost money per call (AI) or do real work on the caller's behalf
 // (proxying requests, scanning URLs).
-const PROTECTED_API = ["/api/ai", "/api/proxy", "/api/security-check", "/api/subscription", "/api/collections", "/api/workflows", "/api/entitlements"];
+const PROTECTED_API = ["/api/ai", "/api/proxy", "/api/security-check", "/api/subscription", "/api/collections", "/api/workflows", "/api/entitlements", "/api/support"];
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -40,6 +40,7 @@ export const config = {
     "/snippets/:path*",
     "/collections/:path*",
     "/profile/:path*",
+    "/support/:path*",
     "/api/ai/:path*",
     "/api/proxy/:path*",
     "/api/security-check/:path*",
@@ -47,5 +48,6 @@ export const config = {
     "/api/collections/:path*",
     "/api/workflows/:path*",
     "/api/entitlements/:path*",
+    "/api/support/:path*",
   ],
 };

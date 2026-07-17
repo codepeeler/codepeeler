@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/providers/toast-provider";
 import { useSession } from "@/lib/auth-client";
 
+export type GrantDuration = "7d" | "1m" | "3m" | "6m" | "1y" | "lifetime";
+
 export type AdminStats = {
   totalUsers: number;
   newUsersLast7Days: number;
@@ -46,6 +48,7 @@ export type AdminUserDetail = {
   topTools: Array<{ toolId: string; name: string; count: number; lastUsedAt: string }>;
   counts: { collections: number; workflows: number; snippets: number };
   lastActiveAt: string | null;
+  sessions: Array<{ id: string; ipAddress: string | null; userAgent: string | null; createdAt: string; expiresAt: string }>;
   recentActivity: Array<{ id: string; type: string; entityId: string | null; entityName: string | null; createdAt: string }>;
 };
 
@@ -168,13 +171,13 @@ export function useAdminPanel() {
     await Promise.all([loadUsers(), loadStats(), selectedUserId ? loadDetail(selectedUserId) : Promise.resolve()]);
   };
 
-  const handleGrantPro = async (userId: string) => {
+  const handleGrantPro = async (userId: string, duration: GrantDuration) => {
     setActionPending(true);
     try {
       await fetchJson(`/api/admin/users/${userId}/subscription`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "grant" }),
+        body: JSON.stringify({ action: "grant", duration }),
       });
       toast("Pro access granted");
       await refreshAfterAction();
@@ -253,6 +256,23 @@ export function useAdminPanel() {
     }
   };
 
+  const handleSendEmail = async (userId: string, subject: string, message: string) => {
+    setActionPending(true);
+    try {
+      await fetchJson(`/api/admin/users/${userId}/email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subject, message }),
+      });
+      toast("Email sent");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Couldn't send email");
+      throw err; // let the form know so it doesn't close/clear on failure
+    } finally {
+      setActionPending(false);
+    }
+  };
+
   return {
     isAdmin,
     checkingAccess: sessionPending || !session,
@@ -280,5 +300,6 @@ export function useAdminPanel() {
     handleResetUsage,
     handleToggleBan,
     handleToggleRole,
+    handleSendEmail,
   };
 }

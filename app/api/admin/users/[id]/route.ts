@@ -29,6 +29,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     [{ count: workflowCount }],
     [{ count: snippetCount }],
     [lastSession],
+    sessions,
     recentActivity,
   ] = await Promise.all([
     db.select().from(subscription).where(eq(subscription.userId, id)).orderBy(desc(subscription.createdAt)),
@@ -38,6 +39,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     db.select({ count: sql<number>`count(*)::int` }).from(workflow).where(eq(workflow.userId, id)),
     db.select({ count: sql<number>`count(*)::int` }).from(snippet).where(eq(snippet.userId, id)),
     db.select({ updatedAt: session.updatedAt }).from(session).where(eq(session.userId, id)).orderBy(desc(session.updatedAt)).limit(1),
+    db
+      .select({ id: session.id, ipAddress: session.ipAddress, userAgent: session.userAgent, createdAt: session.createdAt, expiresAt: session.expiresAt })
+      .from(session)
+      .where(eq(session.userId, id))
+      .orderBy(desc(session.createdAt))
+      .limit(10),
     getRecentActivity(id, 15),
   ]);
 
@@ -57,6 +64,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     topTools,
     counts: { collections: collectionCount, workflows: workflowCount, snippets: snippetCount },
     lastActiveAt: lastSession?.updatedAt ?? null,
+    sessions: sessions.map((s) => ({
+      id: s.id,
+      ipAddress: s.ipAddress,
+      userAgent: s.userAgent,
+      createdAt: s.createdAt.toISOString(),
+      expiresAt: s.expiresAt.toISOString(),
+    })),
     recentActivity,
   });
 }

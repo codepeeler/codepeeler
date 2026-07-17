@@ -24,7 +24,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Subscription not found" }, { status: 404 });
   }
 
-  await razorpay.subscriptions.cancel(subscriptionId);
+  // cancelAtCycleEnd: true — matches the toast copy ("Pro access continues
+  // until the period ends"). Razorpay's default (false) cancels immediately,
+  // which would contradict that message.
+  await razorpay.subscriptions.cancel(subscriptionId, true);
   // Intentionally not updating the DB row here — the subscription.cancelled
   // webhook is the source of truth and will flip the status shortly.
 

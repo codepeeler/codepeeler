@@ -34,7 +34,7 @@ export function useCheckout() {
   const { data: session } = useSession();
   const { toast } = useToast();
 
-  const startCheckout = async (billingCycle: BillingCycle) => {
+  const startCheckout = async (billingCycle: BillingCycle, couponCode?: string) => {
     if (!session) {
       toast("Please sign in first");
       return;
@@ -51,7 +51,7 @@ export function useCheckout() {
       const res = await fetch("/api/subscription/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ billingCycle }),
+        body: JSON.stringify({ billingCycle, couponCode }),
       });
       const data = await res.json();
 
