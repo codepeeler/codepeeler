@@ -77,7 +77,23 @@ export type NodeTypeId =
   | "sql-format"
   | "html-format"
   | "css-format"
-  | "js-format";
+  | "js-format"
+  // --- batch 2 tools ---
+  | "percentage-calc"
+  | "timezone-convert"
+  | "iso8601-format"
+  | "date-diff"
+  | "roman-numeral"
+  | "caesar-cipher"
+  | "morse-code"
+  | "html-entity"
+  | "unicode-escape"
+  | "binary-text"
+  | "base32"
+  | "hmac-gen"
+  | "url-parse"
+  | "querystring-json"
+  | "ua-parse";
 
 export const NODE_TYPES: Record<
   NodeTypeId,
@@ -152,6 +168,21 @@ export const NODE_TYPES: Record<
   "html-format": { label: "HTML Formatter / Minify", desc: "Beautify or minify HTML markup", badge: "<>", cat: "data" },
   "css-format": { label: "CSS Formatter / Minify", desc: "Beautify or minify CSS rules", badge: "{ }", cat: "data" },
   "js-format": { label: "JS Formatter / Minify", desc: "Beautify with Prettier or minify with Terser", badge: "JS", cat: "data" },
+  "percentage-calc": { label: "Percentage Calculator", desc: "Percent-of, what-percent & percent change", badge: "%", cat: "gen" },
+  "timezone-convert": { label: "Timezone Converter", desc: "Convert a date/time between timezones", badge: "🌐", cat: "gen" },
+  "iso8601-format": { label: "ISO 8601 Formatter", desc: "Validate & format a date as ISO 8601", badge: "📅", cat: "gen" },
+  "date-diff": { label: "Date Difference", desc: "Difference between two dates", badge: "Δd", cat: "gen" },
+  "roman-numeral": { label: "Roman Numeral Converter", desc: "Convert between numbers and Roman numerals", badge: "MCM", cat: "data" },
+  "caesar-cipher": { label: "ROT13 / Caesar Cipher", desc: "Shift letters by N positions", badge: "R13", cat: "encode" },
+  "morse-code": { label: "Morse Code", desc: "Encode & decode Morse code", badge: "•—", cat: "encode" },
+  "html-entity": { label: "HTML Entity Encode/Decode", desc: "Encode & decode HTML entities", badge: "&;", cat: "encode" },
+  "unicode-escape": { label: "Unicode Escape/Unescape", desc: "\\uXXXX escape & unescape text", badge: "\\u", cat: "encode" },
+  "binary-text": { label: "Binary ⇄ Text", desc: "Convert text to and from binary bytes", badge: "01", cat: "encode" },
+  base32: { label: "Base32 Encode/Decode", desc: "Encode & decode Base32", badge: "32", cat: "encode" },
+  "hmac-gen": { label: "HMAC Generator", desc: "Sign a message with a secret key", badge: "HMAC", cat: "sec" },
+  "url-parse": { label: "URL Parser", desc: "Break a URL into its components", badge: "URL", cat: "web" },
+  "querystring-json": { label: "Query String ⇄ JSON", desc: "Convert between a query string and JSON", badge: "?=", cat: "web" },
+  "ua-parse": { label: "User-Agent Parser", desc: "Parse browser, OS & device from a UA string", badge: "UA", cat: "web" },
 };
 
 export const PALETTE_GROUPS: { label: string; items: NodeTypeId[] }[] = [
@@ -176,10 +207,37 @@ export const PALETTE_GROUPS: { label: string; items: NodeTypeId[] }[] = [
       "html-format",
       "css-format",
       "js-format",
+      "roman-numeral",
     ],
   },
-  { label: "Encode / Decode", items: ["base64-encode", "base64-decode", "hex-encode", "hex-decode"] },
-  { label: "Web", items: ["url-encode", "url-decode", "regex-test", "css-unit-convert", "http-header-parse"] },
+  {
+    label: "Encode / Decode",
+    items: [
+      "base64-encode",
+      "base64-decode",
+      "hex-encode",
+      "hex-decode",
+      "caesar-cipher",
+      "morse-code",
+      "html-entity",
+      "unicode-escape",
+      "binary-text",
+      "base32",
+    ],
+  },
+  {
+    label: "Web",
+    items: [
+      "url-encode",
+      "url-decode",
+      "regex-test",
+      "css-unit-convert",
+      "http-header-parse",
+      "url-parse",
+      "querystring-json",
+      "ua-parse",
+    ],
+  },
   {
     label: "Text Tools",
     items: [
@@ -205,8 +263,8 @@ export const PALETTE_GROUPS: { label: string; items: NodeTypeId[] }[] = [
       "smart-quotes",
     ],
   },
-  { label: "Security", items: ["hash", "jwt-decode"] },
-  { label: "Generator", items: ["password-gen", "uuid-gen", "qr-gen", "lorem-gen", "random-pick"] },
-  { label: "Time & Date", items: ["unix-timestamp", "cron-parse"] },
+  { label: "Security", items: ["hash", "jwt-decode", "hmac-gen"] },
+  { label: "Generator", items: ["password-gen", "uuid-gen", "qr-gen", "lorem-gen", "random-pick", "percentage-calc"] },
+  { label: "Time & Date", items: ["unix-timestamp", "cron-parse", "timezone-convert", "iso8601-format", "date-diff"] },
   { label: "Image", items: ["color-convert"] },
 ];

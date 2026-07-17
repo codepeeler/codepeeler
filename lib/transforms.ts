@@ -8,6 +8,10 @@ export type ShuffleMode = "lines" | "words";
 export type TruncUnit = "chars" | "words";
 export type LoremUnit = "words" | "sentences" | "paragraphs";
 export type CsvTsvDirection = "csv2tsv" | "tsv2csv";
+export type PctMode = "of" | "is-what-percent" | "change";
+export type RomanDirection = "toRoman" | "toNumber";
+export type EncodeDirection = "encode" | "decode";
+export type QsDirection = "toJson" | "toQuery";
 export type YamlDirection = "json2yaml" | "yaml2json";
 // --- new tool types ---
 export type TimestampDirection = "toDate" | "toTimestamp";
@@ -71,6 +75,20 @@ export interface NodeSettings {
   jsSemi?: boolean; // js-format
   jsSingleQuote?: boolean; // js-format
   jsMangle?: boolean; // js-format (minify)
+  // --- batch 2 settings ---
+  pctMode?: PctMode; // percentage-calc
+  fromTz?: string; // timezone-convert
+  toTz?: string; // timezone-convert
+  romanDirection?: RomanDirection; // roman-numeral
+  caesarShift?: number; // caesar-cipher
+  morseDirection?: EncodeDirection; // morse-code
+  entityDirection?: EncodeDirection; // html-entity
+  unicodeDirection?: EncodeDirection; // unicode-escape
+  binaryDirection?: EncodeDirection; // binary-text
+  base32Direction?: EncodeDirection; // base32
+  hmacSecret?: string; // hmac-gen
+  hmacAlgo?: HashAlgo; // hmac-gen
+  qsDirection?: QsDirection; // querystring-json
 }
 
 export const DEFAULT_SETTINGS: Partial<Record<NodeTypeId, NodeSettings>> = {
@@ -98,6 +116,17 @@ export const DEFAULT_SETTINGS: Partial<Record<NodeTypeId, NodeSettings>> = {
   "html-format": { htmlMode: "format", htmlIndent: 2, htmlCollapseWhitespace: true, htmlRemoveComments: true },
   "css-format": { cssMode: "format", cssIndent: 2, cssRemoveComments: true },
   "js-format": { jsMode: "format", jsIndent: 2, jsSemi: true, jsSingleQuote: false, jsMangle: true },
+  "percentage-calc": { pctMode: "of" },
+  "timezone-convert": { fromTz: "UTC", toTz: "America/New_York" },
+  "roman-numeral": { romanDirection: "toRoman" },
+  "caesar-cipher": { caesarShift: 13 },
+  "morse-code": { morseDirection: "encode" },
+  "html-entity": { entityDirection: "encode" },
+  "unicode-escape": { unicodeDirection: "encode" },
+  "binary-text": { binaryDirection: "encode" },
+  base32: { base32Direction: "encode" },
+  "hmac-gen": { hmacSecret: "", hmacAlgo: "SHA-256" },
+  "querystring-json": { qsDirection: "toJson" },
 };
 
 function base64UrlDecode(str: string): string {
@@ -1762,6 +1791,426 @@ async function minifyJs(input: string, mangle: boolean): Promise<string> {
   }
 }
 
+// ---------- Percentage Calculator ----------
+function percentageCalc(input: string, mode: PctMode): string {
+  const parts = input.split(/[,\n]/).map((p) => parseFloat(p.trim())).filter((n) => !isNaN(n));
+  if (parts.length < 2) throw new Error("Enter two numbers separated by a comma, e.g. 25, 200");
+  const [a, b] = parts;
+  if (mode === "of") {
+    return `${a}% of ${b} = ${round4((a / 100) * b)}`;
+  } else if (mode === "is-what-percent") {
+    if (b === 0) throw new Error("Second number can't be zero");
+    return `${a} is ${round4((a / b) * 100)}% of ${b}`;
+  } else {
+    if (a === 0) throw new Error("First number can't be zero (used as the base)");
+    const change = ((b - a) / a) * 100;
+    const dir = change >= 0 ? "increase" : "decrease";
+    return `${round4(Math.abs(change))}% ${dir} (from ${a} to ${b})`;
+  }
+}
+function round4(n: number): number {
+  return Math.round(n * 10000) / 10000;
+}
+
+// ---------- Timezone Converter ----------
+function timezoneConvert(input: string, fromTz: string, toTz: string): string {
+  const raw = input.trim();
+  if (!raw) throw new Error("Enter a date/time, e.g. 2026-07-17 14:30");
+  const normalized = /^\d{4}-\d{2}-\d{2}$/.test(raw) ? `${raw}T00:00:00` : raw.replace(" ", "T");
+  const asUtc = new Date(
+    new Date(normalized).toLocaleString("en-US", { timeZone: fromTz === "UTC" ? "UTC" : fromTz })
+  );
+  const parsedLocal = new Date(normalized);
+  if (isNaN(parsedLocal.getTime())) throw new Error("Couldn't parse that date/time");
+  // Interpret the input as wall-clock time in `fromTz`, then render in `toTz`.
+  const utcMs = wallTimeToUtc(normalized, fromTz);
+  const target = new Date(utcMs);
+  const fmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: toTz,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+    timeZoneName: "short",
+  });
+  void asUtc;
+  return `${fmt.format(target)}\n\nUTC: ${target.toISOString()}`;
+}
+function wallTimeToUtc(isoLocal: string, timeZone: string): number {
+  const asIfUtc = new Date(isoLocal + "Z").getTime();
+  const tzDate = new Date(new Date(asIfUtc).toLocaleString("en-US", { timeZone }));
+  const utcDate = new Date(new Date(asIfUtc).toLocaleString("en-US", { timeZone: "UTC" }));
+  const offset = tzDate.getTime() - utcDate.getTime();
+  return asIfUtc - offset;
+}
+
+// ---------- ISO 8601 Formatter/Validator ----------
+function iso8601Format(input: string): string {
+  const raw = input.trim();
+  const d = new Date(raw);
+  if (isNaN(d.getTime())) throw new Error("Couldn't parse that as a date/time");
+  const iso = d.toISOString();
+  const lines = [
+    `ISO 8601: ${iso}`,
+    `Date only: ${iso.slice(0, 10)}`,
+    `Unix ms:   ${d.getTime()}`,
+    `Unix sec:  ${Math.floor(d.getTime() / 1000)}`,
+    `Weekday:   ${d.toLocaleDateString("en-US", { weekday: "long", timeZone: "UTC" })}`,
+  ];
+  return lines.join("\n");
+}
+
+// ---------- Date Difference Calculator ----------
+function dateDifference(input: string): string {
+  const parts = input.split(/[,\n]/).map((p) => p.trim()).filter(Boolean);
+  if (parts.length < 2) throw new Error("Enter two dates separated by a comma, e.g. 2026-01-01, 2026-07-17");
+  const d1 = new Date(parts[0]);
+  const d2 = new Date(parts[1]);
+  if (isNaN(d1.getTime()) || isNaN(d2.getTime())) throw new Error("Couldn't parse one of those dates");
+  const [early, late] = d1.getTime() <= d2.getTime() ? [d1, d2] : [d2, d1];
+  const totalMs = late.getTime() - early.getTime();
+  const totalDays = Math.floor(totalMs / 86400000);
+  let years = late.getFullYear() - early.getFullYear();
+  let months = late.getMonth() - early.getMonth();
+  let days = late.getDate() - early.getDate();
+  if (days < 0) {
+    months -= 1;
+    const prevMonth = new Date(late.getFullYear(), late.getMonth(), 0).getDate();
+    days += prevMonth;
+  }
+  if (months < 0) {
+    years -= 1;
+    months += 12;
+  }
+  return [
+    `${years} years, ${months} months, ${days} days`,
+    `Total days: ${totalDays}`,
+    `Total weeks: ${round4(totalDays / 7)}`,
+    `Total hours: ${Math.floor(totalMs / 3600000)}`,
+  ].join("\n");
+}
+
+// ---------- Roman Numeral Converter ----------
+const ROMAN_MAP: [number, string][] = [
+  [1000, "M"], [900, "CM"], [500, "D"], [400, "CD"],
+  [100, "C"], [90, "XC"], [50, "L"], [40, "XL"],
+  [10, "X"], [9, "IX"], [5, "V"], [4, "IV"], [1, "I"],
+];
+function toRoman(num: number): string {
+  if (!Number.isInteger(num) || num < 1 || num > 3999) {
+    throw new Error("Enter a whole number between 1 and 3999");
+  }
+  let result = "";
+  let n = num;
+  for (const [value, symbol] of ROMAN_MAP) {
+    while (n >= value) {
+      result += symbol;
+      n -= value;
+    }
+  }
+  return result;
+}
+function fromRoman(str: string): number {
+  const clean = str.trim().toUpperCase();
+  if (!/^[MDCLXVI]+$/.test(clean)) throw new Error("Enter valid Roman numerals (M, D, C, L, X, V, I)");
+  const values: Record<string, number> = { M: 1000, D: 500, C: 100, L: 50, X: 10, V: 5, I: 1 };
+  let total = 0;
+  for (let i = 0; i < clean.length; i++) {
+    const cur = values[clean[i]];
+    const next = values[clean[i + 1]];
+    if (next && cur < next) total -= cur;
+    else total += cur;
+  }
+  if (toRoman(total) !== clean) throw new Error("That's not a valid canonical Roman numeral");
+  return total;
+}
+function romanNumeral(input: string, direction: RomanDirection): string {
+  const raw = input.trim();
+  if (!raw) throw new Error("Enter a value");
+  if (direction === "toRoman") return toRoman(parseInt(raw, 10));
+  return String(fromRoman(raw));
+}
+
+// ---------- ROT13 / Caesar Cipher ----------
+function caesarCipher(input: string, shift: number): string {
+  const s = ((shift % 26) + 26) % 26;
+  return input.replace(/[a-zA-Z]/g, (ch) => {
+    const base = ch <= "Z" ? 65 : 97;
+    return String.fromCharCode(((ch.charCodeAt(0) - base + s) % 26) + base);
+  });
+}
+
+// ---------- Morse Code ----------
+const MORSE_MAP: Record<string, string> = {
+  A: ".-", B: "-...", C: "-.-.", D: "-..", E: ".", F: "..-.", G: "--.", H: "....",
+  I: "..", J: ".---", K: "-.-", L: ".-..", M: "--", N: "-.", O: "---", P: ".--.",
+  Q: "--.-", R: ".-.", S: "...", T: "-", U: "..-", V: "...-", W: ".--", X: "-..-",
+  Y: "-.--", Z: "--..", "0": "-----", "1": ".----", "2": "..---", "3": "...--",
+  "4": "....-", "5": ".....", "6": "-....", "7": "--...", "8": "---..", "9": "----.",
+  ".": ".-.-.-", ",": "--..--", "?": "..--..", "'": ".----.", "!": "-.-.--", "/": "-..-.",
+  "(": "-.--.", ")": "-.--.-", "&": ".-...", ":": "---...", ";": "-.-.-.", "=": "-...-",
+  "+": ".-.-.", "-": "-....-", "_": "..--.-", '"': ".-..-.", "$": "...-..-", "@": ".--.-.",
+};
+const MORSE_REVERSE: Record<string, string> = Object.fromEntries(
+  Object.entries(MORSE_MAP).map(([k, v]) => [v, k])
+);
+function morseEncode(input: string): string {
+  return input
+    .toUpperCase()
+    .split(" ")
+    .map((word) =>
+      word
+        .split("")
+        .map((ch) => {
+          if (ch === "") return "";
+          const code = MORSE_MAP[ch];
+          if (!code) throw new Error(`No Morse mapping for "${ch}"`);
+          return code;
+        })
+        .join(" ")
+    )
+    .join(" / ");
+}
+function morseDecode(input: string): string {
+  const clean = input.trim();
+  if (!clean) throw new Error("Enter Morse code, e.g. .... . .-.. .-.. ---");
+  return clean
+    .split(" / ")
+    .map((word) =>
+      word
+        .trim()
+        .split(/\s+/)
+        .map((code) => {
+          const ch = MORSE_REVERSE[code];
+          if (!ch) throw new Error(`Unrecognized Morse token "${code}"`);
+          return ch;
+        })
+        .join("")
+    )
+    .join(" ");
+}
+function morseCode(input: string, direction: EncodeDirection): string {
+  return direction === "encode" ? morseEncode(input) : morseDecode(input);
+}
+
+// ---------- HTML Entity Encode/Decode ----------
+const HTML_ENTITY_MAP: [string, string][] = [
+  ["&", "&amp;"], ["<", "&lt;"], [">", "&gt;"], ['"', "&quot;"], ["'", "&#39;"],
+];
+function htmlEntityEncode(input: string): string {
+  let out = input;
+  for (const [ch, ent] of HTML_ENTITY_MAP) out = out.split(ch).join(ent);
+  return out;
+}
+function htmlEntityDecode(input: string): string {
+  let out = input;
+  for (const [ch, ent] of [...HTML_ENTITY_MAP].reverse()) out = out.split(ent).join(ch);
+  out = out.replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(parseInt(dec, 10)));
+  out = out.replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+  return out;
+}
+function htmlEntity(input: string, direction: EncodeDirection): string {
+  return direction === "encode" ? htmlEntityEncode(input) : htmlEntityDecode(input);
+}
+
+// ---------- Unicode Escape/Unescape ----------
+function unicodeEscape(input: string): string {
+  return Array.from(input)
+    .map((ch) => {
+      const cp = ch.codePointAt(0)!;
+      if (cp < 128) return ch;
+      return cp > 0xffff
+        ? `\\u{${cp.toString(16)}}`
+        : `\\u${cp.toString(16).padStart(4, "0")}`;
+    })
+    .join("");
+}
+function unicodeUnescape(input: string): string {
+  return input
+    .replace(/\\u\{([0-9a-fA-F]+)\}/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+}
+function unicodeEscapeTool(input: string, direction: EncodeDirection): string {
+  return direction === "encode" ? unicodeEscape(input) : unicodeUnescape(input);
+}
+
+// ---------- Binary <-> Text ----------
+function binaryEncode(input: string): string {
+  return Array.from(new TextEncoder().encode(input))
+    .map((b) => b.toString(2).padStart(8, "0"))
+    .join(" ");
+}
+function binaryDecode(input: string): string {
+  const clean = input.trim().split(/\s+/).filter(Boolean);
+  if (clean.length === 0 || clean.some((b) => !/^[01]{1,8}$/.test(b))) {
+    throw new Error("Enter valid 8-bit binary groups, e.g. 01001000 01101001");
+  }
+  const bytes = new Uint8Array(clean.map((b) => parseInt(b, 2)));
+  return new TextDecoder().decode(bytes);
+}
+function binaryText(input: string, direction: EncodeDirection): string {
+  return direction === "encode" ? binaryEncode(input) : binaryDecode(input);
+}
+
+// ---------- Base32 Encode/Decode ----------
+const BASE32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+function base32Encode(input: string): string {
+  const bytes = new TextEncoder().encode(input);
+  let bits = "";
+  for (const b of bytes) bits += b.toString(2).padStart(8, "0");
+  let out = "";
+  for (let i = 0; i < bits.length; i += 5) {
+    const chunk = bits.slice(i, i + 5).padEnd(5, "0");
+    out += BASE32_ALPHABET[parseInt(chunk, 2)];
+  }
+  while (out.length % 8 !== 0) out += "=";
+  return out;
+}
+function base32Decode(input: string): string {
+  const clean = input.trim().toUpperCase().replace(/=+$/, "");
+  if (!/^[A-Z2-7]*$/.test(clean) || clean.length === 0) {
+    throw new Error("Enter a valid Base32 string (A-Z, 2-7)");
+  }
+  let bits = "";
+  for (const ch of clean) {
+    const idx = BASE32_ALPHABET.indexOf(ch);
+    if (idx === -1) throw new Error(`Invalid Base32 character "${ch}"`);
+    bits += idx.toString(2).padStart(5, "0");
+  }
+  const bytes: number[] = [];
+  for (let i = 0; i + 8 <= bits.length; i += 8) {
+    bytes.push(parseInt(bits.slice(i, i + 8), 2));
+  }
+  return new TextDecoder().decode(new Uint8Array(bytes));
+}
+function base32Tool(input: string, direction: EncodeDirection): string {
+  return direction === "encode" ? base32Encode(input) : base32Decode(input);
+}
+
+// ---------- HMAC Generator ----------
+async function hmacGenerate(input: string, secret: string, algo: HashAlgo): Promise<string> {
+  if (!secret) throw new Error("Enter a secret key in the settings above");
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(secret),
+    { name: "HMAC", hash: algo },
+    false,
+    ["sign"]
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(input));
+  return Array.from(new Uint8Array(sig))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+// ---------- URL Parser ----------
+function urlParse(input: string): string {
+  const raw = input.trim();
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new Error("Enter a full URL, e.g. https://example.com/path?a=1");
+  }
+  const lines = [
+    `Protocol:  ${url.protocol}`,
+    `Host:      ${url.hostname}`,
+    `Port:      ${url.port || "(default)"}`,
+    `Path:      ${url.pathname}`,
+    `Query:     ${url.search || "(none)"}`,
+    `Hash:      ${url.hash || "(none)"}`,
+    `Origin:    ${url.origin}`,
+  ];
+  if (url.search) {
+    lines.push("", "Query params:");
+    url.searchParams.forEach((v, k) => lines.push(`  ${k} = ${v}`));
+  }
+  return lines.join("\n");
+}
+
+// ---------- Query String <-> JSON ----------
+function queryStringToJson(input: string): string {
+  const raw = input.trim().replace(/^\?/, "");
+  if (!raw) throw new Error("Enter a query string, e.g. a=1&b=two");
+  const params = new URLSearchParams(raw);
+  const obj: Record<string, string | string[]> = {};
+  params.forEach((v, k) => {
+    if (obj[k] === undefined) obj[k] = v;
+    else obj[k] = Array.isArray(obj[k]) ? [...(obj[k] as string[]), v] : [obj[k] as string, v];
+  });
+  return JSON.stringify(obj, null, 2);
+}
+function jsonToQueryString(input: string): string {
+  let obj: Record<string, unknown>;
+  try {
+    obj = JSON.parse(input);
+  } catch {
+    throw new Error("Enter valid flat JSON, e.g. {\"a\":1,\"b\":\"two\"}");
+  }
+  const params = new URLSearchParams();
+  for (const [k, v] of Object.entries(obj)) {
+    if (Array.isArray(v)) v.forEach((item) => params.append(k, String(item)));
+    else params.append(k, String(v));
+  }
+  return params.toString();
+}
+function queryStringJson(input: string, direction: QsDirection): string {
+  return direction === "toJson" ? queryStringToJson(input) : jsonToQueryString(input);
+}
+
+// ---------- User-Agent Parser ----------
+function userAgentParse(input: string): string {
+  const ua = input.trim();
+  if (!ua) throw new Error("Paste a User-Agent string");
+
+  let browser = "Unknown";
+  let browserVersion = "";
+  const browserPatterns: [RegExp, string][] = [
+    [/Edg\/([\d.]+)/, "Edge"],
+    [/OPR\/([\d.]+)/, "Opera"],
+    [/Chrome\/([\d.]+)/, "Chrome"],
+    [/CriOS\/([\d.]+)/, "Chrome (iOS)"],
+    [/FxiOS\/([\d.]+)/, "Firefox (iOS)"],
+    [/Firefox\/([\d.]+)/, "Firefox"],
+    [/Version\/([\d.]+).*Safari/, "Safari"],
+  ];
+  for (const [re, name] of browserPatterns) {
+    const m = ua.match(re);
+    if (m) {
+      browser = name;
+      browserVersion = m[1];
+      break;
+    }
+  }
+
+  let os = "Unknown";
+  if (/Windows NT 10/.test(ua)) os = "Windows 10/11";
+  else if (/Windows NT/.test(ua)) os = "Windows";
+  else if (/Mac OS X/.test(ua)) os = "macOS";
+  else if (/Android ([\d.]+)/.test(ua)) os = `Android ${ua.match(/Android ([\d.]+)/)![1]}`;
+  else if (/iPhone OS ([\d_]+)/.test(ua)) os = `iOS ${ua.match(/iPhone OS ([\d_]+)/)![1].replace(/_/g, ".")}`;
+  else if (/iPad/.test(ua)) os = "iPadOS";
+  else if (/Linux/.test(ua)) os = "Linux";
+
+  let device = "Desktop";
+  if (/iPad/.test(ua)) device = "Tablet (iPad)";
+  else if (/Mobile|iPhone|Android.*Mobile/.test(ua)) device = "Mobile";
+  else if (/Android/.test(ua)) device = "Tablet";
+
+  const isBot = /bot|crawl|spider|slurp/i.test(ua);
+
+  return [
+    `Browser:  ${browser}${browserVersion ? " " + browserVersion : ""}`,
+    `OS:       ${os}`,
+    `Device:   ${device}`,
+    `Is bot:   ${isBot ? "Yes" : "No"}`,
+  ].join("\n");
+}
+
 export async function runTransform(
   type: NodeTypeId,
   input: string,
@@ -1896,6 +2345,38 @@ export async function runTransform(
       return (settings.jsMode ?? "format") === "minify"
         ? minifyJs(input, settings.jsMangle ?? true)
         : formatJs(input, settings.jsIndent ?? 2, settings.jsSemi ?? true, settings.jsSingleQuote ?? false);
+
+    // --- batch 2 tools ---
+    case "percentage-calc":
+      return percentageCalc(input, settings.pctMode ?? "of");
+    case "timezone-convert":
+      return timezoneConvert(input, settings.fromTz ?? "UTC", settings.toTz ?? "America/New_York");
+    case "iso8601-format":
+      return iso8601Format(input);
+    case "date-diff":
+      return dateDifference(input);
+    case "roman-numeral":
+      return romanNumeral(input, settings.romanDirection ?? "toRoman");
+    case "caesar-cipher":
+      return caesarCipher(input, settings.caesarShift ?? 13);
+    case "morse-code":
+      return morseCode(input, settings.morseDirection ?? "encode");
+    case "html-entity":
+      return htmlEntity(input, settings.entityDirection ?? "encode");
+    case "unicode-escape":
+      return unicodeEscapeTool(input, settings.unicodeDirection ?? "encode");
+    case "binary-text":
+      return binaryText(input, settings.binaryDirection ?? "encode");
+    case "base32":
+      return base32Tool(input, settings.base32Direction ?? "encode");
+    case "hmac-gen":
+      return hmacGenerate(input, settings.hmacSecret ?? "", settings.hmacAlgo ?? "SHA-256");
+    case "url-parse":
+      return urlParse(input);
+    case "querystring-json":
+      return queryStringJson(input, settings.qsDirection ?? "toJson");
+    case "ua-parse":
+      return userAgentParse(input);
 
     default:
       return input;

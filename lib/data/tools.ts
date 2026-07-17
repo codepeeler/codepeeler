@@ -67,6 +67,22 @@ export const TOOLS: Tool[] = [
   { id: "html-format", name: "HTML Formatter / Minify", desc: "Beautify or minify HTML markup", badge: "<>", cat: "data", page: "/tools/html-formatter" },
   { id: "css-format", name: "CSS Formatter / Minify", desc: "Beautify or minify CSS rules", badge: "{ }", cat: "data", page: "/tools/css-formatter" },
   { id: "js-format", name: "JS Formatter / Minify", desc: "Beautify with Prettier or minify with Terser", badge: "JS", cat: "data", page: "/tools/js-formatter" },
+  // --- batch 2 ---
+  { id: "percentage-calc", name: "Percentage Calculator", desc: "Percent-of, what-percent & percent change", badge: "%", cat: "gen", page: "/tools/percentage-calculator" },
+  { id: "timezone-convert", name: "Timezone Converter", desc: "Convert a date/time between timezones", badge: "🌐", cat: "gen", page: "/tools/timezone-converter" },
+  { id: "iso8601-format", name: "ISO 8601 Formatter/Validator", desc: "Validate & format a date as ISO 8601", badge: "📅", cat: "gen", page: "/tools/iso8601-formatter" },
+  { id: "date-diff", name: "Date Difference Calculator", desc: "Difference between two dates", badge: "Δd", cat: "gen", page: "/tools/date-difference-calculator" },
+  { id: "roman-numeral", name: "Roman Numeral Converter", desc: "Convert between numbers and Roman numerals", badge: "MCM", cat: "data", page: "/tools/roman-numeral-converter" },
+  { id: "caesar-cipher", name: "ROT13 / Caesar Cipher", desc: "Shift letters by N positions", badge: "R13", cat: "encode", page: "/tools/rot13-cipher" },
+  { id: "morse-code", name: "Morse Code Translator", desc: "Encode & decode Morse code", badge: "•—", cat: "encode", page: "/tools/morse-code-translator" },
+  { id: "html-entity", name: "HTML Entity Encode/Decode", desc: "Encode & decode HTML entities", badge: "&;", cat: "encode", page: "/tools/html-entity-encoder" },
+  { id: "unicode-escape", name: "Unicode Escape/Unescape", desc: "\\uXXXX escape & unescape text", badge: "\\u", cat: "encode", page: "/tools/unicode-escape" },
+  { id: "binary-text", name: "Binary ⇄ Text Converter", desc: "Convert text to and from binary bytes", badge: "01", cat: "encode", page: "/tools/binary-text-converter" },
+  { id: "base32", name: "Base32 Encode/Decode", desc: "Encode & decode Base32", badge: "32", cat: "encode", page: "/tools/base32-encoder" },
+  { id: "hmac-gen", name: "HMAC Generator", desc: "Sign a message with a secret key", badge: "HMAC", cat: "sec", page: "/tools/hmac-generator" },
+  { id: "url-parse", name: "URL Parser", desc: "Break a URL into its components", badge: "URL", cat: "web", page: "/tools/url-parser" },
+  { id: "querystring-json", name: "Query String ⇄ JSON", desc: "Convert between a query string and JSON", badge: "?=", cat: "web", page: "/tools/query-string-json-converter" },
+  { id: "ua-parse", name: "User-Agent Parser", desc: "Parse browser, OS & device from a UA string", badge: "UA", cat: "web", page: "/tools/user-agent-parser" },
 ];
 
 export const CAT_META: Record<CatKey, { label: string; color: string }> = {
