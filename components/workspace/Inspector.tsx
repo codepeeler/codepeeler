@@ -22,6 +22,13 @@ import type {
   HtmlMode,
   CssMode,
   JsMode,
+  CurlTarget,
+  UnitCategory,
+  ColorGenFormat,
+  NanoidAlphabet,
+  BranchType,
+  CodeLang,
+  CommitType,
 } from "@/lib/transforms";
 
 export const INSPECTOR_PANEL_ID = "inspector";
@@ -402,6 +409,115 @@ function InspectorContent() {
                 onChange={(v) => updateNodeSettings(node.id, { cssUnitFrom: v })}
               />
               <NumberField label="Root font size (px)" value={node.settings?.baseRootPx ?? 16} min={1} onChange={(v) => updateNodeSettings(node.id, { baseRootPx: v })} />
+            </div>
+          )}
+
+          {node.type === "json-to-ts" && (
+            <div className="mb-4 space-y-3">
+              <TextField
+                label="Root interface name"
+                value={node.settings?.tsInterfaceName ?? "Root"}
+                onChange={(v) => updateNodeSettings(node.id, { tsInterfaceName: v })}
+              />
+            </div>
+          )}
+
+          {node.type === "curl-convert" && (
+            <div className="mb-4 space-y-3">
+              <SelectField<CurlTarget>
+                label="Target"
+                value={node.settings?.curlTarget ?? "fetch"}
+                options={["fetch", "axios"]}
+                onChange={(v) => updateNodeSettings(node.id, { curlTarget: v })}
+              />
+            </div>
+          )}
+
+          {node.type === "random-number" && (
+            <div className="mb-4 space-y-3">
+              <NumberField label="Min" value={node.settings?.rngMin ?? 1} onChange={(v) => updateNodeSettings(node.id, { rngMin: v })} />
+              <NumberField label="Max" value={node.settings?.rngMax ?? 100} onChange={(v) => updateNodeSettings(node.id, { rngMax: v })} />
+              <NumberField label="Count" value={node.settings?.rngCount ?? 5} min={1} max={1000} onChange={(v) => updateNodeSettings(node.id, { rngCount: v })} />
+            </div>
+          )}
+
+          {node.type === "unit-convert" && (
+            <div className="mb-4 space-y-3">
+              <SelectField<UnitCategory>
+                label="Category"
+                value={node.settings?.unitCategory ?? "length"}
+                options={["length", "weight", "data"]}
+                onChange={(v) => updateNodeSettings(node.id, { unitCategory: v })}
+              />
+              <TextField label="From unit" value={node.settings?.unitFrom ?? "m"} onChange={(v) => updateNodeSettings(node.id, { unitFrom: v })} />
+              <TextField label="To unit" value={node.settings?.unitTo ?? "ft"} onChange={(v) => updateNodeSettings(node.id, { unitTo: v })} />
+            </div>
+          )}
+
+          {node.type === "nanoid-gen" && (
+            <div className="mb-4 space-y-3">
+              <NumberField label="Length" value={node.settings?.nanoidLength ?? 21} min={1} max={256} onChange={(v) => updateNodeSettings(node.id, { nanoidLength: v })} />
+              <SelectField<NanoidAlphabet>
+                label="Alphabet"
+                value={node.settings?.nanoidAlphabet ?? "urlsafe"}
+                options={["urlsafe", "alpha", "numeric", "hex"]}
+                onChange={(v) => updateNodeSettings(node.id, { nanoidAlphabet: v })}
+              />
+            </div>
+          )}
+
+          {node.type === "random-color" && (
+            <div className="mb-4 space-y-3">
+              <SelectField<ColorGenFormat>
+                label="Format"
+                value={node.settings?.colorGenFormat ?? "hex"}
+                options={["hex", "rgb", "hsl"]}
+                onChange={(v) => updateNodeSettings(node.id, { colorGenFormat: v })}
+              />
+              <NumberField label="Count" value={node.settings?.colorGenCount ?? 5} min={1} max={100} onChange={(v) => updateNodeSettings(node.id, { colorGenCount: v })} />
+            </div>
+          )}
+
+          {node.type === "git-branch-gen" && (
+            <div className="mb-4 space-y-3">
+              <SelectField<BranchType>
+                label="Type"
+                value={node.settings?.branchType ?? "feature"}
+                options={["feature", "fix", "chore", "hotfix", "release", "docs"]}
+                onChange={(v) => updateNodeSettings(node.id, { branchType: v })}
+              />
+            </div>
+          )}
+
+          {node.type === "regex-to-code" && (
+            <div className="mb-4 space-y-3">
+              <SelectField<CodeLang>
+                label="Language"
+                value={node.settings?.codeLang ?? "javascript"}
+                options={["javascript", "python", "java", "go"]}
+                onChange={(v) => updateNodeSettings(node.id, { codeLang: v })}
+              />
+            </div>
+          )}
+
+          {node.type === "commit-msg-gen" && (
+            <div className="mb-4 space-y-3">
+              <SelectField<CommitType>
+                label="Type"
+                value={node.settings?.commitType ?? "feat"}
+                options={["feat", "fix", "docs", "style", "refactor", "test", "chore", "perf"]}
+                onChange={(v) => updateNodeSettings(node.id, { commitType: v })}
+              />
+              <TextField
+                label="Scope (optional)"
+                value={node.settings?.commitScope ?? ""}
+                onChange={(v) => updateNodeSettings(node.id, { commitScope: v })}
+              />
+              <CheckField
+                label="Breaking change"
+                checked={node.settings?.commitBreaking ?? false}
+                onChange={(v) => updateNodeSettings(node.id, { commitBreaking: v })}
+              />
             </div>
           )}
 

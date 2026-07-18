@@ -11,7 +11,7 @@ const PROTECTED_PAGES = ["/dashboard", "/workspace", "/api-tester", "/snippets",
 // (proxying requests, scanning URLs).
 const PROTECTED_API = ["/api/ai", "/api/proxy", "/api/security-check", "/api/subscription", "/api/collections", "/api/workflows", "/api/entitlements", "/api/support"];
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const isProtectedPage = PROTECTED_PAGES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
   const isProtectedApi = PROTECTED_API.some((p) => pathname === p || pathname.startsWith(`${p}/`));

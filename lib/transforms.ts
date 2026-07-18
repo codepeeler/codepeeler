@@ -1,5 +1,6 @@
 import type { NodeTypeId } from "@/lib/data/node-types";
 import QRCode from "qrcode";
+import { marked } from "marked";
 
 export type HashAlgo = "SHA-1" | "SHA-256" | "SHA-384" | "SHA-512";
 export type SortMode = "alpha" | "numeric" | "length";
@@ -23,6 +24,15 @@ export type SqlMode = "format" | "minify";
 export type HtmlMode = "format" | "minify";
 export type CssMode = "format" | "minify";
 export type JsMode = "format" | "minify";
+// --- batch 3 tool types ---
+export type CurlTarget = "fetch" | "axios";
+export type UnitCategory = "length" | "weight" | "data";
+export type ColorGenFormat = "hex" | "rgb" | "hsl";
+export type NanoidAlphabet = "urlsafe" | "alpha" | "numeric" | "hex";
+export type BranchType = "feature" | "fix" | "chore" | "hotfix" | "release" | "docs";
+// --- batch 4 tool types ---
+export type CodeLang = "javascript" | "python" | "java" | "go";
+export type CommitType = "feat" | "fix" | "docs" | "style" | "refactor" | "test" | "chore" | "perf";
 
 export interface NodeSettings {
   indent?: number; // json-format
@@ -89,6 +99,25 @@ export interface NodeSettings {
   hmacSecret?: string; // hmac-gen
   hmacAlgo?: HashAlgo; // hmac-gen
   qsDirection?: QsDirection; // querystring-json
+  // --- batch 3 settings ---
+  tsInterfaceName?: string; // json-to-ts
+  curlTarget?: CurlTarget; // curl-convert
+  rngMin?: number; // random-number
+  rngMax?: number; // random-number
+  rngCount?: number; // random-number
+  unitCategory?: UnitCategory; // unit-convert
+  unitFrom?: string; // unit-convert
+  unitTo?: string; // unit-convert
+  nanoidLength?: number; // nanoid-gen
+  nanoidAlphabet?: NanoidAlphabet; // nanoid-gen
+  colorGenFormat?: ColorGenFormat; // random-color
+  colorGenCount?: number; // random-color
+  branchType?: BranchType; // git-branch-gen
+  // --- batch 4 settings ---
+  codeLang?: CodeLang; // regex-to-code
+  commitType?: CommitType; // commit-msg-gen
+  commitScope?: string; // commit-msg-gen
+  commitBreaking?: boolean; // commit-msg-gen
 }
 
 export const DEFAULT_SETTINGS: Partial<Record<NodeTypeId, NodeSettings>> = {
@@ -127,6 +156,14 @@ export const DEFAULT_SETTINGS: Partial<Record<NodeTypeId, NodeSettings>> = {
   base32: { base32Direction: "encode" },
   "hmac-gen": { hmacSecret: "", hmacAlgo: "SHA-256" },
   "querystring-json": { qsDirection: "toJson" },
+  // --- batch 3 defaults ---
+  "json-to-ts": { tsInterfaceName: "Root" },
+  "curl-convert": { curlTarget: "fetch" },
+  "random-number": { rngMin: 1, rngMax: 100, rngCount: 5 },
+  "unit-convert": { unitCategory: "length", unitFrom: "m", unitTo: "ft" },
+  "nanoid-gen": { nanoidLength: 21, nanoidAlphabet: "urlsafe" },
+  "random-color": { colorGenFormat: "hex", colorGenCount: 5 },
+  "git-branch-gen": { branchType: "feature" },
 };
 
 function base64UrlDecode(str: string): string {
@@ -2211,6 +2248,1251 @@ function userAgentParse(input: string): string {
   ].join("\n");
 }
 
+
+// ===========================================================================
+// Batch 3 tools
+// ===========================================================================
+
+// --- JSON to TypeScript Interface ---
+function jsonToTs(input: string, rootName: string): string {
+  let data: unknown;
+  try {
+    data = JSON.parse(input);
+  } catch {
+    throw new Error("Enter valid JSON");
+  }
+  const interfaces: string[] = [];
+  const seen = new Set<string>();
+
+  function capitalize(s: string): string {
+    const clean = s
+      .replace(/[^a-zA-Z0-9]/g, " ")
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join("");
+    const safe = clean || "Field";
+    return /^[A-Za-z_]/.test(safe) ? safe : "I" + safe;
+  }
+
+  function typeOf(value: unknown, name: string): string {
+    if (value === null) return "null";
+    if (Array.isArray(value)) {
+      if (value.length === 0) return "unknown[]";
+      const elTypes = Array.from(new Set(value.map((v) => typeOf(v, name.replace(/s$/, "")))));
+      return elTypes.length === 1 ? `${elTypes[0]}[]` : `(${elTypes.join(" | ")})[]`;
+    }
+    const t = typeof value;
+    if (t === "object") {
+      const iName = capitalize(name);
+      buildInterface(value as Record<string, unknown>, iName);
+      return iName;
+    }
+    if (t === "number" || t === "string" || t === "boolean") return t;
+    return "unknown";
+  }
+
+  function buildInterface(obj: Record<string, unknown>, name: string) {
+    const lines: string[] = [`interface ${name} {`];
+    for (const key of Object.keys(obj)) {
+      const safeKey = /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(key) ? key : `"${key}"`;
+      lines.push(`  ${safeKey}: ${typeOf(obj[key], key)};`);
+    }
+    lines.push("}");
+    if (!seen.has(name)) {
+      seen.add(name);
+      interfaces.push(lines.join("\n"));
+    }
+  }
+
+  const root = capitalize(rootName || "Root");
+  if (Array.isArray(data)) {
+    const elType = typeOf(data[0] ?? {}, root);
+    interfaces.push(`type ${root} = ${elType}[];`);
+  } else if (data && typeof data === "object") {
+    buildInterface(data as Record<string, unknown>, root);
+  } else {
+    throw new Error("Top-level JSON must be an object or array");
+  }
+
+  return interfaces.join("\n\n");
+}
+
+// --- Markdown <-> HTML ---
+async function markdownToHtmlConvert(input: string): Promise<string> {
+  if (!input.trim()) throw new Error("Enter some Markdown");
+  marked.setOptions({ gfm: true, breaks: true });
+  return await marked.parse(input);
+}
+
+function htmlToMarkdownConvert(input: string): string {
+  if (!input.trim()) throw new Error("Enter some HTML");
+  let s = input;
+  s = s.replace(/<!--([\s\S]*?)-->/g, "");
+  s = s.replace(/<(script|style)[\s\S]*?<\/\1>/gi, "");
+  s = s.replace(/<h1[^>]*>([\s\S]*?)<\/h1>/gi, "\n# $1\n");
+  s = s.replace(/<h2[^>]*>([\s\S]*?)<\/h2>/gi, "\n## $1\n");
+  s = s.replace(/<h3[^>]*>([\s\S]*?)<\/h3>/gi, "\n### $1\n");
+  s = s.replace(/<h4[^>]*>([\s\S]*?)<\/h4>/gi, "\n#### $1\n");
+  s = s.replace(/<h5[^>]*>([\s\S]*?)<\/h5>/gi, "\n##### $1\n");
+  s = s.replace(/<h6[^>]*>([\s\S]*?)<\/h6>/gi, "\n###### $1\n");
+  s = s.replace(/<(strong|b)>([\s\S]*?)<\/\1>/gi, "**$2**");
+  s = s.replace(/<(em|i)>([\s\S]*?)<\/\1>/gi, "_$2_");
+  s = s.replace(/<pre[^>]*>([\s\S]*?)<\/pre>/gi, (_m: string, c: string) => `\n\`\`\`\n${c.replace(/<[^>]+>/g, "")}\n\`\`\`\n`);
+  s = s.replace(/<code>([\s\S]*?)<\/code>/gi, "`$1`");
+  s = s.replace(/<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi, (_m: string, c: string) =>
+    c
+      .trim()
+      .split("\n")
+      .map((l: string) => `> ${l.trim()}`)
+      .join("\n") + "\n"
+  );
+  s = s.replace(/<a[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi, "[$2]($1)");
+  s = s.replace(/<img[^>]*src="([^"]*)"[^>]*alt="([^"]*)"[^>]*\/?>/gi, "![$2]($1)");
+  s = s.replace(/<img[^>]*alt="([^"]*)"[^>]*src="([^"]*)"[^>]*\/?>/gi, "![$1]($2)");
+  s = s.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, "- $1\n");
+  s = s.replace(/<\/(ul|ol)>/gi, "\n");
+  s = s.replace(/<(ul|ol)[^>]*>/gi, "\n");
+  s = s.replace(/<br\s*\/?>/gi, "  \n");
+  s = s.replace(/<\/p>/gi, "\n\n");
+  s = s.replace(/<p[^>]*>/gi, "");
+  s = s.replace(/<hr\s*\/?>/gi, "\n---\n");
+  s = s.replace(/<[^>]+>/g, "");
+  s = s
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, " ");
+  s = s.replace(/\n{3,}/g, "\n\n").trim();
+  return s;
+}
+
+// --- cURL to Fetch/Axios ---
+function tokenizeCurl(cmd: string): string[] {
+  const tokens: string[] = [];
+  const re = /"([^"]*)"|'([^']*)'|(\S+)/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(cmd))) tokens.push(m[1] ?? m[2] ?? m[3]);
+  return tokens;
+}
+
+function curlConvert(input: string, target: CurlTarget): string {
+  const trimmed = input.trim();
+  if (!trimmed) throw new Error("Paste a curl command");
+  const tokens = tokenizeCurl(trimmed.replace(/^curl\s+/, "").replace(/\\\n/g, " "));
+  let url = "";
+  let method = "GET";
+  const headers: Record<string, string> = {};
+  let body: string | null = null;
+
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+    if (t === "-X" || t === "--request") {
+      method = tokens[++i];
+    } else if (t === "-H" || t === "--header") {
+      const raw = tokens[++i] ?? "";
+      const sep = raw.indexOf(":");
+      if (sep > -1) headers[raw.slice(0, sep).trim()] = raw.slice(sep + 1).trim();
+    } else if (t === "-d" || t === "--data" || t === "--data-raw" || t === "--data-binary" || t === "--data-urlencode") {
+      body = tokens[++i];
+      if (method === "GET") method = "POST";
+    } else if (t === "-u" || t === "--user") {
+      headers["Authorization"] = `Basic ${tokens[++i]}`;
+    } else if (t.startsWith("-")) {
+      // skip unknown flags
+    } else if (!url) {
+      url = t;
+    }
+  }
+  if (!url) throw new Error("Couldn't find a URL in that curl command");
+
+  if (target === "fetch") {
+    const opts: string[] = [`method: "${method}"`];
+    if (Object.keys(headers).length) {
+      opts.push(`headers: ${JSON.stringify(headers, null, 2).split("\n").join("\n  ")}`);
+    }
+    if (body) opts.push(`body: ${JSON.stringify(body)}`);
+    return `fetch("${url}", {\n  ${opts.join(",\n  ")}\n})\n  .then((res) => res.json())\n  .then((data) => console.log(data));`;
+  }
+
+  const axiosParts: string[] = [];
+  if (Object.keys(headers).length) {
+    axiosParts.push(`headers: ${JSON.stringify(headers, null, 2).split("\n").join("\n  ")}`);
+  }
+  let dataArg = "";
+  if (body) {
+    try {
+      dataArg = `, ${JSON.stringify(JSON.parse(body))}`;
+    } catch {
+      dataArg = `, ${JSON.stringify(body)}`;
+    }
+  }
+  const cfg = axiosParts.length ? `, {\n  ${axiosParts.join(",\n  ")}\n}` : "";
+  return `axios.${method.toLowerCase()}("${url}"${dataArg}${cfg})\n  .then((res) => console.log(res.data));`;
+}
+
+// --- Random Number Generator ---
+function randomNumberGenerate(min: number, max: number, count: number): string {
+  if (min > max) throw new Error("Min must be less than or equal to Max");
+  const n = Math.max(1, Math.min(Math.round(count), 1000));
+  const range = max - min + 1;
+  const arr = new Uint32Array(n);
+  crypto.getRandomValues(arr);
+  const results: number[] = [];
+  for (let i = 0; i < n; i++) results.push(min + (arr[i] % range));
+  return results.join("\n");
+}
+
+// --- Unit Converter ---
+const UNIT_FACTORS: Record<string, Record<string, number>> = {
+  length: { m: 1, km: 1000, cm: 0.01, mm: 0.001, mi: 1609.344, yd: 0.9144, ft: 0.3048, in: 0.0254 },
+  weight: { kg: 1, g: 0.001, mg: 0.000001, lb: 0.45359237, oz: 0.028349523125, t: 1000 },
+  data: { B: 1, KB: 1024, MB: 1024 ** 2, GB: 1024 ** 3, TB: 1024 ** 4, bit: 0.125 },
+};
+
+function unitConvertValue(input: string, category: UnitCategory, from: string, to: string): string {
+  const value = Number(input.trim());
+  if (isNaN(value)) throw new Error("Enter a number to convert");
+  const table = UNIT_FACTORS[category];
+  if (!table || !(from in table) || !(to in table)) throw new Error("Unsupported unit for this category");
+  const base = value * table[from];
+  const result = base / table[to];
+  return `${result.toLocaleString("en-US", { maximumFractionDigits: 8 })} ${to}`;
+}
+
+// --- .env Parser / Validator ---
+function envParse(input: string): string {
+  if (!input.trim()) throw new Error("Paste .env content");
+  const lines = input.split("\n");
+  const result: Record<string, string> = {};
+  const issues: string[] = [];
+  const seen = new Set<string>();
+
+  lines.forEach((raw, idx) => {
+    const line = raw.trim();
+    if (!line || line.startsWith("#")) return;
+    const eq = line.indexOf("=");
+    if (eq === -1) {
+      issues.push(`Line ${idx + 1}: missing "=" — "${line}"`);
+      return;
+    }
+    const key = line.slice(0, eq).trim();
+    let value = line.slice(eq + 1).trim();
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) issues.push(`Line ${idx + 1}: invalid variable name "${key}"`);
+    if (seen.has(key)) issues.push(`Line ${idx + 1}: duplicate key "${key}"`);
+    seen.add(key);
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    result[key] = value;
+  });
+
+  const out = [`// ${Object.keys(result).length} variable(s) parsed`, JSON.stringify(result, null, 2)];
+  if (issues.length) out.push("", "// Issues:", issues.map((i) => `// - ${i}`).join("\n"));
+  else out.push("", "// No issues found");
+  return out.join("\n");
+}
+
+// --- JSON to CSV ---
+function csvEscapeVal(val: unknown): string {
+  const s = val === null || val === undefined ? "" : typeof val === "object" ? JSON.stringify(val) : String(val);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function jsonToCsvConvert(input: string): string {
+  let data: unknown;
+  try {
+    data = JSON.parse(input);
+  } catch {
+    throw new Error("Enter valid JSON");
+  }
+  const arr = Array.isArray(data) ? data : [data];
+  if (!arr.length) throw new Error("JSON array is empty");
+  const columns = Array.from(
+    new Set(arr.flatMap((row) => (row && typeof row === "object" ? Object.keys(row as object) : ["value"])))
+  );
+  const lines = [columns.map(csvEscapeVal).join(",")];
+  for (const row of arr) {
+    const obj: Record<string, unknown> =
+      row && typeof row === "object" ? (row as Record<string, unknown>) : { value: row };
+    lines.push(columns.map((c) => csvEscapeVal(obj[c])).join(","));
+  }
+  return lines.join("\n");
+}
+
+// --- Nanoid Generator ---
+const NANOID_ALPHABETS: Record<string, string> = {
+  urlsafe: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-",
+  alpha: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
+  numeric: "0123456789",
+  hex: "0123456789abcdef",
+};
+
+function nanoidGenerate(length: number, alphabetKey: string): string {
+  const alphabet = NANOID_ALPHABETS[alphabetKey] ?? NANOID_ALPHABETS.urlsafe;
+  const len = Math.max(1, Math.min(Math.round(length), 256));
+  const arr = new Uint32Array(len);
+  crypto.getRandomValues(arr);
+  let out = "";
+  for (let i = 0; i < len; i++) out += alphabet[arr[i] % alphabet.length];
+  return out;
+}
+
+// --- Prime Checker / Generator ---
+function isPrimeNum(n: number): boolean {
+  if (!Number.isInteger(n) || n < 2) return false;
+  if (n % 2 === 0) return n === 2;
+  for (let i = 3; i * i <= n; i += 2) if (n % i === 0) return false;
+  return true;
+}
+
+function primeFactorsOf(n: number): number[] {
+  const factors: number[] = [];
+  let x = n;
+  for (let i = 2; i * i <= x; i++) {
+    while (x % i === 0) {
+      factors.push(i);
+      x /= i;
+    }
+  }
+  if (x > 1) factors.push(x);
+  return factors;
+}
+
+function primeCheck(input: string): string {
+  const n = Number(input.trim());
+  if (!Number.isInteger(n)) throw new Error("Enter a whole number");
+  const prime = isPrimeNum(n);
+  if (prime) return `${n} is prime.`;
+  const factors = n > 1 ? primeFactorsOf(n) : [];
+  return `${n} is not prime.${factors.length ? `\nPrime factors: ${factors.join(" × ")}` : ""}`;
+}
+
+function primeList(input: string): string {
+  const parts = input.split(",").map((s) => Number(s.trim()));
+  const min = parts.length >= 2 ? parts[0] : 2;
+  const max = parts.length >= 2 ? parts[1] : parts[0] || 100;
+  if (isNaN(min) || isNaN(max) || min > max) throw new Error("Enter a range like 2,100");
+  if (max - min > 1000000) throw new Error("Range too large — keep it under 1,000,000");
+  const primes: number[] = [];
+  for (let i = Math.max(2, Math.floor(min)); i <= max; i++) if (isPrimeNum(i)) primes.push(i);
+  return primes.length ? primes.join(", ") : "No primes in that range.";
+}
+
+// --- Statistics Calculator ---
+function statisticsCalc(input: string): string {
+  const nums = input
+    .split(/[\s,]+/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map(Number);
+  if (nums.length === 0 || nums.some((n) => isNaN(n))) throw new Error("Enter numbers separated by commas or newlines");
+  const sorted = [...nums].sort((a, b) => a - b);
+  const sum = nums.reduce((a, b) => a + b, 0);
+  const mean = sum / nums.length;
+  const mid = Math.floor(sorted.length / 2);
+  const median = sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+  const freq = new Map<number, number>();
+  nums.forEach((n) => freq.set(n, (freq.get(n) ?? 0) + 1));
+  const maxFreq = Math.max(...freq.values());
+  const modes = maxFreq > 1 ? [...freq.entries()].filter(([, c]) => c === maxFreq).map(([v]) => v) : [];
+  const variance = nums.reduce((a, b) => a + (b - mean) ** 2, 0) / nums.length;
+  const stddev = Math.sqrt(variance);
+  return [
+    `Count:    ${nums.length}`,
+    `Sum:      ${sum}`,
+    `Mean:     ${mean.toFixed(4)}`,
+    `Median:   ${median}`,
+    `Mode:     ${modes.length ? modes.join(", ") : "none"}`,
+    `Min:      ${sorted[0]}`,
+    `Max:      ${sorted[sorted.length - 1]}`,
+    `Range:    ${sorted[sorted.length - 1] - sorted[0]}`,
+    `Variance: ${variance.toFixed(4)}`,
+    `Std Dev:  ${stddev.toFixed(4)}`,
+  ].join("\n");
+}
+
+// --- ASCII <-> Text ---
+function asciiEncode(input: string): string {
+  if (!input) throw new Error("Enter text to convert");
+  return Array.from(input)
+    .map((c) => c.codePointAt(0))
+    .join(" ");
+}
+
+function asciiDecode(input: string): string {
+  const parts = input.trim().split(/[\s,]+/).filter(Boolean);
+  if (!parts.length) throw new Error("Enter ASCII/Unicode codes separated by spaces");
+  return parts
+    .map((p) => {
+      const n = Number(p);
+      if (isNaN(n)) throw new Error(`"${p}" isn't a valid code`);
+      return String.fromCodePoint(n);
+    })
+    .join("");
+}
+
+// --- Random Color Generator ---
+function randomColorGenerate(format: ColorGenFormat, count: number): string {
+  const n = Math.max(1, Math.min(Math.round(count), 100));
+  const arr = new Uint8Array(n * 3);
+  crypto.getRandomValues(arr);
+  const out: string[] = [];
+  for (let i = 0; i < n; i++) {
+    const r = arr[i * 3],
+      g = arr[i * 3 + 1],
+      b = arr[i * 3 + 2];
+    if (format === "rgb") out.push(`rgb(${r}, ${g}, ${b})`);
+    else if (format === "hsl") out.push(rgbToHsl(r, g, b));
+    else out.push(rgbToHex(r, g, b));
+  }
+  return out.join("\n");
+}
+
+// --- Punycode (IDN) Encode/Decode ---
+const PC_BASE = 36,
+  PC_TMIN = 1,
+  PC_TMAX = 26,
+  PC_SKEW = 38,
+  PC_DAMP = 700,
+  PC_INITIAL_BIAS = 72,
+  PC_INITIAL_N = 128;
+
+function pcAdapt(delta: number, numPoints: number, firstTime: boolean): number {
+  let d = firstTime ? Math.floor(delta / PC_DAMP) : Math.floor(delta / 2);
+  d += Math.floor(d / numPoints);
+  let k = 0;
+  while (d > ((PC_BASE - PC_TMIN) * PC_TMAX) >> 1) {
+    d = Math.floor(d / (PC_BASE - PC_TMIN));
+    k += PC_BASE;
+  }
+  return k + Math.floor(((PC_BASE - PC_TMIN + 1) * d) / (d + PC_SKEW));
+}
+
+function pcDigitToChar(d: number): string {
+  return d < 26 ? String.fromCharCode(d + 97) : String.fromCharCode(d - 26 + 48);
+}
+
+function pcCharToDigit(c: string): number {
+  const code = c.charCodeAt(0);
+  if (code >= 48 && code <= 57) return code - 22;
+  if (code >= 97 && code <= 122) return code - 97;
+  if (code >= 65 && code <= 90) return code - 65;
+  throw new Error(`Invalid punycode character "${c}"`);
+}
+
+function punycodeEncodeLabel(label: string): string {
+  const input = Array.from(label).map((c) => c.codePointAt(0)!);
+  const output: string[] = [];
+  const basic = input.filter((c) => c < 0x80);
+  basic.forEach((c) => output.push(String.fromCharCode(c)));
+  let h = basic.length;
+  const b = h;
+  if (b > 0) output.push("-");
+
+  let n = PC_INITIAL_N,
+    delta = 0,
+    bias = PC_INITIAL_BIAS;
+
+  while (h < input.length) {
+    let m = Infinity;
+    for (const c of input) if (c >= n && c < m) m = c;
+    delta += (m - n) * (h + 1);
+    n = m;
+    for (const c of input) {
+      if (c < n) delta++;
+      if (c === n) {
+        let q = delta;
+        for (let k = PC_BASE; ; k += PC_BASE) {
+          const t = k <= bias ? PC_TMIN : k >= bias + PC_TMAX ? PC_TMAX : k - bias;
+          if (q < t) break;
+          output.push(pcDigitToChar(t + ((q - t) % (PC_BASE - t))));
+          q = Math.floor((q - t) / (PC_BASE - t));
+        }
+        output.push(pcDigitToChar(q));
+        bias = pcAdapt(delta, h + 1, h === b);
+        delta = 0;
+        h++;
+      }
+    }
+    delta++;
+    n++;
+  }
+  return "xn--" + output.join("");
+}
+
+function punycodeDecodeLabel(label: string): string {
+  if (!label.toLowerCase().startsWith("xn--")) return label;
+  const rest = label.slice(4);
+  const lastDash = rest.lastIndexOf("-");
+  const basic = lastDash >= 0 ? rest.slice(0, lastDash) : "";
+  const codePart = lastDash >= 0 ? rest.slice(lastDash + 1) : rest;
+  let output: number[] = basic ? Array.from(basic).map((c) => c.charCodeAt(0)) : [];
+
+  let n = PC_INITIAL_N,
+    i = 0,
+    bias = PC_INITIAL_BIAS,
+    idx = 0;
+
+  while (idx < codePart.length) {
+    const oldI = i;
+    let w = 1;
+    for (let k = PC_BASE; ; k += PC_BASE) {
+      if (idx >= codePart.length) throw new Error("Invalid punycode input");
+      const digit = pcCharToDigit(codePart[idx++]);
+      i += digit * w;
+      const t = k <= bias ? PC_TMIN : k >= bias + PC_TMAX ? PC_TMAX : k - bias;
+      if (digit < t) break;
+      w *= PC_BASE - t;
+    }
+    bias = pcAdapt(i - oldI, output.length + 1, oldI === 0);
+    n += Math.floor(i / (output.length + 1));
+    i %= output.length + 1;
+    output.splice(i, 0, n);
+    i++;
+  }
+  return output.map((c) => String.fromCodePoint(c)).join("");
+}
+
+function punycodeEncode(input: string): string {
+  if (!input.trim()) throw new Error("Enter a domain name");
+  return input
+    .trim()
+    .split(".")
+    .map((label) => (/^[\x00-\x7F]*$/.test(label) ? label : punycodeEncodeLabel(label)))
+    .join(".");
+}
+
+function punycodeDecode(input: string): string {
+  if (!input.trim()) throw new Error("Enter a punycode domain (e.g. xn--...)");
+  return input.trim().split(".").map(punycodeDecodeLabel).join(".");
+}
+
+// --- Base58 Encode/Decode ---
+const B58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+
+function base58Encode(input: string): string {
+  if (!input) throw new Error("Enter text to encode");
+  const bytes = new TextEncoder().encode(input);
+  let num = 0n;
+  for (const b of bytes) num = num * 256n + BigInt(b);
+  let out = "";
+  while (num > 0n) {
+    const rem = num % 58n;
+    out = B58_ALPHABET[Number(rem)] + out;
+    num /= 58n;
+  }
+  let leadingZeros = 0;
+  for (const b of bytes) {
+    if (b === 0) leadingZeros++;
+    else break;
+  }
+  return B58_ALPHABET[0].repeat(leadingZeros) + out;
+}
+
+function base58Decode(input: string): string {
+  const trimmed = input.trim();
+  if (!trimmed) throw new Error("Enter Base58 text to decode");
+  let num = 0n;
+  for (const ch of trimmed) {
+    const idx = B58_ALPHABET.indexOf(ch);
+    if (idx === -1) throw new Error(`"${ch}" is not a valid Base58 character`);
+    num = num * 58n + BigInt(idx);
+  }
+  const bytes: number[] = [];
+  while (num > 0n) {
+    bytes.unshift(Number(num % 256n));
+    num /= 256n;
+  }
+  let leadingOnes = 0;
+  for (const ch of trimmed) {
+    if (ch === B58_ALPHABET[0]) leadingOnes++;
+    else break;
+  }
+  const finalBytes = [...Array(leadingOnes).fill(0), ...bytes];
+  return new TextDecoder().decode(new Uint8Array(finalBytes));
+}
+
+// --- robots.txt Validator ---
+function robotsValidate(input: string): string {
+  if (!input.trim()) throw new Error("Paste robots.txt content");
+  const lines = input.split("\n");
+  const issues: string[] = [];
+  const validDirectives = ["user-agent", "disallow", "allow", "sitemap", "crawl-delay", "host"];
+  let currentAgent: string | null = null;
+  let agentCount = 0;
+  let sawRuleBeforeAgent = false;
+
+  lines.forEach((raw, idx) => {
+    const line = raw.trim();
+    if (!line || line.startsWith("#")) return;
+    const colon = line.indexOf(":");
+    if (colon === -1) {
+      issues.push(`Line ${idx + 1}: no colon found — "${line}"`);
+      return;
+    }
+    const directive = line.slice(0, colon).trim().toLowerCase();
+    const value = line.slice(colon + 1).trim();
+
+    if (!validDirectives.includes(directive)) {
+      issues.push(`Line ${idx + 1}: unknown directive "${directive}"`);
+      return;
+    }
+    if (directive === "user-agent") {
+      currentAgent = value;
+      agentCount++;
+      if (!value) issues.push(`Line ${idx + 1}: empty User-agent value`);
+    } else if (directive === "disallow" || directive === "allow") {
+      if (!currentAgent) sawRuleBeforeAgent = true;
+      if (value && !value.startsWith("/") && value !== "*") {
+        issues.push(`Line ${idx + 1}: "${directive}" path should start with "/" — got "${value}"`);
+      }
+    } else if (directive === "sitemap") {
+      if (!/^https?:\/\//.test(value)) issues.push(`Line ${idx + 1}: Sitemap should be an absolute URL`);
+    } else if (directive === "crawl-delay") {
+      if (isNaN(Number(value))) issues.push(`Line ${idx + 1}: Crawl-delay should be a number`);
+    }
+  });
+
+  if (sawRuleBeforeAgent) issues.push("Found a Disallow/Allow rule before any User-agent line");
+  if (agentCount === 0) issues.push("No User-agent directive found");
+
+  return issues.length
+    ? `Found ${issues.length} issue(s):\n\n${issues.map((i) => `✗ ${i}`).join("\n")}`
+    : "✓ No issues found — robots.txt looks valid.";
+}
+
+// --- CRC32 Checksum ---
+let CRC32_TABLE: Uint32Array | null = null;
+function getCrc32Table(): Uint32Array {
+  if (CRC32_TABLE) return CRC32_TABLE;
+  const table = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    table[n] = c >>> 0;
+  }
+  CRC32_TABLE = table;
+  return table;
+}
+
+function crc32Checksum(input: string): string {
+  if (!input) throw new Error("Enter text to checksum");
+  const table = getCrc32Table();
+  const bytes = new TextEncoder().encode(input);
+  let crc = 0xffffffff;
+  for (const b of bytes) crc = table[(crc ^ b) & 0xff] ^ (crc >>> 8);
+  crc = (crc ^ 0xffffffff) >>> 0;
+  return crc.toString(16).padStart(8, "0");
+}
+
+// --- Git Branch Name Generator ---
+function gitBranchGenerate(input: string, type: BranchType): string {
+  if (!input.trim()) throw new Error("Enter a short description or ticket title");
+  const slug = input
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .slice(0, 60)
+    .replace(/-$/, "");
+  return `${type}/${slug}`;
+}
+
+// --- SVG to CSS Data URI ---
+function svgToDataUriBase64(input: string): string {
+  if (!input.includes("<svg")) throw new Error("Paste raw SVG markup");
+  const b64 = btoa(unescape(encodeURIComponent(input.trim())));
+  return `background-image: url("data:image/svg+xml;base64,${b64}");`;
+}
+
+function svgToDataUriUrl(input: string): string {
+  if (!input.includes("<svg")) throw new Error("Paste raw SVG markup");
+  const cleaned = input.trim().replace(/\s+/g, " ");
+  const encoded = cleaned
+    .replace(/"/g, "'")
+    .replace(/%/g, "%25")
+    .replace(/#/g, "%23")
+    .replace(/</g, "%3C")
+    .replace(/>/g, "%3E")
+    .replace(/&/g, "%26");
+  return `background-image: url("data:image/svg+xml,${encoded}");`;
+}
+
+
+// ===========================================================================
+// Batch 4 tools
+// ===========================================================================
+
+// --- TOML <-> JSON ---
+function parseTomlValue(raw: string): unknown {
+  if (raw === "true") return true;
+  if (raw === "false") return false;
+  if (/^-?\d+$/.test(raw)) return parseInt(raw, 10);
+  if (/^-?\d*\.\d+$/.test(raw)) return parseFloat(raw);
+  if (raw.startsWith("[") && raw.endsWith("]")) {
+    const inner = raw.slice(1, -1).trim();
+    if (!inner) return [];
+    return inner.split(",").map((v) => parseTomlValue(v.trim()));
+  }
+  if ((raw.startsWith('"') && raw.endsWith('"')) || (raw.startsWith("'") && raw.endsWith("'"))) {
+    return raw.slice(1, -1);
+  }
+  return raw;
+}
+
+function parseToml(input: string): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  let current: Record<string, unknown> = result;
+  input.split("\n").forEach((rawLine) => {
+    const line = rawLine.replace(/#.*$/, "").trim();
+    if (!line) return;
+    const sectionMatch = line.match(/^\[([^\]]+)\]$/);
+    if (sectionMatch) {
+      const path = sectionMatch[1].split(".").map((s) => s.trim());
+      current = result;
+      for (const p of path) {
+        if (!(p in current) || typeof current[p] !== "object") current[p] = {};
+        current = current[p] as Record<string, unknown>;
+      }
+      return;
+    }
+    const eq = line.indexOf("=");
+    if (eq === -1) return;
+    const key = line.slice(0, eq).trim();
+    current[key] = parseTomlValue(line.slice(eq + 1).trim());
+  });
+  return result;
+}
+
+function tomlToJsonConvert(input: string): string {
+  if (!input.trim()) throw new Error("Paste TOML content");
+  return JSON.stringify(parseToml(input), null, 2);
+}
+
+function tomlValueLiteral(v: unknown): string {
+  if (typeof v === "string") return `"${v.replace(/"/g, '\\"')}"`;
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  if (Array.isArray(v)) return `[${v.map(tomlValueLiteral).join(", ")}]`;
+  return `"${String(v)}"`;
+}
+
+function serializeToml(obj: Record<string, unknown>, prefix = ""): string {
+  const scalarLines: string[] = [];
+  const sectionLines: string[] = [];
+  for (const [key, value] of Object.entries(obj)) {
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      const path = prefix ? `${prefix}.${key}` : key;
+      sectionLines.push(`[${path}]\n${serializeToml(value as Record<string, unknown>, path)}`);
+    } else {
+      scalarLines.push(`${key} = ${tomlValueLiteral(value)}`);
+    }
+  }
+  return [scalarLines.join("\n"), sectionLines.join("\n")].filter(Boolean).join("\n\n");
+}
+
+function jsonToTomlConvert(input: string): string {
+  let data: unknown;
+  try {
+    data = JSON.parse(input);
+  } catch {
+    throw new Error("Enter valid JSON");
+  }
+  if (typeof data !== "object" || data === null || Array.isArray(data)) throw new Error("Top-level JSON must be an object");
+  return serializeToml(data as Record<string, unknown>);
+}
+
+// --- INI <-> JSON ---
+function parseIni(input: string): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  let section: Record<string, unknown> = result;
+  input.split("\n").forEach((rawLine) => {
+    const line = rawLine.trim();
+    if (!line || line.startsWith(";") || line.startsWith("#")) return;
+    const sectionMatch = line.match(/^\[(.+)\]$/);
+    if (sectionMatch) {
+      const name = sectionMatch[1].trim();
+      result[name] = {};
+      section = result[name] as Record<string, unknown>;
+      return;
+    }
+    const eq = line.indexOf("=");
+    if (eq === -1) return;
+    const key = line.slice(0, eq).trim();
+    let val: unknown = line.slice(eq + 1).trim();
+    if (val === "true") val = true;
+    else if (val === "false") val = false;
+    else if (/^-?\d+$/.test(val as string)) val = parseInt(val as string, 10);
+    section[key] = val;
+  });
+  return result;
+}
+
+function iniToJsonConvert(input: string): string {
+  if (!input.trim()) throw new Error("Paste INI content");
+  return JSON.stringify(parseIni(input), null, 2);
+}
+
+function jsonToIniConvert(input: string): string {
+  let data: unknown;
+  try {
+    data = JSON.parse(input);
+  } catch {
+    throw new Error("Enter valid JSON");
+  }
+  if (typeof data !== "object" || data === null) throw new Error("Top-level JSON must be an object");
+  const obj = data as Record<string, unknown>;
+  const rootLines: string[] = [];
+  const sectionBlocks: string[] = [];
+  for (const [key, value] of Object.entries(obj)) {
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      const lines = Object.entries(value as Record<string, unknown>).map(([k, v]) => `${k}=${v}`);
+      sectionBlocks.push(`[${key}]\n${lines.join("\n")}`);
+    } else {
+      rootLines.push(`${key}=${value}`);
+    }
+  }
+  return [rootLines.join("\n"), sectionBlocks.join("\n\n")].filter(Boolean).join("\n\n");
+}
+
+// --- Password Strength Checker ---
+function checkPasswordStrength(input: string): string {
+  if (!input) throw new Error("Enter a password to check");
+  const len = input.length;
+  const hasLower = /[a-z]/.test(input);
+  const hasUpper = /[A-Z]/.test(input);
+  const hasDigit = /\d/.test(input);
+  const hasSymbol = /[^A-Za-z0-9]/.test(input);
+  const varietyCount = [hasLower, hasUpper, hasDigit, hasSymbol].filter(Boolean).length;
+
+  const charsetSize = (hasLower ? 26 : 0) + (hasUpper ? 26 : 0) + (hasDigit ? 10 : 0) + (hasSymbol ? 32 : 0);
+  const entropy = charsetSize > 0 ? Math.log2(charsetSize) * len : 0;
+
+  const commonPatterns = [/^12345/, /password/i, /qwerty/i, /abc123/i, /letmein/i, /^admin/i];
+  const hasCommonPattern = commonPatterns.some((p) => p.test(input));
+  const hasRepeats = /(.)\1{2,}/.test(input);
+  const isSequential = /(?:012|123|234|345|456|567|678|789|abc|bcd|cde)/i.test(input);
+
+  let score = 0;
+  if (len >= 8) score++;
+  if (len >= 12) score++;
+  if (len >= 16) score++;
+  score += varietyCount - 1;
+  if (hasCommonPattern) score -= 2;
+  if (hasRepeats) score -= 1;
+  if (isSequential) score -= 1;
+  score = Math.max(0, Math.min(6, score));
+
+  const labels = ["Very Weak", "Weak", "Fair", "Good", "Strong", "Very Strong", "Excellent"];
+  const label = labels[score];
+
+  const notes: string[] = [];
+  if (len < 8) notes.push("Too short — use at least 8 characters");
+  if (!hasUpper) notes.push("Add uppercase letters");
+  if (!hasLower) notes.push("Add lowercase letters");
+  if (!hasDigit) notes.push("Add numbers");
+  if (!hasSymbol) notes.push("Add symbols");
+  if (hasCommonPattern) notes.push("Avoid common words/patterns");
+  if (hasRepeats) notes.push("Avoid repeated characters");
+  if (isSequential) notes.push("Avoid sequential characters");
+
+  return [
+    `Strength:  ${label} (${score}/6)`,
+    `Length:    ${len} characters`,
+    `Entropy:   ~${entropy.toFixed(1)} bits`,
+    `Variety:   ${[hasLower && "lowercase", hasUpper && "uppercase", hasDigit && "digits", hasSymbol && "symbols"].filter(Boolean).join(", ") || "none"}`,
+    notes.length ? `\nSuggestions:\n${notes.map((n) => `- ${n}`).join("\n")}` : "\n✓ No suggestions — looks solid.",
+  ].join("\n");
+}
+
+// --- Regex to Code Snippet ---
+function parseRegexInput(input: string): { pattern: string; flags: string } {
+  const trimmed = input.trim();
+  const m = trimmed.match(/^\/(.*)\/([a-z]*)$/s);
+  if (m) return { pattern: m[1], flags: m[2] };
+  return { pattern: trimmed, flags: "" };
+}
+
+function regexToCode(input: string, lang: CodeLang): string {
+  if (!input.trim()) throw new Error("Enter a regex pattern");
+  const { pattern, flags } = parseRegexInput(input);
+  try {
+    new RegExp(pattern, flags.replace(/[^gimsuy]/g, ""));
+  } catch (e) {
+    throw new Error("Invalid regex: " + (e instanceof Error ? e.message : ""));
+  }
+
+  if (lang === "javascript") {
+    return `const re = /${pattern}/${flags};\n\nconst match = "your string".match(re);\nconsole.log(match);`;
+  }
+  if (lang === "python") {
+    const pyFlags = flags.includes("i") ? ", re.IGNORECASE" : "";
+    return `import re\n\npattern = re.compile(r"${pattern}"${pyFlags})\nmatch = pattern.search("your string")\nprint(match)`;
+  }
+  if (lang === "java") {
+    return `import java.util.regex.*;\n\nPattern pattern = Pattern.compile("${pattern.replace(/\\/g, "\\\\")}");\nMatcher matcher = pattern.matcher("your string");\nif (matcher.find()) {\n    System.out.println(matcher.group());\n}`;
+  }
+  return `package main\n\nimport (\n\t"fmt"\n\t"regexp"\n)\n\nfunc main() {\n\tre := regexp.MustCompile(\`${pattern}\`)\n\tmatch := re.FindString("your string")\n\tfmt.Println(match)\n}`;
+}
+
+// --- Commit Message Formatter ---
+function formatCommitMessage(input: string, type: CommitType, scope: string, breaking: boolean): string {
+  if (!input.trim()) throw new Error("Enter a short commit description");
+  const desc = input.trim().replace(/\.$/, "");
+  const scopePart = scope.trim() ? `(${scope.trim()})` : "";
+  const bang = breaking ? "!" : "";
+  return `${type}${scopePart}${bang}: ${desc}`;
+}
+
+// --- package.json Validator ---
+function validatePackageJson(input: string): string {
+  let data: unknown;
+  try {
+    data = JSON.parse(input);
+  } catch (e) {
+    throw new Error("Invalid JSON: " + (e instanceof Error ? e.message : ""));
+  }
+  if (typeof data !== "object" || data === null || Array.isArray(data)) throw new Error("package.json must be a JSON object");
+  const obj = data as Record<string, unknown>;
+  const issues: string[] = [];
+  if (!obj.name) issues.push("Missing required field: name");
+  else if (typeof obj.name === "string" && !/^(@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/.test(obj.name)) {
+    issues.push('"name" contains invalid characters for an npm package name');
+  }
+  if (!obj.version) issues.push("Missing required field: version");
+  else if (typeof obj.version === "string" && !/^\d+\.\d+\.\d+/.test(obj.version)) issues.push('"version" should follow semver (e.g. 1.0.0)');
+  if (obj.dependencies && typeof obj.dependencies !== "object") issues.push('"dependencies" must be an object');
+  if (obj.scripts && typeof obj.scripts !== "object") issues.push('"scripts" must be an object');
+  if (obj.main && typeof obj.main !== "string") issues.push('"main" must be a string');
+  if (obj.dependencies && obj.devDependencies) {
+    for (const k of Object.keys(obj.dependencies as object)) {
+      if (k in (obj.devDependencies as object)) issues.push(`"${k}" listed in both dependencies and devDependencies`);
+    }
+  }
+  const formatted = JSON.stringify(obj, null, 2);
+  const report = issues.length ? `Found ${issues.length} issue(s):\n${issues.map((i) => `✗ ${i}`).join("\n")}` : "✓ No issues found.";
+  return `${report}\n\n// Formatted:\n${formatted}`;
+}
+
+// --- Dockerfile Linter ---
+function lintDockerfile(input: string): string {
+  if (!input.trim()) throw new Error("Paste Dockerfile content");
+  const lines = input.split("\n");
+  const issues: string[] = [];
+  let sawFrom = false;
+
+  lines.forEach((raw, idx) => {
+    const line = raw.trim();
+    if (!line || line.startsWith("#")) return;
+    const instruction = line.split(/\s+/)[0].toUpperCase();
+    if (instruction === "FROM") {
+      sawFrom = true;
+      const image = line.split(/\s+/)[1] || "";
+      if (/:latest\b/.test(line) || !image.includes(":")) {
+        issues.push(`Line ${idx + 1}: pin a specific tag instead of ":latest" or an untagged image`);
+      }
+    } else if (!sawFrom && instruction !== "ARG") {
+      issues.push(`Line ${idx + 1}: "${instruction}" appears before any FROM instruction`);
+    }
+    if (instruction === "RUN" && /apt-get install/.test(line) && !/apt-get update/.test(input)) {
+      issues.push(`Line ${idx + 1}: "apt-get install" without a preceding "apt-get update" can use a stale cache`);
+    }
+    if (instruction === "ADD" && !/https?:\/\//.test(line)) {
+      issues.push(`Line ${idx + 1}: prefer COPY over ADD for local files (ADD has extra, often-unwanted behavior)`);
+    }
+    if (instruction === "MAINTAINER") {
+      issues.push(`Line ${idx + 1}: MAINTAINER is deprecated — use a LABEL instead`);
+    }
+  });
+
+  if (!sawFrom) issues.unshift("No FROM instruction found");
+
+  return issues.length
+    ? `Found ${issues.length} issue(s):\n\n${issues.map((i) => `✗ ${i}`).join("\n")}`
+    : "✓ No issues found — Dockerfile looks reasonable.";
+}
+
+// --- Semver Parser / Comparator ---
+function parseSemver(v: string): { major: number; minor: number; patch: number; prerelease: string; build: string } {
+  const m = v.trim().match(/^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+([0-9A-Za-z.-]+))?$/);
+  if (!m) throw new Error(`"${v}" is not a valid semver version`);
+  return { major: +m[1], minor: +m[2], patch: +m[3], prerelease: m[4] || "", build: m[5] || "" };
+}
+
+function semverParseTool(input: string): string {
+  const v = parseSemver(input);
+  return [
+    `Major:      ${v.major}`,
+    `Minor:      ${v.minor}`,
+    `Patch:      ${v.patch}`,
+    `Prerelease: ${v.prerelease || "none"}`,
+    `Build:      ${v.build || "none"}`,
+  ].join("\n");
+}
+
+function compareSemverParsed(a: ReturnType<typeof parseSemver>, b: ReturnType<typeof parseSemver>): number {
+  if (a.major !== b.major) return a.major - b.major;
+  if (a.minor !== b.minor) return a.minor - b.minor;
+  if (a.patch !== b.patch) return a.patch - b.patch;
+  if (!a.prerelease && b.prerelease) return 1;
+  if (a.prerelease && !b.prerelease) return -1;
+  if (a.prerelease && b.prerelease) return a.prerelease.localeCompare(b.prerelease);
+  return 0;
+}
+
+function semverCompareTool(input: string): string {
+  const parts = input.split(",").map((s) => s.trim()).filter(Boolean);
+  if (parts.length !== 2) throw new Error("Enter two versions separated by a comma, e.g. 1.2.3, 1.3.0");
+  const a = parseSemver(parts[0]);
+  const b = parseSemver(parts[1]);
+  const cmp = compareSemverParsed(a, b);
+  return cmp === 0
+    ? `${parts[0]} is equal to ${parts[1]}`
+    : cmp > 0
+      ? `${parts[0]} is greater than ${parts[1]}`
+      : `${parts[0]} is less than ${parts[1]}`;
+}
+
+// --- CSS Specificity Calculator ---
+function cssSpecificity(input: string): string {
+  const selectors = input.split(",").map((s) => s.trim()).filter(Boolean);
+  if (!selectors.length) throw new Error("Enter one or more CSS selectors");
+  const lines = selectors.map((sel) => {
+    const idCount = (sel.match(/#[a-zA-Z0-9_-]+/g) || []).length;
+    const classCount =
+      (sel.match(/\.[a-zA-Z0-9_-]+/g) || []).length +
+      (sel.match(/\[[^\]]+\]/g) || []).length +
+      (sel.match(/:(?!:)[a-zA-Z-]+(\([^)]*\))?/g) || []).filter((p) => !/^:(before|after)$/.test(p)).length;
+    const stripped = sel
+      .replace(/#[a-zA-Z0-9_-]+/g, "")
+      .replace(/\.[a-zA-Z0-9_-]+/g, "")
+      .replace(/\[[^\]]+\]/g, "")
+      .replace(/:[a-zA-Z-]+(\([^)]*\))?/g, "");
+    const typeCount = (stripped.match(/(^|[\s>+~])[a-zA-Z][a-zA-Z0-9-]*/g) || []).length;
+    return `${sel.padEnd(30)} → (${idCount}, ${classCount}, ${typeCount})`;
+  });
+  return lines.join("\n");
+}
+
+// --- IP Subnet / CIDR Calculator ---
+function ipToInt(ip: string): number {
+  const parts = ip.split(".").map(Number);
+  if (parts.length !== 4 || parts.some((p) => isNaN(p) || p < 0 || p > 255)) throw new Error(`"${ip}" is not a valid IPv4 address`);
+  return ((parts[0] << 24) | (parts[1] << 16) | (parts[2] << 8) | parts[3]) >>> 0;
+}
+
+function intToIp(n: number): string {
+  return [(n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255].join(".");
+}
+
+function subnetCalc(input: string): string {
+  const trimmed = input.trim();
+  const m = trimmed.match(/^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\/(\d{1,2})$/);
+  if (!m) throw new Error("Enter a CIDR like 192.168.1.0/24");
+  const prefix = Number(m[2]);
+  if (prefix < 0 || prefix > 32) throw new Error("Prefix must be between 0 and 32");
+  const ipInt = ipToInt(m[1]);
+  const mask = prefix === 0 ? 0 : (0xffffffff << (32 - prefix)) >>> 0;
+  const network = ipInt & mask;
+  const broadcast = network | (~mask >>> 0);
+  const totalHosts = Math.pow(2, 32 - prefix);
+  const usableHosts = prefix >= 31 ? totalHosts : Math.max(0, totalHosts - 2);
+  return [
+    `Network Address:   ${intToIp(network)}`,
+    `Broadcast Address: ${intToIp(broadcast)}`,
+    `Subnet Mask:       ${intToIp(mask)}`,
+    `Prefix:            /${prefix}`,
+    `Total Addresses:   ${totalHosts}`,
+    `Usable Hosts:      ${usableHosts}`,
+    `First Usable:      ${prefix >= 31 ? intToIp(network) : intToIp(network + 1)}`,
+    `Last Usable:       ${prefix >= 31 ? intToIp(broadcast) : intToIp(broadcast - 1)}`,
+  ].join("\n");
+}
+
+// --- MIME Type <-> Extension ---
+const MIME_MAP: Record<string, string> = {
+  html: "text/html", htm: "text/html", css: "text/css", js: "application/javascript", json: "application/json",
+  png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", svg: "image/svg+xml", webp: "image/webp",
+  pdf: "application/pdf", zip: "application/zip", txt: "text/plain", csv: "text/csv", xml: "application/xml",
+  mp3: "audio/mpeg", mp4: "video/mp4", wav: "audio/wav", woff: "font/woff", woff2: "font/woff2", ttf: "font/ttf",
+  doc: "application/msword", docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  xls: "application/vnd.ms-excel", xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  gz: "application/gzip", tar: "application/x-tar", ico: "image/x-icon", md: "text/markdown", yaml: "application/x-yaml", yml: "application/x-yaml",
+};
+
+function mimeExtToType(input: string): string {
+  const ext = input.trim().replace(/^\./, "").toLowerCase();
+  if (!ext) throw new Error("Enter a file extension, e.g. json");
+  const type = MIME_MAP[ext];
+  if (!type) throw new Error(`No known MIME type for ".${ext}"`);
+  return type;
+}
+
+function mimeTypeToExt(input: string): string {
+  const type = input.trim().toLowerCase();
+  if (!type) throw new Error("Enter a MIME type, e.g. application/json");
+  const matches = Object.entries(MIME_MAP)
+    .filter(([, v]) => v === type)
+    .map(([k]) => `.${k}`);
+  if (!matches.length) throw new Error(`No known extension for "${type}"`);
+  return matches.join(", ");
+}
+
+// --- HTTP Status Code Lookup ---
+const HTTP_STATUS: Record<string, string> = {
+  "100": "Continue", "101": "Switching Protocols",
+  "200": "OK", "201": "Created", "202": "Accepted", "204": "No Content",
+  "301": "Moved Permanently", "302": "Found", "304": "Not Modified", "307": "Temporary Redirect", "308": "Permanent Redirect",
+  "400": "Bad Request", "401": "Unauthorized", "403": "Forbidden", "404": "Not Found", "405": "Method Not Allowed",
+  "408": "Request Timeout", "409": "Conflict", "410": "Gone", "418": "I'm a teapot", "422": "Unprocessable Entity", "429": "Too Many Requests",
+  "500": "Internal Server Error", "501": "Not Implemented", "502": "Bad Gateway", "503": "Service Unavailable", "504": "Gateway Timeout",
+};
+
+const HTTP_STATUS_DESC: Record<string, string> = {
+  "200": "The request succeeded.",
+  "201": "The request succeeded and a new resource was created.",
+  "204": "The request succeeded but there is no content to return.",
+  "301": "The resource has permanently moved to a new URL.",
+  "302": "The resource temporarily resides at a different URL.",
+  "304": "The resource hasn't changed since the last request.",
+  "400": "The server couldn't understand the request due to invalid syntax.",
+  "401": "Authentication is required and has failed or not been provided.",
+  "403": "The server understood the request but refuses to authorize it.",
+  "404": "The requested resource couldn't be found.",
+  "405": "The HTTP method isn't allowed for this resource.",
+  "409": "The request conflicts with the current state of the resource.",
+  "429": "Too many requests have been sent in a given time.",
+  "500": "The server encountered an unexpected condition.",
+  "502": "The server received an invalid response from an upstream server.",
+  "503": "The server is currently unable to handle the request.",
+  "504": "The server didn't receive a timely response from an upstream server.",
+};
+
+function httpStatusLookup(input: string): string {
+  const code = input.trim().match(/\d{3}/)?.[0];
+  if (!code) throw new Error("Enter an HTTP status code, e.g. 404");
+  const label = HTTP_STATUS[code];
+  if (!label) throw new Error(`Unknown status code "${code}"`);
+  const category =
+    code[0] === "1" ? "Informational" : code[0] === "2" ? "Success" : code[0] === "3" ? "Redirection" : code[0] === "4" ? "Client Error" : "Server Error";
+  const desc = HTTP_STATUS_DESC[code];
+  return [`${code} ${label}`, `Category: ${category}`, desc ? `\n${desc}` : ""].filter(Boolean).join("\n");
+}
+
+// --- Number <-> Words ---
+const ONES = ["", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen"];
+const TENS = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"];
+const SCALES = ["", "thousand", "million", "billion", "trillion"];
+
+function threeDigitsToWords(n: number): string {
+  const parts: string[] = [];
+  if (n >= 100) {
+    parts.push(ONES[Math.floor(n / 100)] + " hundred");
+    n %= 100;
+  }
+  if (n >= 20) {
+    parts.push(TENS[Math.floor(n / 10)] + (n % 10 ? "-" + ONES[n % 10] : ""));
+  } else if (n > 0) {
+    parts.push(ONES[n]);
+  }
+  return parts.join(" ");
+}
+
+function numberToWords(input: string): string {
+  const n = Number(input.trim().replace(/,/g, ""));
+  if (!Number.isFinite(n) || !Number.isInteger(n)) throw new Error("Enter a whole number");
+  if (n === 0) return "zero";
+  if (Math.abs(n) >= 10 ** 15) throw new Error("Number is too large to convert");
+  const negative = n < 0;
+  let abs = Math.abs(n);
+  const groups: string[] = [];
+  let scaleIdx = 0;
+  while (abs > 0) {
+    const chunk = abs % 1000;
+    if (chunk) groups.unshift(threeDigitsToWords(chunk) + (SCALES[scaleIdx] ? " " + SCALES[scaleIdx] : ""));
+    abs = Math.floor(abs / 1000);
+    scaleIdx++;
+  }
+  return (negative ? "negative " : "") + groups.join(" ");
+}
+
+const WORD_NUMBERS: Record<string, number> = {
+  zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+  eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19,
+  twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90,
+  hundred: 100, thousand: 1000, million: 1000000, billion: 1000000000,
+};
+
+function wordsToNumber(input: string): string {
+  const words = input
+    .trim()
+    .toLowerCase()
+    .replace(/-/g, " ")
+    .replace(/,/g, " ")
+    .replace(/\band\b/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+  if (!words.length) throw new Error("Enter a number in words, e.g. 'one hundred twenty three'");
+  let negative = false;
+  if (words[0] === "negative" || words[0] === "minus") {
+    negative = true;
+    words.shift();
+  }
+  let total = 0;
+  let current = 0;
+  for (const w of words) {
+    const val = WORD_NUMBERS[w];
+    if (val === undefined) throw new Error(`"${w}" isn't a recognized number word`);
+    if (val === 100) current *= val;
+    else if (val >= 1000) {
+      total += current * val;
+      current = 0;
+    } else current += val;
+  }
+  const result = total + current;
+  return String(negative ? -result : result);
+}
+
+// --- Base36 Encode/Decode ---
+function base36Encode(input: string): string {
+  if (!input) throw new Error("Enter text to encode");
+  const bytes = new TextEncoder().encode(input);
+  let num = 0n;
+  for (const b of bytes) num = num * 256n + BigInt(b);
+  return num.toString(36);
+}
+
+function base36Decode(input: string): string {
+  const trimmed = input.trim().toLowerCase();
+  if (!trimmed || !/^[0-9a-z]+$/.test(trimmed)) throw new Error("Enter valid Base36 text (0-9, a-z)");
+  let num = 0n;
+  for (const ch of trimmed) num = num * 36n + BigInt(parseInt(ch, 36));
+  const bytes: number[] = [];
+  while (num > 0n) {
+    bytes.unshift(Number(num % 256n));
+    num /= 256n;
+  }
+  return new TextDecoder().decode(new Uint8Array(bytes));
+}
+
+// --- Mocking Case Converter ---
+function mockingCase(input: string): string {
+  if (!input) throw new Error("Enter text to convert");
+  let upper = false;
+  return Array.from(input)
+    .map((ch) => {
+      if (!/[a-zA-Z]/.test(ch)) return ch;
+      const out = upper ? ch.toUpperCase() : ch.toLowerCase();
+      upper = !upper;
+      return out;
+    })
+    .join("");
+}
+
 export async function runTransform(
   type: NodeTypeId,
   input: string,
@@ -2377,6 +3659,100 @@ export async function runTransform(
       return queryStringJson(input, settings.qsDirection ?? "toJson");
     case "ua-parse":
       return userAgentParse(input);
+
+    // --- batch 3 cases ---
+    case "json-to-ts":
+      return jsonToTs(input, settings.tsInterfaceName ?? "Root");
+    case "markdown-to-html":
+      return markdownToHtmlConvert(input);
+    case "html-to-markdown":
+      return htmlToMarkdownConvert(input);
+    case "curl-convert":
+      return curlConvert(input, settings.curlTarget ?? "fetch");
+    case "random-number":
+      return randomNumberGenerate(settings.rngMin ?? 1, settings.rngMax ?? 100, settings.rngCount ?? 5);
+    case "unit-convert":
+      return unitConvertValue(input, settings.unitCategory ?? "length", settings.unitFrom ?? "m", settings.unitTo ?? "ft");
+    case "env-parse":
+      return envParse(input);
+    case "json-to-csv":
+      return jsonToCsvConvert(input);
+    case "nanoid-gen":
+      return nanoidGenerate(settings.nanoidLength ?? 21, settings.nanoidAlphabet ?? "urlsafe");
+    case "prime-check":
+      return primeCheck(input);
+    case "prime-list":
+      return primeList(input);
+    case "stats-calc":
+      return statisticsCalc(input);
+    case "ascii-encode":
+      return asciiEncode(input);
+    case "ascii-decode":
+      return asciiDecode(input);
+    case "random-color":
+      return randomColorGenerate(settings.colorGenFormat ?? "hex", settings.colorGenCount ?? 5);
+    case "punycode-encode":
+      return punycodeEncode(input);
+    case "punycode-decode":
+      return punycodeDecode(input);
+    case "base58-encode":
+      return base58Encode(input);
+    case "base58-decode":
+      return base58Decode(input);
+    case "robots-validate":
+      return robotsValidate(input);
+    case "crc32":
+      return crc32Checksum(input);
+    case "git-branch-gen":
+      return gitBranchGenerate(input, settings.branchType ?? "feature");
+    case "svg-datauri-base64":
+      return svgToDataUriBase64(input);
+    case "svg-datauri-url":
+      return svgToDataUriUrl(input);
+
+    // --- batch 4 cases ---
+    case "toml-to-json":
+      return tomlToJsonConvert(input);
+    case "json-to-toml":
+      return jsonToTomlConvert(input);
+    case "ini-to-json":
+      return iniToJsonConvert(input);
+    case "json-to-ini":
+      return jsonToIniConvert(input);
+    case "password-strength":
+      return checkPasswordStrength(input);
+    case "regex-to-code":
+      return regexToCode(input, settings.codeLang ?? "javascript");
+    case "commit-msg-gen":
+      return formatCommitMessage(input, settings.commitType ?? "feat", settings.commitScope ?? "", settings.commitBreaking ?? false);
+    case "package-json-validate":
+      return validatePackageJson(input);
+    case "dockerfile-lint":
+      return lintDockerfile(input);
+    case "semver-parse":
+      return semverParseTool(input);
+    case "semver-compare":
+      return semverCompareTool(input);
+    case "css-specificity":
+      return cssSpecificity(input);
+    case "ip-subnet-calc":
+      return subnetCalc(input);
+    case "mime-ext-to-type":
+      return mimeExtToType(input);
+    case "mime-type-to-ext":
+      return mimeTypeToExt(input);
+    case "http-status-lookup":
+      return httpStatusLookup(input);
+    case "number-to-words":
+      return numberToWords(input);
+    case "words-to-number":
+      return wordsToNumber(input);
+    case "base36-encode":
+      return base36Encode(input);
+    case "base36-decode":
+      return base36Decode(input);
+    case "mocking-case":
+      return mockingCase(input);
 
     default:
       return input;

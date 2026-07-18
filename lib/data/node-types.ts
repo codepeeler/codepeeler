@@ -93,7 +93,54 @@ export type NodeTypeId =
   | "hmac-gen"
   | "url-parse"
   | "querystring-json"
-  | "ua-parse";
+  | "ua-parse"
+  // --- batch 3 node types ---
+  | "json-to-ts"
+  | "markdown-to-html"
+  | "html-to-markdown"
+  | "curl-convert"
+  | "random-number"
+  | "unit-convert"
+  | "env-parse"
+  | "json-to-csv"
+  | "nanoid-gen"
+  | "prime-check"
+  | "prime-list"
+  | "stats-calc"
+  | "ascii-encode"
+  | "ascii-decode"
+  | "random-color"
+  | "punycode-encode"
+  | "punycode-decode"
+  | "base58-encode"
+  | "base58-decode"
+  | "robots-validate"
+  | "crc32"
+  | "git-branch-gen"
+  | "svg-datauri-base64"
+  | "svg-datauri-url"
+  // --- batch 4 node types ---
+  | "toml-to-json"
+  | "json-to-toml"
+  | "ini-to-json"
+  | "json-to-ini"
+  | "password-strength"
+  | "regex-to-code"
+  | "commit-msg-gen"
+  | "package-json-validate"
+  | "dockerfile-lint"
+  | "semver-parse"
+  | "semver-compare"
+  | "css-specificity"
+  | "ip-subnet-calc"
+  | "mime-ext-to-type"
+  | "mime-type-to-ext"
+  | "http-status-lookup"
+  | "number-to-words"
+  | "words-to-number"
+  | "base36-encode"
+  | "base36-decode"
+  | "mocking-case";
 
 export const NODE_TYPES: Record<
   NodeTypeId,
@@ -183,6 +230,55 @@ export const NODE_TYPES: Record<
   "url-parse": { label: "URL Parser", desc: "Break a URL into its components", badge: "URL", cat: "web" },
   "querystring-json": { label: "Query String ⇄ JSON", desc: "Convert between a query string and JSON", badge: "?=", cat: "web" },
   "ua-parse": { label: "User-Agent Parser", desc: "Parse browser, OS & device from a UA string", badge: "UA", cat: "web" },
+
+  // --- batch 3 ---
+  "json-to-ts": { label: "JSON to TypeScript", desc: "Generate a TS interface from a JSON sample", badge: "TS", cat: "data" },
+  "markdown-to-html": { label: "Markdown → HTML", desc: "Convert Markdown source to HTML markup", badge: "M→H", cat: "data" },
+  "html-to-markdown": { label: "HTML → Markdown", desc: "Convert HTML markup to Markdown source", badge: "H→M", cat: "data" },
+  "curl-convert": { label: "cURL → Fetch/Axios", desc: "Turn a curl command into JS request code", badge: "sh", cat: "web" },
+  "random-number": { label: "Random Number Generator", desc: "Cryptographically random integers in a range", badge: "0-9", cat: "gen", noInput: true },
+  "unit-convert": { label: "Unit Converter", desc: "Convert length, weight & data-size units", badge: "⇌", cat: "gen" },
+  "env-parse": { label: ".env Parser / Validator", desc: "Parse .env content into JSON & flag issues", badge: ".env", cat: "data" },
+  "json-to-csv": { label: "JSON to CSV", desc: "Convert a JSON array of objects to CSV", badge: "CSV", cat: "data" },
+  "nanoid-gen": { label: "Nanoid Generator", desc: "Generate compact, URL-safe unique IDs", badge: "nid", cat: "gen", noInput: true },
+  "prime-check": { label: "Prime Checker", desc: "Check if a number is prime & show factors", badge: "P?", cat: "gen" },
+  "prime-list": { label: "Prime Generator", desc: "List all primes within a range", badge: "P…", cat: "gen" },
+  "stats-calc": { label: "Statistics Calculator", desc: "Mean, median, mode & standard deviation", badge: "σ", cat: "gen" },
+  "ascii-encode": { label: "Text → ASCII Codes", desc: "Convert text to decimal character codes", badge: "AS", cat: "encode" },
+  "ascii-decode": { label: "ASCII Codes → Text", desc: "Convert decimal character codes to text", badge: "AS", cat: "encode" },
+  "random-color": { label: "Random Color Generator", desc: "Generate random HEX, RGB or HSL colors", badge: "🎨", cat: "image", noInput: true },
+  "punycode-encode": { label: "Punycode Encode", desc: "Encode a Unicode domain to Punycode (IDN)", badge: "IDN", cat: "encode" },
+  "punycode-decode": { label: "Punycode Decode", desc: "Decode a Punycode (xn--) domain to Unicode", badge: "IDN", cat: "encode" },
+  "base58-encode": { label: "Base58 Encode", desc: "Encode text using the Bitcoin Base58 alphabet", badge: "58", cat: "encode" },
+  "base58-decode": { label: "Base58 Decode", desc: "Decode Base58 text back to the original", badge: "58", cat: "encode" },
+  "robots-validate": { label: "robots.txt Validator", desc: "Check robots.txt syntax for common mistakes", badge: "/rb", cat: "web" },
+  crc32: { label: "CRC32 Checksum", desc: "Compute a CRC32 checksum of the input", badge: "CRC", cat: "sec" },
+  "git-branch-gen": { label: "Git Branch Name Generator", desc: "Turn a ticket title into a clean branch name", badge: "⎇", cat: "gen" },
+  "svg-datauri-base64": { label: "SVG → Base64 Data URI", desc: "Convert SVG markup into a CSS-ready base64 data URI", badge: "svg", cat: "web" },
+  "svg-datauri-url": { label: "SVG → URL-Encoded Data URI", desc: "Convert SVG markup into a lean URL-encoded data URI", badge: "svg", cat: "web" },
+
+  // --- batch 4 ---
+  "toml-to-json": { label: "TOML → JSON", desc: "Convert TOML config into JSON", badge: "T→J", cat: "data" },
+  "json-to-toml": { label: "JSON → TOML", desc: "Convert JSON into TOML config", badge: "J→T", cat: "data" },
+  "ini-to-json": { label: "INI → JSON", desc: "Convert INI config into JSON", badge: "I→J", cat: "data" },
+  "json-to-ini": { label: "JSON → INI", desc: "Convert JSON into INI config", badge: "J→I", cat: "data" },
+  "password-strength": { label: "Password Strength Checker", desc: "Score a password's strength & get suggestions", badge: "pw", cat: "sec" },
+  "regex-to-code": { label: "Regex → Code Snippet", desc: "Turn a regex pattern into ready-to-use code", badge: "re", cat: "web" },
+  "commit-msg-gen": { label: "Commit Message Formatter", desc: "Format a Conventional Commits message", badge: "git", cat: "gen" },
+  "package-json-validate": { label: "package.json Validator", desc: "Validate & format a package.json file", badge: "pkg", cat: "data" },
+  "dockerfile-lint": { label: "Dockerfile Linter", desc: "Catch common Dockerfile mistakes", badge: "🐳", cat: "web" },
+  "semver-parse": { label: "Semver Parser", desc: "Break a semver version into its parts", badge: "semv", cat: "gen" },
+  "semver-compare": { label: "Semver Comparator", desc: "Compare two semver versions", badge: "semv", cat: "gen" },
+  "css-specificity": { label: "CSS Specificity Calculator", desc: "Score the specificity of CSS selectors", badge: "css", cat: "web" },
+  "ip-subnet-calc": { label: "IP Subnet / CIDR Calculator", desc: "Get network, broadcast & usable host range from a CIDR", badge: "IP", cat: "web" },
+  "mime-ext-to-type": { label: "Extension → MIME Type", desc: "Look up the MIME type for a file extension", badge: "mime", cat: "web" },
+  "mime-type-to-ext": { label: "MIME Type → Extension", desc: "Look up file extensions for a MIME type", badge: "mime", cat: "web" },
+  "http-status-lookup": { label: "HTTP Status Code Lookup", desc: "Look up the meaning of an HTTP status code", badge: "4xx", cat: "web" },
+  "number-to-words": { label: "Number → Words", desc: "Spell out a number in English words", badge: "123", cat: "gen" },
+  "words-to-number": { label: "Words → Number", desc: "Parse English number words back into digits", badge: "abc", cat: "gen" },
+  "base36-encode": { label: "Base36 Encode", desc: "Encode text using Base36 (0-9, a-z)", badge: "36", cat: "encode" },
+  "base36-decode": { label: "Base36 Decode", desc: "Decode Base36 text back to the original", badge: "36", cat: "encode" },
+  "mocking-case": { label: "Mocking Case Converter", desc: "aLtErNaTiNg CaSe, meme-style", badge: "Aa", cat: "text" },
 };
 
 export const PALETTE_GROUPS: { label: string; items: NodeTypeId[] }[] = [
@@ -208,6 +304,16 @@ export const PALETTE_GROUPS: { label: string; items: NodeTypeId[] }[] = [
       "css-format",
       "js-format",
       "roman-numeral",
+      "json-to-ts",
+      "markdown-to-html",
+      "html-to-markdown",
+      "env-parse",
+      "json-to-csv",
+      "toml-to-json",
+      "json-to-toml",
+      "ini-to-json",
+      "json-to-ini",
+      "package-json-validate",
     ],
   },
   {
@@ -223,6 +329,14 @@ export const PALETTE_GROUPS: { label: string; items: NodeTypeId[] }[] = [
       "unicode-escape",
       "binary-text",
       "base32",
+      "ascii-encode",
+      "ascii-decode",
+      "punycode-encode",
+      "punycode-decode",
+      "base58-encode",
+      "base58-decode",
+      "base36-encode",
+      "base36-decode",
     ],
   },
   {
@@ -236,6 +350,17 @@ export const PALETTE_GROUPS: { label: string; items: NodeTypeId[] }[] = [
       "url-parse",
       "querystring-json",
       "ua-parse",
+      "curl-convert",
+      "robots-validate",
+      "svg-datauri-base64",
+      "svg-datauri-url",
+      "regex-to-code",
+      "dockerfile-lint",
+      "css-specificity",
+      "ip-subnet-calc",
+      "mime-ext-to-type",
+      "mime-type-to-ext",
+      "http-status-lookup",
     ],
   },
   {
@@ -261,10 +386,34 @@ export const PALETTE_GROUPS: { label: string; items: NodeTypeId[] }[] = [
       "line-shuffle",
       "readability",
       "smart-quotes",
+      "mocking-case",
     ],
   },
-  { label: "Security", items: ["hash", "jwt-decode", "hmac-gen"] },
-  { label: "Generator", items: ["password-gen", "uuid-gen", "qr-gen", "lorem-gen", "random-pick", "percentage-calc"] },
+  { label: "Security", items: ["hash", "jwt-decode", "hmac-gen", "crc32", "password-strength"] },
+  {
+    label: "Generator",
+    items: [
+      "password-gen",
+      "uuid-gen",
+      "qr-gen",
+      "lorem-gen",
+      "random-pick",
+      "percentage-calc",
+      "random-number",
+      "nanoid-gen",
+      "random-color",
+      "prime-check",
+      "prime-list",
+      "stats-calc",
+      "unit-convert",
+      "git-branch-gen",
+      "commit-msg-gen",
+      "semver-parse",
+      "semver-compare",
+      "number-to-words",
+      "words-to-number",
+    ],
+  },
   { label: "Time & Date", items: ["unix-timestamp", "cron-parse", "timezone-convert", "iso8601-format", "date-diff"] },
   { label: "Image", items: ["color-convert"] },
 ];
