@@ -140,7 +140,29 @@ export type NodeTypeId =
   | "words-to-number"
   | "base36-encode"
   | "base36-decode"
-  | "mocking-case";
+  | "mocking-case"
+  // --- batch 5 node types ---
+  | "tailwind-sort"
+  | "regex-explain"
+  | "json-to-zod"
+  | "json-to-graphql"
+  | "json-to-openapi"
+  | "graphql-format"
+  | "graphql-minify"
+  | "passphrase-gen"
+  | "ulid-gen"
+  | "color-palette-gen"
+  | "fluid-type-calc"
+  | "emoji-encode"
+  | "emoji-decode"
+  | "htaccess-to-nginx"
+  | "docker-compose-validate"
+  | "jwk-to-pem"
+  | "env-diff"
+  | "md-to-slack"
+  | "md-to-discord"
+  | "csv-to-md-table"
+  | "rate-limit-calc";
 
 export const NODE_TYPES: Record<
   NodeTypeId,
@@ -279,6 +301,29 @@ export const NODE_TYPES: Record<
   "base36-encode": { label: "Base36 Encode", desc: "Encode text using Base36 (0-9, a-z)", badge: "36", cat: "encode" },
   "base36-decode": { label: "Base36 Decode", desc: "Decode Base36 text back to the original", badge: "36", cat: "encode" },
   "mocking-case": { label: "Mocking Case Converter", desc: "aLtErNaTiNg CaSe, meme-style", badge: "Aa", cat: "text" },
+
+  // --- batch 5 ---
+  "tailwind-sort": { label: "Tailwind Class Sorter", desc: "Sort Tailwind classes into recommended order", badge: "tw", cat: "web" },
+  "regex-explain": { label: "Regex Explainer", desc: "Turn a regex pattern into a plain-English breakdown", badge: "re", cat: "web" },
+  "json-to-zod": { label: "JSON to Zod Schema", desc: "Generate a Zod schema from a JSON sample", badge: "zod", cat: "data" },
+  "json-to-graphql": { label: "JSON to GraphQL SDL", desc: "Generate GraphQL type definitions from a JSON sample", badge: "gql", cat: "data" },
+  "json-to-openapi": { label: "JSON to OpenAPI Schema", desc: "Generate an OpenAPI schema fragment from a JSON sample", badge: "oapi", cat: "data" },
+  "graphql-format": { label: "GraphQL Formatter", desc: "Pretty-print a GraphQL query", badge: "gql", cat: "data" },
+  "graphql-minify": { label: "GraphQL Minifier", desc: "Collapse a GraphQL query to one line", badge: "gql", cat: "data" },
+  "passphrase-gen": { label: "Passphrase Generator", desc: "Diceware-style memorable multi-word passphrases", badge: "pass", cat: "gen", noInput: true },
+  "ulid-gen": { label: "ULID Generator", desc: "Generate sortable, timestamp-based unique IDs", badge: "ulid", cat: "gen", noInput: true },
+  "color-palette-gen": { label: "Color Palette Generator", desc: "Generate a palette from a base color", badge: "🎨", cat: "image" },
+  "fluid-type-calc": { label: "CSS Fluid Type Calculator", desc: "Generate a responsive clamp() font-size rule", badge: "clmp", cat: "web" },
+  "emoji-encode": { label: "Shortcode → Emoji", desc: "Convert :shortcode: patterns into emoji", badge: "😄", cat: "text" },
+  "emoji-decode": { label: "Emoji → Shortcode", desc: "Convert emoji into :shortcode: patterns", badge: "😄", cat: "text" },
+  "htaccess-to-nginx": { label: ".htaccess → Nginx", desc: "Convert common Apache directives to Nginx config", badge: "ngx", cat: "web" },
+  "docker-compose-validate": { label: "Docker Compose Validator", desc: "Check docker-compose.yml for common mistakes", badge: "🐳", cat: "web" },
+  "jwk-to-pem": { label: "JWK → PEM Converter", desc: "Convert a JSON Web Key into PEM format", badge: "pem", cat: "sec" },
+  "env-diff": { label: ".env Diff Checker", desc: "Compare two .env files for missing or differing keys", badge: ".env", cat: "data" },
+  "md-to-slack": { label: "Markdown → Slack", desc: "Convert Markdown into Slack's message formatting", badge: "#", cat: "text" },
+  "md-to-discord": { label: "Markdown → Discord", desc: "Convert Markdown into Discord-friendly formatting", badge: "#", cat: "text" },
+  "csv-to-md-table": { label: "CSV → Markdown Table", desc: "Convert CSV rows into a Markdown table", badge: "|--|", cat: "data" },
+  "rate-limit-calc": { label: "API Rate Limit Calculator", desc: "Work out remaining requests & a safe request pace", badge: "rl", cat: "gen" },
 };
 
 export const PALETTE_GROUPS: { label: string; items: NodeTypeId[] }[] = [
@@ -314,6 +359,13 @@ export const PALETTE_GROUPS: { label: string; items: NodeTypeId[] }[] = [
       "ini-to-json",
       "json-to-ini",
       "package-json-validate",
+      "json-to-zod",
+      "json-to-graphql",
+      "json-to-openapi",
+      "graphql-format",
+      "graphql-minify",
+      "env-diff",
+      "csv-to-md-table",
     ],
   },
   {
@@ -361,6 +413,11 @@ export const PALETTE_GROUPS: { label: string; items: NodeTypeId[] }[] = [
       "mime-ext-to-type",
       "mime-type-to-ext",
       "http-status-lookup",
+      "tailwind-sort",
+      "regex-explain",
+      "fluid-type-calc",
+      "htaccess-to-nginx",
+      "docker-compose-validate",
     ],
   },
   {
@@ -387,9 +444,13 @@ export const PALETTE_GROUPS: { label: string; items: NodeTypeId[] }[] = [
       "readability",
       "smart-quotes",
       "mocking-case",
+      "emoji-encode",
+      "emoji-decode",
+      "md-to-slack",
+      "md-to-discord",
     ],
   },
-  { label: "Security", items: ["hash", "jwt-decode", "hmac-gen", "crc32", "password-strength"] },
+  { label: "Security", items: ["hash", "jwt-decode", "hmac-gen", "crc32", "password-strength", "jwk-to-pem"] },
   {
     label: "Generator",
     items: [
@@ -412,8 +473,11 @@ export const PALETTE_GROUPS: { label: string; items: NodeTypeId[] }[] = [
       "semver-compare",
       "number-to-words",
       "words-to-number",
+      "passphrase-gen",
+      "ulid-gen",
+      "rate-limit-calc",
     ],
   },
   { label: "Time & Date", items: ["unix-timestamp", "cron-parse", "timezone-convert", "iso8601-format", "date-diff"] },
-  { label: "Image", items: ["color-convert"] },
+  { label: "Image", items: ["color-convert", "color-palette-gen"] },
 ];

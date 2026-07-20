@@ -118,6 +118,25 @@ export const TOOLS: Tool[] = [
   { id: "number-to-words", name: "Number ⇄ Words Converter", desc: "Spell out numbers in words, or parse them back", badge: "123", cat: "gen", page: "/tools/number-to-words-converter" },
   { id: "base36", name: "Base36 Encode/Decode", desc: "Encode & decode using Base36 (0-9, a-z)", badge: "36", cat: "encode", page: "/tools/base36-encode-decode" },
   { id: "mocking-case", name: "Mocking Case Converter", desc: "aLtErNaTiNg CaSe, meme-style", badge: "Aa", cat: "data", page: "/tools/mocking-case-converter" },
+  // --- batch 5 tools ---
+  { id: "tailwind-sort", name: "Tailwind CSS Class Sorter", desc: "Sort Tailwind classes into recommended order", badge: "tw", cat: "web", page: "/tools/tailwind-class-sorter" },
+  { id: "regex-explain", name: "Regex Explainer", desc: "Turn a regex pattern into a plain-English breakdown", badge: "re", cat: "web", page: "/tools/regex-explainer" },
+  { id: "json-to-zod", name: "JSON to Zod Schema", desc: "Generate a Zod schema from a JSON sample", badge: "zod", cat: "data", page: "/tools/json-to-zod-schema" },
+  { id: "json-to-graphql", name: "JSON to GraphQL SDL", desc: "Generate GraphQL type definitions from JSON", badge: "gql", cat: "data", page: "/tools/json-to-graphql-schema" },
+  { id: "json-to-openapi", name: "JSON to OpenAPI Schema", desc: "Generate an OpenAPI schema fragment from JSON", badge: "oapi", cat: "data", page: "/tools/json-to-openapi-schema" },
+  { id: "graphql-tools", name: "GraphQL Formatter / Minifier", desc: "Pretty-print or collapse a GraphQL query", badge: "gql", cat: "data", page: "/tools/graphql-formatter" },
+  { id: "passphrase-gen", name: "Passphrase Generator", desc: "Diceware-style memorable multi-word passphrases", badge: "pass", cat: "gen", page: "/tools/passphrase-generator" },
+  { id: "ulid-gen", name: "ULID Generator", desc: "Generate sortable, timestamp-based unique IDs", badge: "ulid", cat: "gen", page: "/tools/ulid-generator" },
+  { id: "color-palette-gen", name: "Color Palette Generator", desc: "Generate a palette from a base color", badge: "🎨", cat: "image", page: "/tools/color-palette-generator" },
+  { id: "fluid-type-calc", name: "CSS Fluid Type Calculator", desc: "Generate a responsive clamp() font-size rule", badge: "clmp", cat: "web", page: "/tools/css-fluid-type-calculator" },
+  { id: "emoji-convert", name: "Emoji Shortcode Converter", desc: "Convert between :shortcode: patterns and emoji", badge: "😄", cat: "data", page: "/tools/emoji-shortcode-converter" },
+  { id: "htaccess-to-nginx", name: ".htaccess → Nginx Converter", desc: "Convert common Apache directives to Nginx config", badge: "ngx", cat: "web", page: "/tools/htaccess-to-nginx-converter" },
+  { id: "docker-compose-validate", name: "Docker Compose Validator", desc: "Check docker-compose.yml for common mistakes", badge: "🐳", cat: "web", page: "/tools/docker-compose-validator" },
+  { id: "jwk-to-pem", name: "JWK to PEM Converter", desc: "Convert a JSON Web Key into PEM format", badge: "pem", cat: "sec", page: "/tools/jwk-to-pem-converter" },
+  { id: "env-diff", name: ".env Diff Checker", desc: "Compare two .env files for missing or differing keys", badge: ".env", cat: "data", page: "/tools/env-diff-checker" },
+  { id: "md-to-chat", name: "Markdown → Slack/Discord Converter", desc: "Convert Markdown into Slack or Discord formatting", badge: "#", cat: "data", page: "/tools/markdown-to-slack-discord" },
+  { id: "csv-to-md-table", name: "CSV to Markdown Table", desc: "Convert CSV rows into a Markdown table", badge: "|--|", cat: "data", page: "/tools/csv-to-markdown-table" },
+  { id: "rate-limit-calc", name: "API Rate Limit Calculator", desc: "Work out remaining requests & a safe request pace", badge: "rl", cat: "gen", page: "/tools/api-rate-limit-calculator" },
 ];
 
 export const CAT_META: Record<CatKey, { label: string; color: string }> = {

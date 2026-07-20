@@ -29,13 +29,14 @@ import type {
   BranchType,
   CodeLang,
   CommitType,
+  PaletteScheme,
 } from "@/lib/transforms";
 
 export const INSPECTOR_PANEL_ID = "inspector";
 
 const HASH_ALGOS: HashAlgo[] = ["SHA-1", "SHA-256", "SHA-384", "SHA-512"];
 
-function TextField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+function TextField({ label, value, onChange, width }: { label: string; value: string; onChange: (v: string) => void; width?: string }) {
   return (
     <div>
       <label className="mb-1.5 block text-[11px] font-semibold text-[var(--text-dim)]">{label}</label>
@@ -43,7 +44,7 @@ function TextField({ label, value, onChange }: { label: string; value: string; o
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-md border border-[var(--border)] bg-[var(--card)] px-2.5 py-2 text-[12px] text-[var(--text)]"
+        className={`${width ?? "w-full"} rounded-md border border-[var(--border)] bg-[var(--card)] px-2.5 py-2 text-[12px] text-[var(--text)]`}
       />
     </div>
   );
@@ -517,6 +518,112 @@ function InspectorContent() {
                 label="Breaking change"
                 checked={node.settings?.commitBreaking ?? false}
                 onChange={(v) => updateNodeSettings(node.id, { commitBreaking: v })}
+              />
+            </div>
+          )}
+
+          {node.type === "json-to-zod" && (
+            <div className="mb-4 space-y-3">
+              <TextField
+                label="Schema name"
+                value={node.settings?.schemaName ?? "schema"}
+                onChange={(v) => updateNodeSettings(node.id, { schemaName: v })}
+              />
+            </div>
+          )}
+
+          {node.type === "json-to-graphql" && (
+            <div className="mb-4 space-y-3">
+              <TextField
+                label="Root type name"
+                value={node.settings?.gqlTypeName ?? "Root"}
+                onChange={(v) => updateNodeSettings(node.id, { gqlTypeName: v })}
+              />
+            </div>
+          )}
+
+          {node.type === "passphrase-gen" && (
+            <div className="mb-4 space-y-3">
+              <NumberField
+                label="Word count"
+                min={2}
+                max={10}
+                value={node.settings?.passphraseWordCount ?? 4}
+                onChange={(v) => updateNodeSettings(node.id, { passphraseWordCount: v })}
+              />
+              <TextField
+                label="Separator"
+                value={node.settings?.passphraseSeparator ?? "-"}
+                onChange={(v) => updateNodeSettings(node.id, { passphraseSeparator: v })}
+                width="w-16"
+              />
+              <CheckField
+                label="Capitalize words"
+                checked={node.settings?.passphraseCapitalize ?? false}
+                onChange={(v) => updateNodeSettings(node.id, { passphraseCapitalize: v })}
+              />
+              <CheckField
+                label="Include a number"
+                checked={node.settings?.passphraseIncludeNumber ?? false}
+                onChange={(v) => updateNodeSettings(node.id, { passphraseIncludeNumber: v })}
+              />
+            </div>
+          )}
+
+          {node.type === "ulid-gen" && (
+            <div className="mb-4 space-y-3">
+              <NumberField
+                label="Count"
+                min={1}
+                max={100}
+                value={node.settings?.ulidCount ?? 5}
+                onChange={(v) => updateNodeSettings(node.id, { ulidCount: v })}
+              />
+            </div>
+          )}
+
+          {node.type === "color-palette-gen" && (
+            <div className="mb-4 space-y-3">
+              <SelectField<PaletteScheme>
+                label="Scheme"
+                value={node.settings?.paletteScheme ?? "complementary"}
+                options={["complementary", "analogous", "triadic", "tetradic"]}
+                onChange={(v) => updateNodeSettings(node.id, { paletteScheme: v })}
+              />
+            </div>
+          )}
+
+          {node.type === "fluid-type-calc" && (
+            <div className="mb-4 space-y-3">
+              <NumberField
+                label="Max size (px)"
+                value={node.settings?.fluidMaxSize ?? 32}
+                onChange={(v) => updateNodeSettings(node.id, { fluidMaxSize: v })}
+              />
+              <NumberField
+                label="Min viewport (px)"
+                value={node.settings?.fluidMinVw ?? 320}
+                onChange={(v) => updateNodeSettings(node.id, { fluidMinVw: v })}
+              />
+              <NumberField
+                label="Max viewport (px)"
+                value={node.settings?.fluidMaxVw ?? 1440}
+                onChange={(v) => updateNodeSettings(node.id, { fluidMaxVw: v })}
+              />
+            </div>
+          )}
+
+          {node.type === "rate-limit-calc" && (
+            <div className="mb-4 space-y-3">
+              <NumberField
+                label="Limit (requests)"
+                value={node.settings?.rateLimitMax ?? 100}
+                onChange={(v) => updateNodeSettings(node.id, { rateLimitMax: v })}
+              />
+              <NumberField
+                label="Window (minutes)"
+                value={node.settings?.rateLimitWindow ?? 60}
+                onChange={(v) => updateNodeSettings(node.id, { rateLimitWindow: v })}
               />
             </div>
           )}

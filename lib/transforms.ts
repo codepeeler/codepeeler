@@ -1,6 +1,7 @@
 import type { NodeTypeId } from "@/lib/data/node-types";
 import QRCode from "qrcode";
 import { marked } from "marked";
+import { load as loadYaml } from "js-yaml";
 
 export type HashAlgo = "SHA-1" | "SHA-256" | "SHA-384" | "SHA-512";
 export type SortMode = "alpha" | "numeric" | "length";
@@ -33,6 +34,8 @@ export type BranchType = "feature" | "fix" | "chore" | "hotfix" | "release" | "d
 // --- batch 4 tool types ---
 export type CodeLang = "javascript" | "python" | "java" | "go";
 export type CommitType = "feat" | "fix" | "docs" | "style" | "refactor" | "test" | "chore" | "perf";
+// --- batch 5 tool types ---
+export type PaletteScheme = "complementary" | "analogous" | "triadic" | "tetradic";
 
 export interface NodeSettings {
   indent?: number; // json-format
@@ -118,6 +121,20 @@ export interface NodeSettings {
   commitType?: CommitType; // commit-msg-gen
   commitScope?: string; // commit-msg-gen
   commitBreaking?: boolean; // commit-msg-gen
+  // --- batch 5 settings ---
+  schemaName?: string; // json-to-zod
+  gqlTypeName?: string; // json-to-graphql
+  passphraseWordCount?: number; // passphrase-gen
+  passphraseSeparator?: string; // passphrase-gen
+  passphraseCapitalize?: boolean; // passphrase-gen
+  passphraseIncludeNumber?: boolean; // passphrase-gen
+  ulidCount?: number; // ulid-gen
+  paletteScheme?: PaletteScheme; // color-palette-gen
+  fluidMaxSize?: number; // fluid-type-calc
+  fluidMinVw?: number; // fluid-type-calc
+  fluidMaxVw?: number; // fluid-type-calc
+  rateLimitMax?: number; // rate-limit-calc
+  rateLimitWindow?: number; // rate-limit-calc
 }
 
 export const DEFAULT_SETTINGS: Partial<Record<NodeTypeId, NodeSettings>> = {
@@ -3493,6 +3510,716 @@ function mockingCase(input: string): string {
     .join("");
 }
 
+
+// ===========================================================================
+// Batch 5 tools
+// ===========================================================================
+
+// --- Tailwind CSS Class Sorter ---
+const TAILWIND_ORDER: string[] = [
+  "container", "columns-", "break-after-", "break-before-", "break-inside-", "box-decoration-", "box-",
+  "float-", "clear-", "isolate", "isolation-", "object-", "overflow-", "overscroll-",
+  "static", "fixed", "absolute", "relative", "sticky",
+  "inset-", "top-", "right-", "bottom-", "left-", "start-", "end-",
+  "visible", "invisible", "collapse", "z-",
+  "flex-", "flex", "basis-", "grow", "shrink", "order-",
+  "grid-", "col-", "row-", "auto-cols-", "auto-rows-", "gap-",
+  "justify-", "content-", "items-", "self-", "place-",
+  "space-x-", "space-y-", "m-", "mx-", "my-", "mt-", "mr-", "mb-", "ml-", "ms-", "me-",
+  "p-", "px-", "py-", "pt-", "pr-", "pb-", "pl-", "ps-", "pe-",
+  "w-", "min-w-", "max-w-", "h-", "min-h-", "max-h-", "size-",
+  "font-", "text-", "leading-", "tracking-", "antialiased", "italic", "not-italic",
+  "underline", "overline", "line-through", "no-underline", "uppercase", "lowercase", "capitalize", "normal-case",
+  "truncate", "whitespace-", "break-", "indent-", "align-", "list-",
+  "bg-",
+  "rounded", "border", "divide-", "outline", "ring",
+  "shadow", "opacity-", "mix-blend-", "bg-blend-",
+  "blur", "brightness-", "contrast-", "drop-shadow", "grayscale", "hue-rotate-", "invert", "saturate-", "sepia",
+  "backdrop-",
+  "transition", "duration-", "ease-", "delay-", "animate-",
+  "scale-", "rotate-", "translate-", "skew-", "transform", "origin-",
+  "cursor-", "select-", "resize", "scroll-", "touch-", "pointer-events-", "will-change-",
+  "fill-", "stroke-",
+  "sr-only", "not-sr-only",
+];
+
+function tailwindClassRank(baseClass: string): number {
+  for (let i = 0; i < TAILWIND_ORDER.length; i++) {
+    const prefix = TAILWIND_ORDER[i];
+    if (baseClass === prefix || baseClass.startsWith(prefix)) return i;
+  }
+  return TAILWIND_ORDER.length;
+}
+
+function sortTailwindClasses(input: string): string {
+  if (!input.trim()) throw new Error("Paste a class list");
+  const classes = input.trim().split(/\s+/);
+  const decorated = classes.map((cls, idx) => {
+    const lastColon = cls.lastIndexOf(":");
+    const base = lastColon >= 0 ? cls.slice(lastColon + 1) : cls;
+    const variant = lastColon >= 0 ? cls.slice(0, lastColon) : "";
+    const cleanBase = base.startsWith("!") ? base.slice(1) : base;
+    return { cls, idx, variant, rank: tailwindClassRank(cleanBase) };
+  });
+  decorated.sort((a, b) => {
+    if (a.variant !== b.variant) {
+      if (!a.variant) return -1;
+      if (!b.variant) return 1;
+      return a.variant.localeCompare(b.variant);
+    }
+    if (a.rank !== b.rank) return a.rank - b.rank;
+    return a.idx - b.idx;
+  });
+  return decorated.map((d) => d.cls).join(" ");
+}
+
+// --- Regex to Plain English ---
+function explainRegexToken(token: string): string {
+  const explanations: Record<string, string> = {
+    "\\d": "a digit (0-9)", "\\D": "a non-digit",
+    "\\w": "a word character (letter, digit, underscore)", "\\W": "a non-word character",
+    "\\s": "a whitespace character", "\\S": "a non-whitespace character",
+    "\\b": "a word boundary", "\\B": "a non-word boundary",
+    "\\n": "a newline", "\\t": "a tab",
+  };
+  return explanations[token] || "";
+}
+
+function describeQuantifier(q: string): string {
+  if (!q) return "";
+  if (q === "*") return " (zero or more times)";
+  if (q === "*?") return " (zero or more times, lazily)";
+  if (q === "+") return " (one or more times)";
+  if (q === "+?") return " (one or more times, lazily)";
+  if (q === "?") return " (optionally)";
+  if (q === "??") return " (optionally, lazily)";
+  const range = q.match(/^\{(\d+)(,(\d*))?\}\??$/);
+  if (range) {
+    const min = range[1];
+    const max = range[3];
+    if (range[2] === undefined) return ` (exactly ${min} times)`;
+    if (max === "") return ` (${min} or more times)`;
+    return ` (between ${min} and ${max} times)`;
+  }
+  return "";
+}
+
+function describeToken(token: string, quantifier: string): string {
+  const qDesc = describeQuantifier(quantifier);
+  if (token === "^") return "start of string";
+  if (token === "$") return "end of string";
+  if (token === ".") return `any character${qDesc}`;
+  if (token === "|") return "OR — either the pattern before or after this";
+  const known = explainRegexToken(token);
+  if (known) return `${known}${qDesc}`;
+  if (token.startsWith("[")) {
+    const negated = token.startsWith("[^");
+    const inner = token.slice(negated ? 2 : 1, -1);
+    return `${negated ? "any character NOT in" : "any character in"} the set "${inner}"${qDesc}`;
+  }
+  if (token.startsWith("(?:")) return `a group (not captured): ${token.slice(3, -1)}${qDesc}`;
+  if (token.startsWith("(?=")) return `positive lookahead: must be followed by "${token.slice(3, -1)}"`;
+  if (token.startsWith("(?!")) return `negative lookahead: must NOT be followed by "${token.slice(3, -1)}"`;
+  if (token.startsWith("(?<=")) return `positive lookbehind: must be preceded by "${token.slice(4, -1)}"`;
+  if (token.startsWith("(?<!")) return `negative lookbehind: must NOT be preceded by "${token.slice(4, -1)}"`;
+  if (token.startsWith("(")) return `a captured group: ${token.slice(1, -1)}${qDesc}`;
+  const display = token.length === 2 && token[0] === "\\" ? token[1] : token;
+  return `the literal character "${display}"${qDesc}`;
+}
+
+function describeFlags(flags: string): string {
+  const map: Record<string, string> = { g: "global (find all matches)", i: "case-insensitive", m: "multiline", s: "dotall", u: "unicode", y: "sticky" };
+  return flags.split("").map((f) => map[f] || f).join(", ");
+}
+
+function explainRegex(input: string): string {
+  const trimmed = input.trim();
+  if (!trimmed) throw new Error("Enter a regex pattern");
+  const m = trimmed.match(/^\/(.*)\/([a-z]*)$/s);
+  const pattern = m ? m[1] : trimmed;
+  const flags = m ? m[2] : "";
+
+  try {
+    new RegExp(pattern, flags.replace(/[^gimsuy]/g, ""));
+  } catch (e) {
+    throw new Error("Invalid regex: " + (e instanceof Error ? e.message : ""));
+  }
+
+  const tokens: string[] = [];
+  let i = 0;
+  while (i < pattern.length) {
+    let token = "";
+    const ch = pattern[i];
+    if (ch === "\\") {
+      token = pattern.slice(i, i + 2);
+      i += 2;
+    } else if (ch === "[") {
+      let j = i + 1;
+      if (pattern[j] === "^") j++;
+      if (pattern[j] === "]") j++;
+      while (j < pattern.length && pattern[j] !== "]") {
+        if (pattern[j] === "\\") j++;
+        j++;
+      }
+      token = pattern.slice(i, j + 1);
+      i = j + 1;
+    } else if (ch === "(") {
+      let depth = 1;
+      let j = i + 1;
+      while (j < pattern.length && depth > 0) {
+        if (pattern[j] === "\\") {
+          j += 2;
+          continue;
+        }
+        if (pattern[j] === "(") depth++;
+        if (pattern[j] === ")") depth--;
+        j++;
+      }
+      token = pattern.slice(i, j);
+      i = j;
+    } else {
+      token = ch;
+      i++;
+    }
+
+    let quantifier = "";
+    if (i < pattern.length) {
+      const q = pattern[i];
+      if (q === "*" || q === "+" || q === "?") {
+        quantifier = q;
+        i++;
+        if (pattern[i] === "?") {
+          quantifier += "?";
+          i++;
+        }
+      } else if (q === "{") {
+        let j = i + 1;
+        while (j < pattern.length && pattern[j] !== "}") j++;
+        quantifier = pattern.slice(i, j + 1);
+        i = j + 1;
+      }
+    }
+    tokens.push(describeToken(token, quantifier));
+  }
+
+  const lines = tokens.map((t) => `- ${t}`);
+  if (flags) lines.push(`\nFlags: ${describeFlags(flags)}`);
+  return lines.join("\n");
+}
+
+// --- JSON to Zod Schema ---
+function jsonToZod(input: string, rootName: string): string {
+  let data: unknown;
+  try {
+    data = JSON.parse(input);
+  } catch {
+    throw new Error("Enter valid JSON");
+  }
+
+  function zodFor(value: unknown): string {
+    if (value === null) return "z.null()";
+    if (Array.isArray(value)) {
+      if (value.length === 0) return "z.array(z.unknown())";
+      return `z.array(${zodFor(value[0])})`;
+    }
+    const t = typeof value;
+    if (t === "string") return "z.string()";
+    if (t === "number") return "z.number()";
+    if (t === "boolean") return "z.boolean()";
+    if (t === "object") {
+      const entries = Object.entries(value as Record<string, unknown>).map(([k, v]) => {
+        const safeKey = /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(k) ? k : `"${k}"`;
+        return `  ${safeKey}: ${zodFor(v)},`;
+      });
+      return `z.object({\n${entries.join("\n")}\n})`;
+    }
+    return "z.unknown()";
+  }
+
+  const name = (rootName || "schema").replace(/[^a-zA-Z0-9_]/g, "") || "schema";
+  const typeName = name.charAt(0).toUpperCase() + name.slice(1);
+  return `import { z } from "zod";\n\nexport const ${name} = ${zodFor(data)};\n\nexport type ${typeName} = z.infer<typeof ${name}>;`;
+}
+
+// --- JSON to GraphQL SDL ---
+function jsonToGraphQL(input: string, typeName: string): string {
+  let data: unknown;
+  try {
+    data = JSON.parse(input);
+  } catch {
+    throw new Error("Enter valid JSON");
+  }
+  const sample = Array.isArray(data) ? data[0] : data;
+  if (typeof sample !== "object" || sample === null) throw new Error("Top-level JSON must be an object (or array of objects)");
+
+  const types: string[] = [];
+  const seen = new Set<string>();
+
+  function capitalize(s: string): string {
+    const clean = s.replace(/[^a-zA-Z0-9]/g, " ").trim().split(/\s+/).filter(Boolean).map((w) => w[0].toUpperCase() + w.slice(1)).join("");
+    return clean || "Field";
+  }
+
+  function gqlType(value: unknown, name: string): string {
+    if (value === null) return "String";
+    if (Array.isArray(value)) return `[${gqlType(value[0] ?? "", name)}]`;
+    const t = typeof value;
+    if (t === "string") return "String";
+    if (t === "boolean") return "Boolean";
+    if (t === "number") return Number.isInteger(value) ? "Int" : "Float";
+    if (t === "object") {
+      const iName = capitalize(name);
+      buildType(value as Record<string, unknown>, iName);
+      return iName;
+    }
+    return "String";
+  }
+
+  function buildType(obj: Record<string, unknown>, name: string) {
+    if (seen.has(name)) return;
+    seen.add(name);
+    const lines = [`type ${name} {`];
+    for (const [k, v] of Object.entries(obj)) lines.push(`  ${k}: ${gqlType(v, k)}`);
+    lines.push("}");
+    types.push(lines.join("\n"));
+  }
+
+  buildType(sample as Record<string, unknown>, capitalize(typeName || "Root"));
+  return types.join("\n\n");
+}
+
+// --- JSON to OpenAPI Schema ---
+function jsonToOpenApiSchema(input: string): string {
+  let data: unknown;
+  try {
+    data = JSON.parse(input);
+  } catch {
+    throw new Error("Enter valid JSON");
+  }
+
+  function schemaFor(value: unknown): Record<string, unknown> {
+    if (value === null) return { type: "string", nullable: true };
+    if (Array.isArray(value)) return { type: "array", items: value.length ? schemaFor(value[0]) : {} };
+    const t = typeof value;
+    if (t === "string") return { type: "string", example: value };
+    if (t === "boolean") return { type: "boolean", example: value };
+    if (t === "number") return { type: Number.isInteger(value) ? "integer" : "number", example: value };
+    if (t === "object") {
+      const properties: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(value as Record<string, unknown>)) properties[k] = schemaFor(v);
+      return { type: "object", properties, required: Object.keys(value as object) };
+    }
+    return { type: "string" };
+  }
+
+  return JSON.stringify(schemaFor(data), null, 2);
+}
+
+// --- GraphQL Formatter / Minifier ---
+function formatGraphQL(input: string): string {
+  if (!input.trim()) throw new Error("Paste a GraphQL query");
+  let depth = 0;
+  const lines: string[] = [];
+  let current = "";
+  const flush = () => {
+    const trimmed = current.trim();
+    if (trimmed) lines.push("  ".repeat(depth) + trimmed);
+    current = "";
+  };
+  for (const ch of input.replace(/\s+/g, " ").trim()) {
+    if (ch === "{") {
+      current += " {";
+      flush();
+      depth++;
+    } else if (ch === "}") {
+      flush();
+      depth = Math.max(0, depth - 1);
+      lines.push("  ".repeat(depth) + "}");
+    } else {
+      current += ch;
+    }
+  }
+  flush();
+  return lines.filter(Boolean).join("\n");
+}
+
+function minifyGraphQL(input: string): string {
+  if (!input.trim()) throw new Error("Paste a GraphQL query");
+  return input.replace(/\s+/g, " ").replace(/\s*([{}():,])\s*/g, "$1").trim();
+}
+
+// --- Diceware / Passphrase Generator ---
+const DICEWARE_WORDS = [
+  "apple","river","stone","cloud","tiger","maple","ocean","spark","brave","gentle","amber","ember","hazel","willow","meadow",
+  "canyon","desert","forest","glacier","harbor","island","jungle","kettle","lantern","marble","nectar","orchid","pebble","quartz","ribbon",
+  "sapphire","thunder","umbrella","velvet","walnut","xenon","yonder","zephyr","anchor","breeze","cactus","dawn","echo","falcon","garden",
+  "horizon","ivory","jasper","kernel","lagoon","mint","nutmeg","opal","pepper","quill","raven","summit","timber","urchin","violet",
+  "wander","yarrow","zenith","autumn","blossom","cedar","dune","ember2","fable","glow","haven","ink","jubilee","knoll","lumen",
+  "mirage","nook","onyx","pine","quiver","ridge","shard","tundra","utopia","vapor","wisp","yield","zeal","alder","brook",
+  "coral","dusk","fern","grove","hollow","ivy","juniper","kindle","lark","moss","nimbus","oak","prairie","quartzite","reef",
+  "spruce","thicket","under","vine","whisper","yew","zodiac","basil","clover","drift","elm","frost","gale","heron","iris",
+  "jade","kiwi","lilac","myrtle","nectarine","olive","plum","quince","rowan","sage","tulip","umber","vista","wheat","yucca",
+  "cinder","dapple","flint","granite","haze","indigo","jetty","knot","lattice","mesa","nova","onward","pixel","quaint","rustle",
+  "silver","tangle","upland","verve","woven","yolk","zigzag","acorn","birch","copper","daisy","evergreen","fjord","gully","hush",
+];
+
+function generatePassphrase(wordCount: number, separator: string, capitalize: boolean, includeNumber: boolean): string {
+  const n = Math.max(2, Math.min(Math.round(wordCount), 10));
+  const arr = new Uint32Array(n + (includeNumber ? 1 : 0));
+  crypto.getRandomValues(arr);
+  const words: string[] = [];
+  for (let i = 0; i < n; i++) {
+    let w = DICEWARE_WORDS[arr[i] % DICEWARE_WORDS.length];
+    if (capitalize) w = w.charAt(0).toUpperCase() + w.slice(1);
+    words.push(w);
+  }
+  if (includeNumber) words.push(String(arr[n] % 100));
+  return words.join(separator || "-");
+}
+
+// --- ULID Generator ---
+const CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+
+function ulidEncodeTime(time: number, len: number): string {
+  let str = "";
+  for (let i = len - 1; i >= 0; i--) {
+    const mod = time % 32;
+    str = CROCKFORD[mod] + str;
+    time = (time - mod) / 32;
+  }
+  return str;
+}
+
+function ulidEncodeRandom(len: number): string {
+  const bytes = new Uint8Array(len);
+  crypto.getRandomValues(bytes);
+  let str = "";
+  for (let i = 0; i < len; i++) str += CROCKFORD[bytes[i] % 32];
+  return str;
+}
+
+function generateUlid(): string {
+  return ulidEncodeTime(Date.now(), 10) + ulidEncodeRandom(16);
+}
+
+function generateUlids(count: number): string {
+  const n = Math.max(1, Math.min(Math.round(count), 100));
+  return Array.from({ length: n }, () => generateUlid()).join("\n");
+}
+
+// --- Color Palette Generator ---
+function parseHexColor(hex: string): { r: number; g: number; b: number } {
+  const clean = hex.trim().replace(/^#/, "");
+  if (!/^[0-9a-fA-F]{6}$/.test(clean) && !/^[0-9a-fA-F]{3}$/.test(clean)) throw new Error("Enter a valid hex color, e.g. #3b82f6");
+  const full = clean.length === 3 ? clean.split("").map((c) => c + c).join("") : clean;
+  return { r: parseInt(full.slice(0, 2), 16), g: parseInt(full.slice(2, 4), 16), b: parseInt(full.slice(4, 6), 16) };
+}
+
+function rgbToHslTuple(r: number, g: number, b: number): [number, number, number] {
+  const rn = r / 255,
+    gn = g / 255,
+    bn = b / 255;
+  const max = Math.max(rn, gn, bn),
+    min = Math.min(rn, gn, bn);
+  let h = 0,
+    s = 0;
+  const l = (max + min) / 2;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case rn:
+        h = (gn - bn) / d + (gn < bn ? 6 : 0);
+        break;
+      case gn:
+        h = (bn - rn) / d + 2;
+        break;
+      default:
+        h = (rn - gn) / d + 4;
+    }
+    h /= 6;
+  }
+  return [h * 360, s * 100, l * 100];
+}
+
+function hslToHex(h: number, s: number, l: number): string {
+  h = ((h % 360) + 360) % 360;
+  s /= 100;
+  l /= 100;
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l - c / 2;
+  let r = 0,
+    g = 0,
+    b = 0;
+  if (h < 60) [r, g, b] = [c, x, 0];
+  else if (h < 120) [r, g, b] = [x, c, 0];
+  else if (h < 180) [r, g, b] = [0, c, x];
+  else if (h < 240) [r, g, b] = [0, x, c];
+  else if (h < 300) [r, g, b] = [x, 0, c];
+  else [r, g, b] = [c, 0, x];
+  const toHex = (v: number) => Math.round((v + m) * 255).toString(16).padStart(2, "0");
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+function generatePalette(input: string, scheme: PaletteScheme): string {
+  const { r, g, b } = parseHexColor(input);
+  const [h, s, l] = rgbToHslTuple(r, g, b);
+  let hues: number[];
+  if (scheme === "complementary") hues = [h, h + 180];
+  else if (scheme === "analogous") hues = [h - 30, h, h + 30];
+  else if (scheme === "triadic") hues = [h, h + 120, h + 240];
+  else hues = [h, h + 90, h + 180, h + 270];
+  return hues.map((hue) => hslToHex(hue, s, l)).join("\n");
+}
+
+// --- CSS Fluid Type Calculator ---
+function fluidTypeCalc(minSizeStr: string, maxSize: number, minVw: number, maxVw: number): string {
+  const minSize = Number(minSizeStr.trim());
+  if (isNaN(minSize)) throw new Error("Enter the minimum font size in px");
+  if (minVw >= maxVw) throw new Error("Max viewport must be greater than min viewport");
+  const slope = (maxSize - minSize) / (maxVw - minVw);
+  const yIntersect = -minVw * slope + minSize;
+  const slopeVw = (slope * 100).toFixed(4);
+  const remMin = (minSize / 16).toFixed(4);
+  const remMax = (maxSize / 16).toFixed(4);
+  const remIntersect = (yIntersect / 16).toFixed(4);
+  return `font-size: clamp(${remMin}rem, calc(${remIntersect}rem + ${slopeVw}vw), ${remMax}rem);\n\n/* min: ${minSize}px at ${minVw}px viewport */\n/* max: ${maxSize}px at ${maxVw}px viewport */`;
+}
+
+// --- Emoji Shortcode Converter ---
+const EMOJI_MAP: Record<string, string> = {
+  smile: "😄", grin: "😁", joy: "😂", heart: "❤️", thumbsup: "👍", thumbsdown: "👎",
+  fire: "🔥", star: "⭐", tada: "🎉", rocket: "🚀", eyes: "👀", clap: "👏",
+  cry: "😢", laughing: "😆", wink: "😉", thinking: "🤔", hundred: "💯", pray: "🙏",
+  wave: "👋", ok_hand: "👌", muscle: "💪", sparkles: "✨", warning: "⚠️", checkmark: "✅",
+  x: "❌", bulb: "💡", bug: "🐛", rainbow: "🌈", sun: "☀️", moon: "🌙",
+  coffee: "☕", pizza: "🍕", beer: "🍺", cake: "🎂", gift: "🎁", zap: "⚡",
+  skull: "💀", ghost: "👻", alien: "👽", robot: "🤖", poop: "💩", heart_eyes: "😍",
+  sob: "😭", angry: "😠", sunglasses: "😎", scream: "😱", clock: "🕐", calendar: "📅",
+  email: "📧", phone: "📱", computer: "💻", lock: "🔒", key: "🔑", flag: "🚩",
+};
+
+function shortcodeToEmoji(input: string): string {
+  if (!input) throw new Error("Enter text with :shortcode: patterns");
+  return input.replace(/:([a-zA-Z0-9_+-]+):/g, (match, code) => EMOJI_MAP[code] ?? match);
+}
+
+function emojiToShortcode(input: string): string {
+  if (!input) throw new Error("Enter text containing emoji");
+  let out = input;
+  for (const [code, emoji] of Object.entries(EMOJI_MAP)) out = out.split(emoji).join(`:${code}:`);
+  return out;
+}
+
+// --- .htaccess to Nginx ---
+function htaccessToNginx(input: string): string {
+  if (!input.trim()) throw new Error("Paste .htaccess content");
+  const lines = input.split("\n");
+  const out: string[] = [];
+  lines.forEach((raw) => {
+    const line = raw.trim();
+    if (!line || line.startsWith("#")) return;
+    const parts = line.split(/\s+/);
+    const directive = parts[0];
+
+    if (directive === "RewriteEngine") return;
+    if (directive === "DirectoryIndex") out.push(`index ${parts.slice(1).join(" ")};`);
+    else if (directive === "ErrorDocument") out.push(`error_page ${parts[1]} ${parts.slice(2).join(" ")};`);
+    else if (directive === "Redirect" || directive === "Redirect301") out.push(`rewrite ^${parts[1]}$ ${parts[2]} permanent;`);
+    else if (directive === "RedirectMatch") out.push(`rewrite ${parts[1]} ${parts[2]} permanent;`);
+    else if (directive === "RewriteRule") {
+      const [, pattern, target, flags] = parts;
+      const isRedirect = flags && /R(=\d+)?/.test(flags);
+      out.push(`rewrite ${pattern} ${target}${isRedirect ? " permanent" : ""};`);
+    } else if (directive === "RewriteCond") out.push(`# condition (verify manually): ${line}`);
+    else if (directive === "Deny" || directive === "Require") out.push(`# access control (verify manually): ${line}`);
+    else if (directive === "Options" && /-Indexes/.test(line)) out.push(`autoindex off;`);
+    else if (directive === "AddType") out.push(`# add to nginx mime.types or: types { ${parts[1]} ${parts.slice(2).join(" ")}; }`);
+    else if (directive === "<IfModule" || directive === "</IfModule>") return;
+    else out.push(`# unrecognized (manual conversion needed): ${line}`);
+  });
+  return out.length ? out.join("\n") : "# No recognizable directives found";
+}
+
+// --- Docker Compose Validator ---
+function validateDockerCompose(input: string): string {
+  if (!input.trim()) throw new Error("Paste docker-compose.yml content");
+  let data: unknown;
+  try {
+    data = loadYaml(input);
+  } catch (e) {
+    throw new Error("Invalid YAML: " + (e instanceof Error ? e.message : ""));
+  }
+  if (typeof data !== "object" || data === null) throw new Error("Top-level content must be a YAML mapping");
+  const obj = data as Record<string, unknown>;
+  const issues: string[] = [];
+  if (!obj.services) issues.push("Missing top-level 'services' key");
+  else if (typeof obj.services === "object") {
+    for (const [name, svc] of Object.entries(obj.services as Record<string, unknown>)) {
+      if (typeof svc !== "object" || svc === null) {
+        issues.push(`Service "${name}": must be a mapping`);
+        continue;
+      }
+      const s = svc as Record<string, unknown>;
+      if (!s.image && !s.build) issues.push(`Service "${name}": needs either "image" or "build"`);
+      if (s.ports && !Array.isArray(s.ports)) issues.push(`Service "${name}": "ports" should be a list`);
+      if (s.environment && typeof s.environment !== "object") issues.push(`Service "${name}": "environment" should be a list or mapping`);
+    }
+  }
+  return issues.length
+    ? `Found ${issues.length} issue(s):\n\n${issues.map((i) => `✗ ${i}`).join("\n")}`
+    : "✓ No issues found — docker-compose.yml looks reasonable.";
+}
+
+// --- JWK to PEM ---
+async function jwkToPem(input: string): Promise<string> {
+  let jwk: JsonWebKey;
+  try {
+    jwk = JSON.parse(input);
+  } catch {
+    throw new Error("Enter valid JWK JSON");
+  }
+  if (!jwk.kty) throw new Error('JWK must include a "kty" field');
+
+  let algorithm: RsaHashedImportParams | EcKeyImportParams;
+  if (jwk.kty === "RSA") algorithm = { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" };
+  else if (jwk.kty === "EC") algorithm = { name: "ECDSA", namedCurve: (jwk.crv as string) || "P-256" };
+  else throw new Error(`Unsupported key type "${jwk.kty}" — only RSA and EC are supported`);
+
+  const isPrivate = !!jwk.d;
+  const usages: KeyUsage[] = isPrivate ? ["sign"] : ["verify"];
+  let key: CryptoKey;
+  try {
+    key = await crypto.subtle.importKey("jwk", jwk, algorithm, true, usages);
+  } catch (e) {
+    throw new Error("Couldn't import this JWK: " + (e instanceof Error ? e.message : ""));
+  }
+
+  const format = isPrivate ? "pkcs8" : "spki";
+  const exported = await crypto.subtle.exportKey(format, key);
+  const b64 = btoa(String.fromCharCode(...new Uint8Array(exported)));
+  const lines = b64.match(/.{1,64}/g) || [];
+  const label = isPrivate ? "PRIVATE KEY" : "PUBLIC KEY";
+  return `-----BEGIN ${label}-----\n${lines.join("\n")}\n-----END ${label}-----`;
+}
+
+// --- .env Diff ---
+function envDiffCheck(input: string): string {
+  const delimIdx = input.split("\n").findIndex((l) => l.trim() === "===");
+  if (delimIdx === -1) throw new Error('Separate the two .env files with a line containing only "==="');
+  const left = input.split("\n").slice(0, delimIdx).join("\n");
+  const right = input.split("\n").slice(delimIdx + 1).join("\n");
+
+  const parseEnv = (text: string): Record<string, string> => {
+    const result: Record<string, string> = {};
+    text.split("\n").forEach((raw) => {
+      const line = raw.trim();
+      if (!line || line.startsWith("#")) return;
+      const eq = line.indexOf("=");
+      if (eq === -1) return;
+      result[line.slice(0, eq).trim()] = line.slice(eq + 1).trim();
+    });
+    return result;
+  };
+
+  const a = parseEnv(left);
+  const b = parseEnv(right);
+  const allKeys = Array.from(new Set([...Object.keys(a), ...Object.keys(b)])).sort();
+  const onlyA: string[] = [];
+  const onlyB: string[] = [];
+  const different: string[] = [];
+
+  for (const key of allKeys) {
+    const inA = key in a;
+    const inB = key in b;
+    if (inA && !inB) onlyA.push(key);
+    else if (!inA && inB) onlyB.push(key);
+    else if (a[key] !== b[key]) different.push(`${key}: "${a[key]}" ≠ "${b[key]}"`);
+  }
+
+  const out: string[] = [];
+  out.push(onlyA.length ? `Only in File A:\n${onlyA.map((k) => `  + ${k}`).join("\n")}` : "Only in File A: (none)");
+  out.push(onlyB.length ? `\nOnly in File B:\n${onlyB.map((k) => `  + ${k}`).join("\n")}` : "\nOnly in File B: (none)");
+  out.push(different.length ? `\nDifferent values:\n${different.map((d) => `  ≠ ${d}`).join("\n")}` : "\nDifferent values: (none)");
+  return out.join("\n");
+}
+
+// --- Markdown to Slack/Discord ---
+function markdownToSlack(input: string): string {
+  if (!input.trim()) throw new Error("Enter Markdown text");
+  let s = input;
+  s = s.replace(/\*\*(.+?)\*\*/g, "*$1*");
+  s = s.replace(/__(.+?)__/g, "_$1_");
+  s = s.replace(/~~(.+?)~~/g, "~$1~");
+  s = s.replace(/\[(.+?)\]\((.+?)\)/g, "<$2|$1>");
+  s = s.replace(/^#{1,6}\s+(.+)$/gm, "*$1*");
+  s = s.replace(/^[-*]\s+(.+)$/gm, "• $1");
+  return s;
+}
+
+function markdownToDiscord(input: string): string {
+  if (!input.trim()) throw new Error("Enter Markdown text");
+  let s = input;
+  s = s.replace(/^#{1,6}\s+(.+)$/gm, "**$1**");
+  s = s.replace(/\[(.+?)\]\((.+?)\)/g, "$1 (<$2>)");
+  return s;
+}
+
+// --- CSV to Markdown Table ---
+function parseCsvLineForMd(line: string): string[] {
+  const result: string[] = [];
+  let cur = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (inQuotes) {
+      if (c === '"' && line[i + 1] === '"') {
+        cur += '"';
+        i++;
+      } else if (c === '"') inQuotes = false;
+      else cur += c;
+    } else {
+      if (c === '"') inQuotes = true;
+      else if (c === ",") {
+        result.push(cur);
+        cur = "";
+      } else cur += c;
+    }
+  }
+  result.push(cur);
+  return result;
+}
+
+function csvToMarkdownTable(input: string): string {
+  const lines = input.trim().split("\n").filter((l) => l.trim());
+  if (lines.length < 1) throw new Error("Paste CSV content");
+  const rows = lines.map(parseCsvLineForMd);
+  const header = rows[0];
+  const body = rows.slice(1);
+  const out = [`| ${header.join(" | ")} |`, `| ${header.map(() => "---").join(" | ")} |`, ...body.map((r) => `| ${r.join(" | ")} |`)];
+  return out.join("\n");
+}
+
+// --- API Rate Limit Calculator ---
+function rateLimitCalc(usedStr: string, limit: number, windowMinutes: number): string {
+  const used = Number(usedStr.trim());
+  if (isNaN(used) || used < 0) throw new Error("Enter the number of requests used so far");
+  if (limit <= 0 || windowMinutes <= 0) throw new Error("Limit and window must be positive");
+  const remaining = Math.max(0, limit - used);
+  const windowSeconds = windowMinutes * 60;
+  const avgIntervalSeconds = remaining > 0 ? windowSeconds / remaining : 0;
+  return [
+    `Limit:      ${limit} requests / ${windowMinutes} min`,
+    `Used:       ${used}`,
+    `Remaining:  ${remaining}`,
+    `Window:     ${windowSeconds}s`,
+    remaining > 0
+      ? `Safe pace:  1 request every ~${avgIntervalSeconds.toFixed(1)}s to use the rest of the window evenly`
+      : `Status:     Limit reached — wait for the window to reset`,
+  ].join("\n");
+}
+
 export async function runTransform(
   type: NodeTypeId,
   input: string,
@@ -3753,6 +4480,55 @@ export async function runTransform(
       return base36Decode(input);
     case "mocking-case":
       return mockingCase(input);
+
+    // --- batch 5 cases ---
+    case "tailwind-sort":
+      return sortTailwindClasses(input);
+    case "regex-explain":
+      return explainRegex(input);
+    case "json-to-zod":
+      return jsonToZod(input, settings.schemaName ?? "schema");
+    case "json-to-graphql":
+      return jsonToGraphQL(input, settings.gqlTypeName ?? "Root");
+    case "json-to-openapi":
+      return jsonToOpenApiSchema(input);
+    case "graphql-format":
+      return formatGraphQL(input);
+    case "graphql-minify":
+      return minifyGraphQL(input);
+    case "passphrase-gen":
+      return generatePassphrase(
+        settings.passphraseWordCount ?? 4,
+        settings.passphraseSeparator ?? "-",
+        settings.passphraseCapitalize ?? false,
+        settings.passphraseIncludeNumber ?? false
+      );
+    case "ulid-gen":
+      return generateUlids(settings.ulidCount ?? 5);
+    case "color-palette-gen":
+      return generatePalette(input, settings.paletteScheme ?? "complementary");
+    case "fluid-type-calc":
+      return fluidTypeCalc(input, settings.fluidMaxSize ?? 32, settings.fluidMinVw ?? 320, settings.fluidMaxVw ?? 1440);
+    case "emoji-encode":
+      return shortcodeToEmoji(input);
+    case "emoji-decode":
+      return emojiToShortcode(input);
+    case "htaccess-to-nginx":
+      return htaccessToNginx(input);
+    case "docker-compose-validate":
+      return validateDockerCompose(input);
+    case "jwk-to-pem":
+      return jwkToPem(input);
+    case "env-diff":
+      return envDiffCheck(input);
+    case "md-to-slack":
+      return markdownToSlack(input);
+    case "md-to-discord":
+      return markdownToDiscord(input);
+    case "csv-to-md-table":
+      return csvToMarkdownTable(input);
+    case "rate-limit-calc":
+      return rateLimitCalc(input, settings.rateLimitMax ?? 100, settings.rateLimitWindow ?? 60);
 
     default:
       return input;
