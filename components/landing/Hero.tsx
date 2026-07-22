@@ -105,26 +105,6 @@ export default function Hero() {
   return (
     <section className="relative grid w-full grid-cols-1 items-center gap-10 overflow-hidden px-8 pb-1 pt-3 lg:grid-cols-[1.1fr_0.9fr]">
 
-      {/* Scrolling code background */}
-      <div aria-hidden="true" className={styles.codeBg}>
-        <div className={styles.codeScroll}>
-          {[...CODE_LINES, ...CODE_LINES].map((line, i) => (
-            <div key={i} className={styles.codeLine}>
-              {highlightCode(line)}
-            </div>
-          ))}
-        </div>
-
-        {/* Left mask — strong, hides code behind text; transparent on the right */}
-        <div className={styles.codeMaskLeft} />
-
-        {/* Top fade */}
-        <div className={styles.codeMaskTop} />
-
-        {/* Bottom fade */}
-        <div className={styles.codeMaskBottom} />
-      </div>
-
       {/* Left: text content */}
       <div className="relative z-10">
         <div className="mb-[18px] inline-flex items-center gap-[7px] rounded-[20px] border border-[rgba(79,157,255,0.25)] bg-[rgba(79,157,255,0.1)] px-3 py-[5px] text-xs font-semibold text-[var(--secondary)]">
