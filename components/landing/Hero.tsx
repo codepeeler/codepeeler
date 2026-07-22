@@ -133,10 +133,10 @@ export default function Hero() {
         </div>
 
         <h1 className="font-[family-name:var(--font-display)] text-[40px] font-bold leading-[1.08] tracking-[-0.02em] sm:text-[50px] lg:text-[58px] xl:text-[66px]">
-          CodePeeler --
+          CodePeeler
           <br />
           <span className="bg-[linear-gradient(100deg,var(--primary),var(--secondary))] bg-clip-text text-transparent">
-            your all-in-one developer workspace
+            your all in one developer workspace
           </span>
         </h1>
 
