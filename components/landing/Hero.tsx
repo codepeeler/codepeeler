@@ -133,17 +133,18 @@ export default function Hero() {
         </div>
 
         <h1 className="font-[family-name:var(--font-display)] text-[40px] font-bold leading-[1.08] tracking-[-0.02em] sm:text-[50px] lg:text-[58px] xl:text-[66px]">
-          Your all-in-one
+          CodePeeler --
           <br />
           <span className="bg-[linear-gradient(100deg,var(--primary),var(--secondary))] bg-clip-text text-transparent">
-            developer workspace
+            your all-in-one developer workspace
           </span>
         </h1>
 
         <p className="mt-4 max-w-[500px] text-[17px] leading-[1.6] text-[var(--text-dim)]">
-          Format, convert, decode, and generate -- chain tools together into
-          visual workflows instead of juggling forty tabs. Streamline your
-          development process in one cohesive workspace.
+          CodePeeler is a browser-based toolkit for developers. Format,
+          convert, decode, and generate data, then chain those tools together
+          into visual workflows instead of juggling forty tabs -- all in one
+          cohesive workspace that runs entirely on your device.
         </p>
 
         <div className="mt-[26px] flex gap-2.5">
