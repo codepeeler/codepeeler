@@ -1,42 +1,31 @@
-"use client";
+import type { Metadata } from "next";
+import ToolClient from "./ToolClient";
+import BreadcrumbSchema from "@/components/seo/BreadcrumbSchema";
+import WebPageSchema from "@/components/seo/WebPageSchema";
+import { buildMetadata } from "@/lib/seo";
 
-import ToolHeader from "@/components/tools/ToolHeader";
-import ToolLab from "@/components/tools/ToolLab";
+const PAGE_TITLE = "XML Formatter";
+const PAGE_DESC = "Pretty-print XML";
+const PAGE_PATH = "/tools/xml-formatter";
 
-function formatXML(xml: string): string {
-  const trimmed = xml.replace(/>\s*</g, "><").trim();
-  if (!trimmed) return "";
-  const PAD = "  ";
-  let pad = 0;
-  let out = "";
-  trimmed.split(/(?=<)/).forEach((chunk) => {
-    if (!chunk) return;
-    const isClosing = /^<\/\w/.test(chunk);
-    const isSelfClosing = /\/>\s*$/.test(chunk) || /^<\?/.test(chunk) || /^<!--/.test(chunk);
-    if (isClosing) pad = Math.max(0, pad - 1);
-    out += PAD.repeat(pad) + chunk.trim() + "\n";
-    if (!isClosing && !isSelfClosing && /^<\w/.test(chunk)) pad += 1;
-  });
-  return out.trim();
-}
+export const metadata: Metadata = buildMetadata({
+  path: PAGE_PATH,
+  title: PAGE_TITLE,
+  description: PAGE_DESC,
+});
 
-export default function XmlFormatterPage() {
+export default function Page() {
   return (
-    <div className="mx-auto max-w-[1400px] px-8 py-10">
-      <ToolHeader
-        cat="data"
-        badge="</>"
-        title="XML Formatter"
-        desc="Pretty-print minified or single-line XML into a readable, correctly indented document."
+    <>
+      <BreadcrumbSchema
+        items={[
+          { name: "Home", path: "/" },
+          { name: "Tools", path: "/tools" },
+          { name: PAGE_TITLE, path: PAGE_PATH },
+        ]}
       />
-      <ToolLab
-        inputLabel="Raw XML"
-        outputLabel="Formatted XML"
-        placeholder={'<root><item id="1">Hello</item></root>'}
-        live
-        emptyHint="Paste XML above to have it indented automatically."
-        onRun={(input) => formatXML(input)}
-      />
-    </div>
+      <WebPageSchema title={PAGE_TITLE} description={PAGE_DESC} path={PAGE_PATH} />
+      <ToolClient />
+    </>
   );
 }

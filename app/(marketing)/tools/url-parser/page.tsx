@@ -1,50 +1,31 @@
-"use client";
+import type { Metadata } from "next";
+import ToolClient from "./ToolClient";
+import BreadcrumbSchema from "@/components/seo/BreadcrumbSchema";
+import WebPageSchema from "@/components/seo/WebPageSchema";
+import { buildMetadata } from "@/lib/seo";
 
-import ToolHeader from "@/components/tools/ToolHeader";
-import ToolLab from "@/components/tools/ToolLab";
+const PAGE_TITLE = "URL Parser";
+const PAGE_DESC = "Break a URL into its components";
+const PAGE_PATH = "/tools/url-parser";
 
-function urlParse(input: string): string {
-  const raw = input.trim();
-  let url: URL;
-  try {
-    url = new URL(raw);
-  } catch {
-    throw new Error("Enter a full URL, e.g. https://example.com/path?a=1");
-  }
-  const lines = [
-    `Protocol:  ${url.protocol}`,
-    `Host:      ${url.hostname}`,
-    `Port:      ${url.port || "(default)"}`,
-    `Path:      ${url.pathname}`,
-    `Query:     ${url.search || "(none)"}`,
-    `Hash:      ${url.hash || "(none)"}`,
-    `Origin:    ${url.origin}`,
-  ];
-  if (url.search) {
-    lines.push("", "Query params:");
-    url.searchParams.forEach((v, k) => lines.push(`  ${k} = ${v}`));
-  }
-  return lines.join("\n");
-}
+export const metadata: Metadata = buildMetadata({
+  path: PAGE_PATH,
+  title: PAGE_TITLE,
+  description: PAGE_DESC,
+});
 
-export default function UrlParserPage() {
+export default function Page() {
   return (
-    <div className="mx-auto max-w-[1400px] px-8 py-10">
-      <ToolHeader
-        cat="web"
-        badge="URL"
-        title="URL Parser"
-        desc="Break a URL down into protocol, host, path, query params and hash."
+    <>
+      <BreadcrumbSchema
+        items={[
+          { name: "Home", path: "/" },
+          { name: "Tools", path: "/tools" },
+          { name: PAGE_TITLE, path: PAGE_PATH },
+        ]}
       />
-      <ToolLab
-        inputLabel="URL"
-        outputLabel="Breakdown"
-        placeholder="e.g. https://example.com/path?a=1&b=2#section"
-        live
-        monospaceInput={false}
-        emptyHint="Enter a URL above — the breakdown updates automatically."
-        onRun={(input) => urlParse(input)}
-      />
-    </div>
+      <WebPageSchema title={PAGE_TITLE} description={PAGE_DESC} path={PAGE_PATH} />
+      <ToolClient />
+    </>
   );
 }

@@ -1,55 +1,31 @@
-"use client";
+import type { Metadata } from "next";
+import ToolClient from "./ToolClient";
+import BreadcrumbSchema from "@/components/seo/BreadcrumbSchema";
+import WebPageSchema from "@/components/seo/WebPageSchema";
+import { buildMetadata } from "@/lib/seo";
 
-import { load as loadYaml } from "js-yaml";
-import ToolHeader from "@/components/tools/ToolHeader";
-import ToolLab from "@/components/tools/ToolLab";
+const PAGE_TITLE = "Docker Compose Validator";
+const PAGE_DESC = "Check docker-compose.yml for common mistakes";
+const PAGE_PATH = "/tools/docker-compose-validator";
 
-function validateDockerCompose(input: string): string {
-  if (!input.trim()) throw new Error("Paste docker-compose.yml content");
-  let data: unknown;
-  try {
-    data = loadYaml(input);
-  } catch (e) {
-    throw new Error("Invalid YAML: " + (e instanceof Error ? e.message : ""));
-  }
-  if (typeof data !== "object" || data === null) throw new Error("Top-level content must be a YAML mapping");
-  const obj = data as Record<string, unknown>;
-  const issues: string[] = [];
-  if (!obj.services) issues.push("Missing top-level 'services' key");
-  else if (typeof obj.services === "object") {
-    for (const [name, svc] of Object.entries(obj.services as Record<string, unknown>)) {
-      if (typeof svc !== "object" || svc === null) {
-        issues.push(`Service "${name}": must be a mapping`);
-        continue;
-      }
-      const s = svc as Record<string, unknown>;
-      if (!s.image && !s.build) issues.push(`Service "${name}": needs either "image" or "build"`);
-      if (s.ports && !Array.isArray(s.ports)) issues.push(`Service "${name}": "ports" should be a list`);
-      if (s.environment && typeof s.environment !== "object") issues.push(`Service "${name}": "environment" should be a list or mapping`);
-    }
-  }
-  return issues.length
-    ? `Found ${issues.length} issue(s):\n\n${issues.map((i) => `✗ ${i}`).join("\n")}`
-    : "✓ No issues found — docker-compose.yml looks reasonable.";
-}
+export const metadata: Metadata = buildMetadata({
+  path: PAGE_PATH,
+  title: PAGE_TITLE,
+  description: PAGE_DESC,
+});
 
-export default function DockerComposeValidatorPage() {
+export default function Page() {
   return (
-    <div className="mx-auto max-w-[1400px] px-8 py-10">
-      <ToolHeader
-        cat="web"
-        badge="🐳"
-        title="Docker Compose Validator"
-        desc="Paste a docker-compose.yml to check for missing services, invalid image/build fields, and structural mistakes."
+    <>
+      <BreadcrumbSchema
+        items={[
+          { name: "Home", path: "/" },
+          { name: "Tools", path: "/tools" },
+          { name: PAGE_TITLE, path: PAGE_PATH },
+        ]}
       />
-      <ToolLab
-        inputLabel="docker-compose.yml"
-        outputLabel="Validation report"
-        placeholder={`services:\n  web:\n    image: nginx:1.27\n    ports:\n      - "80:80"`}
-        live
-        emptyHint="Paste docker-compose.yml content above — the report updates automatically."
-        onRun={(input) => validateDockerCompose(input)}
-      />
-    </div>
+      <WebPageSchema title={PAGE_TITLE} description={PAGE_DESC} path={PAGE_PATH} />
+      <ToolClient />
+    </>
   );
 }

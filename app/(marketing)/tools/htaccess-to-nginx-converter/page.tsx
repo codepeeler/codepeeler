@@ -1,54 +1,31 @@
-"use client";
+import type { Metadata } from "next";
+import ToolClient from "./ToolClient";
+import BreadcrumbSchema from "@/components/seo/BreadcrumbSchema";
+import WebPageSchema from "@/components/seo/WebPageSchema";
+import { buildMetadata } from "@/lib/seo";
 
-import ToolHeader from "@/components/tools/ToolHeader";
-import ToolLab from "@/components/tools/ToolLab";
+const PAGE_TITLE = ".htaccess → Nginx Converter";
+const PAGE_DESC = "Convert common Apache directives to Nginx config";
+const PAGE_PATH = "/tools/htaccess-to-nginx-converter";
 
-function htaccessToNginx(input: string): string {
-  if (!input.trim()) throw new Error("Paste .htaccess content");
-  const lines = input.split("\n");
-  const out: string[] = [];
-  lines.forEach((raw) => {
-    const line = raw.trim();
-    if (!line || line.startsWith("#")) return;
-    const parts = line.split(/\s+/);
-    const directive = parts[0];
+export const metadata: Metadata = buildMetadata({
+  path: PAGE_PATH,
+  title: PAGE_TITLE,
+  description: PAGE_DESC,
+});
 
-    if (directive === "RewriteEngine") return;
-    if (directive === "DirectoryIndex") out.push(`index ${parts.slice(1).join(" ")};`);
-    else if (directive === "ErrorDocument") out.push(`error_page ${parts[1]} ${parts.slice(2).join(" ")};`);
-    else if (directive === "Redirect" || directive === "Redirect301") out.push(`rewrite ^${parts[1]}$ ${parts[2]} permanent;`);
-    else if (directive === "RedirectMatch") out.push(`rewrite ${parts[1]} ${parts[2]} permanent;`);
-    else if (directive === "RewriteRule") {
-      const [, pattern, target, flags] = parts;
-      const isRedirect = flags && /R(=\d+)?/.test(flags);
-      out.push(`rewrite ${pattern} ${target}${isRedirect ? " permanent" : ""};`);
-    } else if (directive === "RewriteCond") out.push(`# condition (verify manually): ${line}`);
-    else if (directive === "Deny" || directive === "Require") out.push(`# access control (verify manually): ${line}`);
-    else if (directive === "Options" && /-Indexes/.test(line)) out.push(`autoindex off;`);
-    else if (directive === "AddType") out.push(`# add to nginx mime.types or: types { ${parts[1]} ${parts.slice(2).join(" ")}; }`);
-    else if (directive === "<IfModule" || directive === "</IfModule>") return;
-    else out.push(`# unrecognized (manual conversion needed): ${line}`);
-  });
-  return out.length ? out.join("\n") : "# No recognizable directives found";
-}
-
-export default function HtaccessToNginxConverterPage() {
+export default function Page() {
   return (
-    <div className="mx-auto max-w-[1400px] px-8 py-10">
-      <ToolHeader
-        cat="web"
-        badge="ngx"
-        title=".htaccess → Nginx Converter"
-        desc="Paste .htaccess content to get an Nginx config draft — covers the most common Apache directives, flags anything that needs a manual look."
+    <>
+      <BreadcrumbSchema
+        items={[
+          { name: "Home", path: "/" },
+          { name: "Tools", path: "/tools" },
+          { name: PAGE_TITLE, path: PAGE_PATH },
+        ]}
       />
-      <ToolLab
-        inputLabel=".htaccess"
-        outputLabel="Nginx config"
-        placeholder={`RewriteEngine On\nRewriteRule ^old-page$ /new-page [R=301,L]\nErrorDocument 404 /404.html`}
-        live
-        emptyHint="Paste .htaccess content above — the Nginx config updates automatically."
-        onRun={(input) => htaccessToNginx(input)}
-      />
-    </div>
+      <WebPageSchema title={PAGE_TITLE} description={PAGE_DESC} path={PAGE_PATH} />
+      <ToolClient />
+    </>
   );
 }

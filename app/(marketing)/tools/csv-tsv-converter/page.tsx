@@ -1,44 +1,31 @@
-"use client";
+import type { Metadata } from "next";
+import ToolClient from "./ToolClient";
+import BreadcrumbSchema from "@/components/seo/BreadcrumbSchema";
+import WebPageSchema from "@/components/seo/WebPageSchema";
+import { buildMetadata } from "@/lib/seo";
 
-import { useState } from "react";
-import Papa from "papaparse";
-import ToolHeader from "@/components/tools/ToolHeader";
-import ToolLab from "@/components/tools/ToolLab";
+const PAGE_TITLE = "CSV ↔ TSV Converter";
+const PAGE_DESC = "Convert between CSV and TSV";
+const PAGE_PATH = "/tools/csv-tsv-converter";
 
-export default function CsvTsvConverterPage() {
-  const [mode, setMode] = useState("csv-tsv");
+export const metadata: Metadata = buildMetadata({
+  path: PAGE_PATH,
+  title: PAGE_TITLE,
+  description: PAGE_DESC,
+});
 
-  const run = (input: string): string => {
-    const fromDelim = mode === "csv-tsv" ? "," : "\t";
-    const toDelim = mode === "csv-tsv" ? "\t" : ",";
-    const parsed = Papa.parse<string[]>(input.trim(), { delimiter: fromDelim, skipEmptyLines: true });
-    if (parsed.errors.length > 0) throw new Error(parsed.errors[0].message);
-    return Papa.unparse(parsed.data, { delimiter: toDelim });
-  };
-
+export default function Page() {
   return (
-    <div className="mx-auto max-w-[1400px] px-8 py-10">
-      <ToolHeader
-        cat="data"
-        badge="⇥"
-        title="CSV ↔ TSV Converter"
-        desc="Convert comma-separated values to tab-separated (and back), respecting quoted fields."
-      />
-      <ToolLab
-        inputLabel={mode === "csv-tsv" ? "CSV" : "TSV"}
-        outputLabel={mode === "csv-tsv" ? "TSV" : "CSV"}
-        placeholder={mode === "csv-tsv" ? "name,age,city\nAyesha,29,Mumbai" : "name\tage\tcity\nAyesha\t29\tMumbai"}
-        modes={[
-          { value: "csv-tsv", label: "CSV → TSV" },
-          { value: "tsv-csv", label: "TSV → CSV" },
+    <>
+      <BreadcrumbSchema
+        items={[
+          { name: "Home", path: "/" },
+          { name: "Tools", path: "/tools" },
+          { name: PAGE_TITLE, path: PAGE_PATH },
         ]}
-        mode={mode}
-        onModeChange={setMode}
-        recalcKey={mode}
-        live
-        emptyHint="Paste data above matching the selected input format."
-        onRun={(input) => run(input)}
       />
-    </div>
+      <WebPageSchema title={PAGE_TITLE} description={PAGE_DESC} path={PAGE_PATH} />
+      <ToolClient />
+    </>
   );
 }

@@ -1,57 +1,31 @@
-"use client";
+import type { Metadata } from "next";
+import ToolClient from "./ToolClient";
+import BreadcrumbSchema from "@/components/seo/BreadcrumbSchema";
+import WebPageSchema from "@/components/seo/WebPageSchema";
+import { buildMetadata } from "@/lib/seo";
 
-import { useState } from "react";
-import ToolHeader from "@/components/tools/ToolHeader";
-import ToolLab from "@/components/tools/ToolLab";
-import { CheckboxOption, SelectField } from "@/components/tools/FormFields";
+const PAGE_TITLE = "Slug Generator";
+const PAGE_DESC = "Turn titles into URL-safe slugs";
+const PAGE_PATH = "/tools/slug-generator";
 
-function slugify(input: string, separator: string, lowercase: boolean): string {
-  let s = input
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "") // strip accents
-    .trim()
-    .replace(/[^a-zA-Z0-9\s-_]/g, "")
-    .replace(/[\s_-]+/g, separator);
-  s = s.replace(new RegExp(`^\\${separator}+|\\${separator}+$`, "g"), "");
-  return lowercase ? s.toLowerCase() : s;
-}
+export const metadata: Metadata = buildMetadata({
+  path: PAGE_PATH,
+  title: PAGE_TITLE,
+  description: PAGE_DESC,
+});
 
-export default function SlugGeneratorPage() {
-  const [separator, setSeparator] = useState("-");
-  const [lowercase, setLowercase] = useState(true);
-
+export default function Page() {
   return (
-    <div className="mx-auto max-w-[1400px] px-8 py-10">
-      <ToolHeader
-        cat="data"
-        badge="/-/"
-        title="Slug Generator"
-        desc="Turn any title or sentence into a clean, URL-safe slug — strips accents, punctuation, and extra spaces."
+    <>
+      <BreadcrumbSchema
+        items={[
+          { name: "Home", path: "/" },
+          { name: "Tools", path: "/tools" },
+          { name: PAGE_TITLE, path: PAGE_PATH },
+        ]}
       />
-      <ToolLab
-        inputLabel="Text"
-        outputLabel="Slug"
-        placeholder="10 Best Développement Tools for 2026!"
-        live
-        recalcKey={`${separator}-${lowercase}`}
-        emptyHint="Type a title above to generate its slug."
-        monospaceInput={false}
-        settingsSlot={
-          <>
-            <SelectField
-              label="Separator"
-              value={separator}
-              onChange={setSeparator}
-              options={[
-                { value: "-", label: "Hyphen (-)" },
-                { value: "_", label: "Underscore (_)" },
-              ]}
-            />
-            <CheckboxOption label="Lowercase" checked={lowercase} onChange={setLowercase} />
-          </>
-        }
-        onRun={(input) => slugify(input, separator, lowercase)}
-      />
-    </div>
+      <WebPageSchema title={PAGE_TITLE} description={PAGE_DESC} path={PAGE_PATH} />
+      <ToolClient />
+    </>
   );
 }

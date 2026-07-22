@@ -1,59 +1,31 @@
-"use client";
+import type { Metadata } from "next";
+import ToolClient from "./ToolClient";
+import BreadcrumbSchema from "@/components/seo/BreadcrumbSchema";
+import WebPageSchema from "@/components/seo/WebPageSchema";
+import { buildMetadata } from "@/lib/seo";
 
-import ToolHeader from "@/components/tools/ToolHeader";
-import ToolLab from "@/components/tools/ToolLab";
+const PAGE_TITLE = "CSV to Markdown Table";
+const PAGE_DESC = "Convert CSV rows into a Markdown table";
+const PAGE_PATH = "/tools/csv-to-markdown-table";
 
-function parseCsvLineForMd(line: string): string[] {
-  const result: string[] = [];
-  let cur = "";
-  let inQuotes = false;
-  for (let i = 0; i < line.length; i++) {
-    const c = line[i];
-    if (inQuotes) {
-      if (c === '"' && line[i + 1] === '"') {
-        cur += '"';
-        i++;
-      } else if (c === '"') inQuotes = false;
-      else cur += c;
-    } else {
-      if (c === '"') inQuotes = true;
-      else if (c === ",") {
-        result.push(cur);
-        cur = "";
-      } else cur += c;
-    }
-  }
-  result.push(cur);
-  return result;
-}
+export const metadata: Metadata = buildMetadata({
+  path: PAGE_PATH,
+  title: PAGE_TITLE,
+  description: PAGE_DESC,
+});
 
-function csvToMarkdownTable(input: string): string {
-  const lines = input.trim().split("\n").filter((l) => l.trim());
-  if (lines.length < 1) throw new Error("Paste CSV content");
-  const rows = lines.map(parseCsvLineForMd);
-  const header = rows[0];
-  const body = rows.slice(1);
-  const out = [`| ${header.join(" | ")} |`, `| ${header.map(() => "---").join(" | ")} |`, ...body.map((r) => `| ${r.join(" | ")} |`)];
-  return out.join("\n");
-}
-
-export default function CsvToMarkdownTablePage() {
+export default function Page() {
   return (
-    <div className="mx-auto max-w-[1400px] px-8 py-10">
-      <ToolHeader
-        cat="data"
-        badge="|--|"
-        title="CSV to Markdown Table"
-        desc="Paste CSV data and get a ready-to-paste Markdown table — handy for READMEs and docs."
+    <>
+      <BreadcrumbSchema
+        items={[
+          { name: "Home", path: "/" },
+          { name: "Tools", path: "/tools" },
+          { name: PAGE_TITLE, path: PAGE_PATH },
+        ]}
       />
-      <ToolLab
-        inputLabel="CSV"
-        outputLabel="Markdown table"
-        placeholder={`name,age\nAda,30\nGrace,45`}
-        live
-        emptyHint="Paste CSV content above — the Markdown table updates automatically."
-        onRun={(input) => csvToMarkdownTable(input)}
-      />
-    </div>
+      <WebPageSchema title={PAGE_TITLE} description={PAGE_DESC} path={PAGE_PATH} />
+      <ToolClient />
+    </>
   );
 }

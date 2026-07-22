@@ -1,38 +1,31 @@
-"use client";
+import type { Metadata } from "next";
+import ToolClient from "./ToolClient";
+import BreadcrumbSchema from "@/components/seo/BreadcrumbSchema";
+import WebPageSchema from "@/components/seo/WebPageSchema";
+import { buildMetadata } from "@/lib/seo";
 
-import { useState } from "react";
-import ToolHeader from "@/components/tools/ToolHeader";
-import ToolLab from "@/components/tools/ToolLab";
+const PAGE_TITLE = "Base64 Encode/Decode";
+const PAGE_DESC = "Encode & decode strings";
+const PAGE_PATH = "/tools/base64-encoder";
 
-export default function Base64EncoderPage() {
-  const [mode, setMode] = useState("encode");
+export const metadata: Metadata = buildMetadata({
+  path: PAGE_PATH,
+  title: PAGE_TITLE,
+  description: PAGE_DESC,
+});
 
+export default function Page() {
   return (
-    <div className="mx-auto max-w-[1400px] px-8 py-10">
-      <ToolHeader
-        cat="encode"
-        badge="64"
-        title="Base64 Encode/Decode"
-        desc="Convert text to and from Base64 — Unicode safe, runs entirely in your browser."
-      />
-      <ToolLab
-        inputLabel={mode === "encode" ? "Text" : "Base64"}
-        outputLabel={mode === "encode" ? "Base64" : "Text"}
-        placeholder={mode === "encode" ? "Type or paste text..." : "Paste Base64 to decode..."}
-        modes={[
-          { value: "encode", label: "Encode" },
-          { value: "decode", label: "Decode" },
+    <>
+      <BreadcrumbSchema
+        items={[
+          { name: "Home", path: "/" },
+          { name: "Tools", path: "/tools" },
+          { name: PAGE_TITLE, path: PAGE_PATH },
         ]}
-        mode={mode}
-        onModeChange={setMode}
-        live
-        emptyHint="Enter text above, choose a mode — the result updates automatically."
-        onRun={(input) =>
-          mode === "encode"
-            ? btoa(unescape(encodeURIComponent(input)))
-            : decodeURIComponent(escape(atob(input.trim())))
-        }
       />
-    </div>
+      <WebPageSchema title={PAGE_TITLE} description={PAGE_DESC} path={PAGE_PATH} />
+      <ToolClient />
+    </>
   );
 }

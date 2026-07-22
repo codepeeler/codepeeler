@@ -1,55 +1,31 @@
-"use client";
+import type { Metadata } from "next";
+import ToolClient from "./ToolClient";
+import BreadcrumbSchema from "@/components/seo/BreadcrumbSchema";
+import WebPageSchema from "@/components/seo/WebPageSchema";
+import { buildMetadata } from "@/lib/seo";
 
-import { useState } from "react";
-import ToolHeader from "@/components/tools/ToolHeader";
-import ToolLab from "@/components/tools/ToolLab";
+const PAGE_TITLE = "ROT13 / Caesar Cipher";
+const PAGE_DESC = "Shift letters by N positions";
+const PAGE_PATH = "/tools/rot13-cipher";
 
-function caesarCipher(input: string, shift: number): string {
-  const s = ((shift % 26) + 26) % 26;
-  return input.replace(/[a-zA-Z]/g, (ch) => {
-    const base = ch <= "Z" ? 65 : 97;
-    return String.fromCharCode(((ch.charCodeAt(0) - base + s) % 26) + base);
-  });
-}
+export const metadata: Metadata = buildMetadata({
+  path: PAGE_PATH,
+  title: PAGE_TITLE,
+  description: PAGE_DESC,
+});
 
-export default function Rot13CipherPage() {
-  const [shift, setShift] = useState(13);
-
+export default function Page() {
   return (
-    <div className="mx-auto max-w-[1400px] px-8 py-10">
-      <ToolHeader
-        cat="encode"
-        badge="R13"
-        title="ROT13 / Caesar Cipher"
-        desc="Shift letters by any amount — defaults to ROT13, the classic self-inverse cipher."
+    <>
+      <BreadcrumbSchema
+        items={[
+          { name: "Home", path: "/" },
+          { name: "Tools", path: "/tools" },
+          { name: PAGE_TITLE, path: PAGE_PATH },
+        ]}
       />
-      <ToolLab
-        inputLabel="Text"
-        outputLabel="Shifted Text"
-        placeholder="Type or paste text..."
-        live
-        recalcKey={shift}
-        emptyHint="Enter text above — the shifted result updates automatically. Use the same shift to reverse it."
-        settingsSlot={
-          <label className="flex items-center gap-2 text-[12.5px] font-medium text-[var(--text-dim)]">
-            Shift
-            <input
-              type="number"
-              value={shift}
-              onChange={(e) => setShift(Number(e.target.value) || 0)}
-              className="w-16 rounded-md border border-[var(--border)] bg-[var(--card)] px-2 py-1 text-[12.5px] text-[var(--text)]"
-            />
-            <button
-              type="button"
-              onClick={() => setShift(13)}
-              className="rounded-md border border-[var(--border)] px-2 py-1 text-[12px] text-[var(--text-dim)] hover:text-[var(--text)]"
-            >
-              Reset to ROT13
-            </button>
-          </label>
-        }
-        onRun={(input) => caesarCipher(input, shift)}
-      />
-    </div>
+      <WebPageSchema title={PAGE_TITLE} description={PAGE_DESC} path={PAGE_PATH} />
+      <ToolClient />
+    </>
   );
 }

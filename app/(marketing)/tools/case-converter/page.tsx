@@ -1,64 +1,31 @@
-"use client";
+import type { Metadata } from "next";
+import ToolClient from "./ToolClient";
+import BreadcrumbSchema from "@/components/seo/BreadcrumbSchema";
+import WebPageSchema from "@/components/seo/WebPageSchema";
+import { buildMetadata } from "@/lib/seo";
 
-import { useState } from "react";
-import ToolHeader from "@/components/tools/ToolHeader";
-import ToolLab from "@/components/tools/ToolLab";
+const PAGE_TITLE = "Case Converter";
+const PAGE_DESC = "UPPER, lower, Title, Sentence";
+const PAGE_PATH = "/tools/case-converter";
 
-function toTitleCase(input: string) {
-  return input.replace(/\w\S*/g, (t) => t[0].toUpperCase() + t.slice(1).toLowerCase());
-}
+export const metadata: Metadata = buildMetadata({
+  path: PAGE_PATH,
+  title: PAGE_TITLE,
+  description: PAGE_DESC,
+});
 
-function toSentenceCase(input: string) {
-  return input.toLowerCase().replace(/(^\s*\w|[.!?]\s*\w)/g, (c) => c.toUpperCase());
-}
-
-export default function CaseConverterPage() {
-  const [mode, setMode] = useState("upper");
-
-  const labels: Record<string, string> = {
-    upper: "UPPERCASE",
-    lower: "lowercase",
-    title: "Title Case",
-    sentence: "Sentence case",
-  };
-
+export default function Page() {
   return (
-    <div className="mx-auto max-w-[1400px] px-8 py-10">
-      <ToolHeader
-        cat="data"
-        badge="AA"
-        title="Case Converter"
-        desc="Convert text to UPPERCASE, lowercase, Title Case, or Sentence case in one click."
-      />
-      <ToolLab
-        inputLabel="Text"
-        outputLabel={labels[mode]}
-        placeholder="Type or paste text..."
-        modes={[
-          { value: "upper", label: "UPPERCASE" },
-          { value: "lower", label: "lowercase" },
-          { value: "title", label: "Title Case" },
-          { value: "sentence", label: "Sentence case" },
+    <>
+      <BreadcrumbSchema
+        items={[
+          { name: "Home", path: "/" },
+          { name: "Tools", path: "/tools" },
+          { name: PAGE_TITLE, path: PAGE_PATH },
         ]}
-        mode={mode}
-        onModeChange={setMode}
-        live
-        emptyHint="Enter text above — the converted result updates automatically."
-        onRun={(input) => {
-          switch (mode) {
-            case "upper":
-              return input.toUpperCase();
-            case "lower":
-              return input.toLowerCase();
-            case "title":
-              return toTitleCase(input);
-            case "sentence":
-              return toSentenceCase(input);
-            default:
-              return input;
-          }
-        }}
       />
-    </div>
+      <WebPageSchema title={PAGE_TITLE} description={PAGE_DESC} path={PAGE_PATH} />
+      <ToolClient />
+    </>
   );
 }

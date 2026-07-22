@@ -1,34 +1,31 @@
-"use client";
+import type { Metadata } from "next";
+import ToolClient from "./ToolClient";
+import BreadcrumbSchema from "@/components/seo/BreadcrumbSchema";
+import WebPageSchema from "@/components/seo/WebPageSchema";
+import { buildMetadata } from "@/lib/seo";
 
-import { useState } from "react";
-import ToolHeader from "@/components/tools/ToolHeader";
-import ToolLab from "@/components/tools/ToolLab";
+const PAGE_TITLE = "URL Encode/Decode";
+const PAGE_DESC = "Percent-encode & decode";
+const PAGE_PATH = "/tools/url-encoder";
 
-export default function UrlEncoderPage() {
-  const [mode, setMode] = useState("encode");
+export const metadata: Metadata = buildMetadata({
+  path: PAGE_PATH,
+  title: PAGE_TITLE,
+  description: PAGE_DESC,
+});
 
+export default function Page() {
   return (
-    <div className="mx-auto max-w-[1400px] px-8 py-10">
-      <ToolHeader
-        cat="web"
-        badge="%"
-        title="URL Encode/Decode"
-        desc="Percent-encode text for safe use in URLs, or decode a percent-encoded string back to plain text."
-      />
-      <ToolLab
-        inputLabel={mode === "encode" ? "Text" : "Encoded URL"}
-        outputLabel={mode === "encode" ? "Encoded URL" : "Text"}
-        placeholder={mode === "encode" ? "https://example.com/search?q=hello world" : "hello%20world"}
-        modes={[
-          { value: "encode", label: "Encode" },
-          { value: "decode", label: "Decode" },
+    <>
+      <BreadcrumbSchema
+        items={[
+          { name: "Home", path: "/" },
+          { name: "Tools", path: "/tools" },
+          { name: PAGE_TITLE, path: PAGE_PATH },
         ]}
-        mode={mode}
-        onModeChange={setMode}
-        live
-        emptyHint="Enter text above, choose a mode — the result updates automatically."
-        onRun={(input) => (mode === "encode" ? encodeURIComponent(input) : decodeURIComponent(input))}
       />
-    </div>
+      <WebPageSchema title={PAGE_TITLE} description={PAGE_DESC} path={PAGE_PATH} />
+      <ToolClient />
+    </>
   );
 }

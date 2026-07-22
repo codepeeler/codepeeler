@@ -11,14 +11,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
 
   if (checkingAccess || !isAdmin) {
-    return <div className="min-h-screen bg-[#0D0E11]" />;
+    return <div className="min-h-screen bg-[var(--bg-elev)]" />;
   }
 
   const title = titleForAdminPath(pathname);
   const subtitle = pathname === "/admin" ? `Welcome back, ${user?.name?.split(" ")[0] ?? "Admin"} 👋` : undefined;
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#0D0E11]">
+    <div className="flex h-screen overflow-hidden bg-[var(--bg-elev)]">
       <AdminSidebar />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <AdminTopbar title={title} subtitle={subtitle} user={user} />

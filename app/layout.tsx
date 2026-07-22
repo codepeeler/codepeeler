@@ -6,9 +6,11 @@ import { CommandPaletteProvider } from "@/providers/command-palette-provider";
 import CommandPalette from "@/components/core/CommandPalette";
 import RootShell from "@/components/layout/RootShell";
 import SiteStatusGate from "@/components/core/SiteStatusGate";
+import { SITE_URL } from "@/lib/seo";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: "CodePeeler — Your All-in-One Developer Workspace",
   description:
     "Format, convert, decode, and generate — chain tools together into workflows. Everything runs locally in your browser.",

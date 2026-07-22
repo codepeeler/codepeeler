@@ -1,4 +1,4 @@
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, isNull, or, gt } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { subscription } from "@/lib/db/schema";
 import { getUsageSnapshot, type UsageType } from "@/lib/usage";
@@ -92,7 +92,17 @@ export async function getUserEntitlements(userId: string): Promise<
   const [activeSub] = await db
     .select()
     .from(subscription)
-    .where(and(eq(subscription.userId, userId), inArray(subscription.status, PRO_ACTIVE_STATUSES)));
+    .where(
+      and(
+        eq(subscription.userId, userId),
+        inArray(subscription.status, PRO_ACTIVE_STATUSES),
+        // No cron job expires grants automatically — this is what makes a
+        // time-limited admin grant (7d/1m/3m/6m/1y from the admin panel)
+        // actually stop counting as Pro once its period is up, instead of
+        // staying active forever. null = no expiry (lifetime grant).
+        or(isNull(subscription.currentPeriodEnd), gt(subscription.currentPeriodEnd, new Date()))
+      )
+    );
 
   const plan: PlanKey = activeSub ? "pro" : "free";
   const entitlements = ENTITLEMENTS_BY_PLAN[plan];

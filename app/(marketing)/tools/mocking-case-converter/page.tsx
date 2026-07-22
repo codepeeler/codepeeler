@@ -1,38 +1,31 @@
-"use client";
+import type { Metadata } from "next";
+import ToolClient from "./ToolClient";
+import BreadcrumbSchema from "@/components/seo/BreadcrumbSchema";
+import WebPageSchema from "@/components/seo/WebPageSchema";
+import { buildMetadata } from "@/lib/seo";
 
-import ToolHeader from "@/components/tools/ToolHeader";
-import ToolLab from "@/components/tools/ToolLab";
+const PAGE_TITLE = "Mocking Case Converter";
+const PAGE_DESC = "aLtErNaTiNg CaSe, meme-style";
+const PAGE_PATH = "/tools/mocking-case-converter";
 
-function mockingCase(input: string): string {
-  if (!input) throw new Error("Enter text to convert");
-  let upper = false;
-  return Array.from(input)
-    .map((ch) => {
-      if (!/[a-zA-Z]/.test(ch)) return ch;
-      const out = upper ? ch.toUpperCase() : ch.toLowerCase();
-      upper = !upper;
-      return out;
-    })
-    .join("");
-}
+export const metadata: Metadata = buildMetadata({
+  path: PAGE_PATH,
+  title: PAGE_TITLE,
+  description: PAGE_DESC,
+});
 
-export default function MockingCaseConverterPage() {
+export default function Page() {
   return (
-    <div className="mx-auto max-w-[1400px] px-8 py-10">
-      <ToolHeader
-        cat="data"
-        badge="Aa"
-        title="Mocking Case Converter"
-        desc="tHe cLaSsIc aLtErNaTiNg cAsE meme text, generated instantly — great for sarcastic replies."
+    <>
+      <BreadcrumbSchema
+        items={[
+          { name: "Home", path: "/" },
+          { name: "Tools", path: "/tools" },
+          { name: PAGE_TITLE, path: PAGE_PATH },
+        ]}
       />
-      <ToolLab
-        inputLabel="Text"
-        outputLabel="mOcKiNg cAsE"
-        placeholder="Type or paste text..."
-        live
-        emptyHint="Enter text above — the mocking case version updates automatically."
-        onRun={(input) => mockingCase(input)}
-      />
-    </div>
+      <WebPageSchema title={PAGE_TITLE} description={PAGE_DESC} path={PAGE_PATH} />
+      <ToolClient />
+    </>
   );
 }

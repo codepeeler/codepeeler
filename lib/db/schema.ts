@@ -8,6 +8,10 @@ export const user = pgTable("user", {
   image: text("image"),
   role: text("role").notNull().default("user"), // "user" | "admin" — gates /admin and /api/admin/*
   banned: boolean("banned").notNull().default(false),
+  // 2-letter country code from Vercel's edge geolocation header
+  // (x-vercel-ip-country) — see app/api/geo/route.ts. Only populates in
+  // production on Vercel; stays null in local dev (no header there).
+  country: text("country"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

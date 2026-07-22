@@ -37,6 +37,13 @@ export default function SiteStatusGate({ children }: { children: React.ReactNode
       .catch(() => setSettings(null));
   }, []);
 
+  // Best-effort, fire-and-forget — populates user.country from Vercel's
+  // edge geo header (see app/api/geo/route.ts). Only actually does
+  // anything once per session (once the DB value matches, it's a no-op).
+  useEffect(() => {
+    if (session?.user) fetch("/api/geo").catch(() => {});
+  }, [session?.user]);
+
   useEffect(() => {
     if (!settings?.announcementMessage) return;
     const key = `announcement-dismissed:${settings.announcementMessage}`;

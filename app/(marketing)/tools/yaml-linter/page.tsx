@@ -1,39 +1,31 @@
-"use client";
+import type { Metadata } from "next";
+import ToolClient from "./ToolClient";
+import BreadcrumbSchema from "@/components/seo/BreadcrumbSchema";
+import WebPageSchema from "@/components/seo/WebPageSchema";
+import { buildMetadata } from "@/lib/seo";
 
-import { load, dump, YAMLException } from "js-yaml";
-import ToolHeader from "@/components/tools/ToolHeader";
-import ToolLab from "@/components/tools/ToolLab";
+const PAGE_TITLE = "YAML Formatter & Linter";
+const PAGE_DESC = "Validate & re-indent YAML";
+const PAGE_PATH = "/tools/yaml-linter";
 
-function runYaml(input: string): string {
-  try {
-    const parsed = load(input);
-    return dump(parsed, { indent: 2, lineWidth: -1 });
-  } catch (e) {
-    if (e instanceof YAMLException) {
-      throw new Error(`${e.reason} (line ${e.mark?.line != null ? e.mark.line + 1 : "?"}, col ${e.mark?.column != null ? e.mark.column + 1 : "?"})`);
-    }
-    throw e;
-  }
-}
+export const metadata: Metadata = buildMetadata({
+  path: PAGE_PATH,
+  title: PAGE_TITLE,
+  description: PAGE_DESC,
+});
 
-export default function YamlLinterPage() {
+export default function Page() {
   return (
-    <div className="mx-auto max-w-[1400px] px-8 py-10">
-      <ToolHeader
-        cat="data"
-        badge="Y"
-        title="YAML Formatter & Linter"
-        desc="Validate and re-indent YAML with precise line/column error reporting, powered by js-yaml."
+    <>
+      <BreadcrumbSchema
+        items={[
+          { name: "Home", path: "/" },
+          { name: "Tools", path: "/tools" },
+          { name: PAGE_TITLE, path: PAGE_PATH },
+        ]}
       />
-      <ToolLab
-        inputLabel="Raw YAML"
-        outputLabel="Formatted YAML"
-        placeholder={"name: CodePeeler\nversion: 1\ntags:\n  - dev\n  - tools"}
-        live
-        emptyHint="Paste YAML above — it's validated and re-formatted automatically."
-        monospaceInput
-        onRun={(input) => runYaml(input)}
-      />
-    </div>
+      <WebPageSchema title={PAGE_TITLE} description={PAGE_DESC} path={PAGE_PATH} />
+      <ToolClient />
+    </>
   );
 }

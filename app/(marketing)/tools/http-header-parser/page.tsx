@@ -1,46 +1,31 @@
-"use client";
+import type { Metadata } from "next";
+import ToolClient from "./ToolClient";
+import BreadcrumbSchema from "@/components/seo/BreadcrumbSchema";
+import WebPageSchema from "@/components/seo/WebPageSchema";
+import { buildMetadata } from "@/lib/seo";
 
-import ToolHeader from "@/components/tools/ToolHeader";
-import ToolLab from "@/components/tools/ToolLab";
+const PAGE_TITLE = "HTTP Header Parser";
+const PAGE_DESC = "Parse raw HTTP headers into structured JSON";
+const PAGE_PATH = "/tools/http-header-parser";
 
-function httpHeaderParse(input: string): string {
-  const lines = input.split(/\r\n|\r|\n/).filter((l) => l.trim().length > 0);
-  if (lines.length === 0) throw new Error("Paste raw HTTP headers, one per line");
+export const metadata: Metadata = buildMetadata({
+  path: PAGE_PATH,
+  title: PAGE_TITLE,
+  description: PAGE_DESC,
+});
 
-  const result: { line: string; header?: string; value?: string }[] = [];
-  for (const line of lines) {
-    const idx = line.indexOf(":");
-    if (idx === -1) {
-      result.push({ line });
-      continue;
-    }
-    result.push({ line, header: line.slice(0, idx).trim(), value: line.slice(idx + 1).trim() });
-  }
-
-  return JSON.stringify(
-    result.map((r) => (r.header ? { [r.header]: r.value } : r.line)),
-    null,
-    2
-  );
-}
-
-export default function HttpHeaderParserPage() {
+export default function Page() {
   return (
-    <div className="mx-auto max-w-[1400px] px-8 py-10">
-      <ToolHeader
-        cat="web"
-        badge="H:"
-        title="HTTP Header Parser"
-        desc="Paste raw HTTP request or response headers and get them parsed into structured JSON."
+    <>
+      <BreadcrumbSchema
+        items={[
+          { name: "Home", path: "/" },
+          { name: "Tools", path: "/tools" },
+          { name: PAGE_TITLE, path: PAGE_PATH },
+        ]}
       />
-      <ToolLab
-        inputLabel="Raw Headers"
-        outputLabel="Parsed JSON"
-        placeholder={"Content-Type: application/json\nAuthorization: Bearer abc123\nCache-Control: no-cache"}
-        live
-        emptyHint="Paste raw headers above, one per line — the parsed result updates automatically."
-        onRun={(input) => httpHeaderParse(input)}
-      />
-    </div>
+      <WebPageSchema title={PAGE_TITLE} description={PAGE_DESC} path={PAGE_PATH} />
+      <ToolClient />
+    </>
   );
 }
