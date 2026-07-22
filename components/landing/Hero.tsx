@@ -143,7 +143,7 @@ export default function Hero() {
         <p className="mt-4 max-w-[500px] text-[17px] leading-[1.6] text-[var(--text-dim)]">
           CodePeeler is a browser-based toolkit for developers. Format,
           convert, decode, and generate data, then chain those tools together
-          into visual workflows instead of juggling forty tabs -- all in one
+          into visual workflows instead of juggling forty tabs all in one
           cohesive workspace that runs entirely on your device.
         </p>
 
