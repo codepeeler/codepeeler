@@ -123,6 +123,22 @@ export const auth = betterAuth({
     }),
   },
 
+  // better-auth already rate-limits the email-OTP endpoints on its own
+  // (/email-otp/*, /sign-in/email-otp — 3 requests per 60s, built into the
+  // emailOTP plugin), but /sign-in/email, /sign-up/email, and the
+  // token-based password-reset flow used above only fell back to the
+  // global default (100 requests per 10s), which isn't tight enough to
+  // slow down login brute-forcing or signup/reset spam. Rate limiting is
+  // only active when NODE_ENV=production (better-auth default).
+  rateLimit: {
+    customRules: {
+      "/sign-in/email": { window: 60, max: 5 }, // 5 login attempts/min per IP
+      "/sign-up/email": { window: 60, max: 5 }, // 5 signups/min per IP
+      "/request-password-reset": { window: 60, max: 3 }, // 3 reset emails/min per IP
+      "/reset-password": { window: 60, max: 5 }, // 5 reset-token submissions/min per IP
+    },
+  },
+
   secret: process.env.BETTER_AUTH_SECRET!,
   baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3000",
 });

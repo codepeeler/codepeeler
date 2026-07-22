@@ -66,7 +66,7 @@ export function useCheckout() {
         name: "CodePeeler",
         description: billingCycle === "monthly" ? "Pro — Monthly" : "Pro — Yearly",
         prefill: { name: session.user.name, email: session.user.email },
-        theme: { color: "#000000" }, // TODO: swap for your brand's primary color
+        theme: { color: "#6D5DF6" }, // CodePeeler brand primary
         handler: () => {
           toast("Payment successful — activating your plan");
           // The webhook (not this callback) is the source of truth for

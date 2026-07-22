@@ -2747,7 +2747,7 @@ function punycodeDecodeLabel(label: string): string {
   const lastDash = rest.lastIndexOf("-");
   const basic = lastDash >= 0 ? rest.slice(0, lastDash) : "";
   const codePart = lastDash >= 0 ? rest.slice(lastDash + 1) : rest;
-  let output: number[] = basic ? Array.from(basic).map((c) => c.charCodeAt(0)) : [];
+  const output: number[] = basic ? Array.from(basic).map((c) => c.charCodeAt(0)) : [];
 
   let n = PC_INITIAL_N,
     i = 0,
